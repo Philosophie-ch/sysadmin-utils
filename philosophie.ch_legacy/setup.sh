@@ -6,10 +6,9 @@ cat <<EOF
 Usage: ${0} [OPTION] ENV_FILE
 
 Setup basic sysadmin configuration for philosophie.ch_legacy.
-This script is meant to be executed as root.
+This script is meant to be executed as the root of your server, and it assumes you already have ssh access to it.
 Needs to be passed, as an argument, an environment file with the following variables:
   - SUDOER_PASSWORD: password for the sysadmin user
-  - PUBLIC_KEY: public key to be added to the sysadmin user's authorized_keys file
 
 Options:
   -h, --help      Show this help message and exit
@@ -41,7 +40,7 @@ fi
 source "${1}"
 
 # Assert that the required environment variables are set
-req_vars=( "SUDOER_PASSWORD" "PUBLIC_KEY" )
+req_vars=( "SUDOER_PASSWORD" )
 err_msg=
 for var in "${req_vars[@]}"; do
     if [ -z "${!var}" ]; then
@@ -76,8 +75,8 @@ su - sysadmin -c "mkdir -p /home/sysadmin/.ssh"
 su - sysadmin -c "chmod 700 /home/sysadmin/.ssh"
 su - sysadmin -c "touch /home/sysadmin/.ssh/authorized_keys"
 su - sysadmin -c "chmod 600 /home/sysadmin/.ssh/authorized_keys"
-echo "${PUBLIC_KEY}" >> /home/sysadmin/.ssh/authorized_keys
-echo "Public key added to sysadmin user's authorized_keys file."
+cat /root/.ssh/authorized_keys >> /home/sysadmin/.ssh/authorized_keys
+echo "Public keys added to sysadmin user's authorized_keys file."
 
 # Dump ssh config for a ssh client to connect to the server
 ip_addr=$( hostname -I | awk '{print $1}' )
