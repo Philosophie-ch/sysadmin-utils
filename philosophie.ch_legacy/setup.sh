@@ -31,7 +31,7 @@ if [ "${EUID}" -ne 0 ]; then
 fi
 
 # Check if the system is Debian
-if [ -f /etc/debian_version ]; then
+if [ ! -f /etc/debian_version ]; then
     echo "This script is meant to be executed on a Debian-based system."
     exit 1
 fi
