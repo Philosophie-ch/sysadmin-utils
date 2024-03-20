@@ -43,6 +43,9 @@ fi
 # 1. Identify the Rails container
 # Extract containers sorted by creation date
 rails_containers=$( docker ps --filter "name=philosophiechlegacy-web" --format "{{.ID}} {{.CreatedAt}}" | sort -k 2 -r | awk '{print $1}' )
+if [ -z "${rails_containers}" ]; then
+  rails_containers=$( docker ps --filter "name=philosophiech-web" --format "{{.ID}} {{.CreatedAt}}" | sort -k 2 -r | awk '{print $1}' )
+  fi
 # Get the most recently created one
 rails_container=$( echo "${rails_containers}" | head -n 1 )
 
