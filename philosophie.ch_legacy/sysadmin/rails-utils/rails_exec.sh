@@ -13,6 +13,18 @@ Options:
 EOF
 }
 
+function gen_uuid() {
+  uuid=$( cat /proc/sys/kernel/random/uuid )
+
+  if [ -z "${uuid}" ]; then
+  # If /proc/sys/kernel/random/uuid is not available, use a method that works also on mac
+  uuid=$( echo $(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 32 | head -n 1) )
+
+  fi
+
+  echo "${uuid}"
+}
+
 case "${1}" in
     "-h" | "--help")
         usage
@@ -37,7 +49,7 @@ rails_container=$( echo "${rails_containers}" | head -n 1 )
 # 2. Put the script inside the container, at /app/tmp
 # But put a uuid4 at the end of its name first
 script_name=$( basename "${1}" )
-uuid=$( cat /proc/sys/kernel/random/uuid )
+uuid=$( gen_uuid )
 container_script="${script_name}-${uuid}"
 docker cp "${script_name}" "${rails_container}:/app/tmp/${container_script}"
 
