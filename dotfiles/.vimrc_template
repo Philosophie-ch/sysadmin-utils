@@ -1,0 +1,71 @@
+set autoread      " Autoread when a file is modified from the outside
+set backspace=indent,eol,start " Make <Backspace> delete any automatically inserted indentation
+set confirm       " Ask for confirmation instead of failing commands
+set hidden        " Hide buffers when changing instead of closing them
+set hlsearch      " Highlight text when searching
+set incsearch     " Search as characters are entered
+set ignorecase    " Case insensitive search
+set laststatus=2  " Always show status bar
+set mouse=a       " Enable use of the mouse for all modes
+set noshowmode    " Don't show the name of modes (INSERT MODE, etc.)
+set noswapfile    " Didn't have a good experience with .vimtmp and swap files
+set number        " Line numbers
+set scrolloff=12  " Keep N spaces between cursor and screen edges
+set showcmd       " Show partial vim commands at the bottom right
+set showmatch     " Highlight matching brackets
+set smartcase     " except when using capital letters
+set ttimeoutlen=0 " Prevent delay between normal and insert modes
+set wildignorecase  " Ignore casing in autocomplete and wildmenu
+set wildmenu      " Show all options in command mode when pressing tab
+syntax on         " Turn on syntax highlighting for many extensions
+
+" Disable Ex mode (can't find a use for it)
+nnoremap Q <Nop>
+
+" Copy to the system clipboard by default ("+ "* registers)
+" Needs vim-gtk (no gnome dependecies) or vim-gnome
+set clipboard=unnamedplus
+
+" Clipboard and Wayland
+"autocmd TextYankPost * if (v:event.operator == 'y' || v:event.operator == 'd') | silent! execute 'call system("wl-copy", @")' | endif
+"nnoremap p :r!wl-paste --no-newline<CR>
+"nnoremap P <Up>p
+
+
+" Add dictionary completion to the default insert mode completion (C-P; C-N)
+" The dictionary is set automatically when spelling is set
+set complete+=k
+
+
+" Color palette
+" Define a Gruvbox-inspired color palette
+let s:background = '#282828'
+let s:foreground = '#ebdbb2'
+let s:red = '#cc241d'
+let s:green = '#98971a'
+let s:yellow = '#d79921'
+let s:blue = '#458588'
+let s:magenta = '#b16286'
+let s:cyan = '#689d6a'
+let s:white = '#a89984'
+let s:light_gray = '#928374'
+
+" Set colorscheme
+colorscheme default
+
+" Override colors with Gruvbox-like colors
+hi Normal guibg=#282828 guifg=#ebdbb2
+hi Comment guifg=#928374
+hi Constant guifg=#d79921
+hi String guifg=#b8bb26
+hi Identifier guifg=#8ec07c
+hi Statement guifg=#cc241d
+hi PreProc guifg=#d79921
+hi Type guifg=#458588
+hi Special guifg=#d65d0e
+hi Underlined guifg=#d3869b
+hi Ignore guifg=#a89984
+hi Error guifg=#fb4934 guibg=#282828
+hi Todo guifg=#fabd2f guibg=#282828
+hi IncSearch guifg=#282828 guibg=#d79921
+
