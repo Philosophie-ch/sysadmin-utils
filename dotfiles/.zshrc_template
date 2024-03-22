@@ -1,10 +1,13 @@
+# Recommended:
+# just install oh-my-zsh! to have autocompletion that works as expected without needing to hack this crappy shell
+# I know, this is awful
+
+
 ############
 # Dev
 ############
 
-# SSH start and add GH key
-alias ssh-start='eval `ssh-agent -s` && ssh-add ~/.ssh/${YOUR_KEY}'
-
+# SSH start and add key
 eval `ssh-agent -s` && ssh-add ~/.ssh/${YOUR_KEY}
 
 # pyenv to manage Python environments
@@ -24,13 +27,17 @@ export PATH="/usr/local/opt/ruby/bin:$PATH"
 alias vmi='vim'
 alias l='ls'
 
+############
+# Prompt
+############
+
 # Define colors
 RED='%F{red}'
 GREEN='%F{green}'
 YELLOW='%F{yellow}'
 BLUE='%F{blue}'
 BOLD='%B'
-RESET='%f'
+RESET='%f%b'
 
 # Customize PS1
 PS1="${YELLOW}${BOLD}%n@%m${RESET}:${BLUE}${BOLD}%~${RESET}$ %"

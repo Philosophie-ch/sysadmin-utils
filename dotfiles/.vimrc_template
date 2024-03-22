@@ -37,6 +37,18 @@ set clipboard=unnamedplus
 set complete+=k
 
 
+" Tabs
+" Use spaces instead of tabs for indentation
+set expandtab
+
+" Set the width of each indentation level to 4 spaces
+set tabstop=4
+set shiftwidth=4
+
+" Automatically adjust the number of spaces for existing tabs
+set smarttab
+
+
 " Color palette
 " Define a Gruvbox-inspired color palette
 let s:background = '#282828'
