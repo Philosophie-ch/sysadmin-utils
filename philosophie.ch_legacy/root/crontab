@@ -1,0 +1,3 @@
+# m h  dom mon dow   command
+# To dump rails assets and database, and trigger the backup service
+0 0 * * * /root/dump-adb.sh && /root/trigger-bu.sh

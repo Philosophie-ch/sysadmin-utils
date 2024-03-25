@@ -1,0 +1,4 @@
+# m h  dom mon dow   command
+
+# To clear the rails cache every day at midnight
+0 0 * * * docker exec philosophiechlegacy-web-8e4886c7594d9811a5998d5c19b05ba454c5639c bundle exec rails runner -e production "Rails.cache.clear"
