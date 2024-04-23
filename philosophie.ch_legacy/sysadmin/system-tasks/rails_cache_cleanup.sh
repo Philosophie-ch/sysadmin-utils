@@ -25,5 +25,5 @@ esac
 
 rails_container=$( docker ps --format '{{.Names}}' | grep 'philosophiechlegacy-web' )
 
-docker exec "${rails_container}" bundle exec rails runner -e production "Rails.cache.clear"
+docker exec "${rails_container}" bundle exec rails runner -e production "Rails.cache.clear" && echo "Rails cache cleared on $(date)" >> ~/cron.log || echo "Rails cache clear failed on $(date)" >> ~/cron.log
 
