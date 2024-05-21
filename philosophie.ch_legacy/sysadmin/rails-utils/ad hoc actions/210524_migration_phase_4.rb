@@ -10,6 +10,7 @@ if rp.urlname != "index"
 end
 
 # Main loop for single pages
+moved_single_pages = []
 mismatched_slugs_single_pages = []
 errors_single_pages = []
 
@@ -34,6 +35,7 @@ CSV.foreach('210524_migration_phase_4_single_pages.csv', col_sep: ',', headers: 
       page.language_code = rp.language_code
       page.parent_id = rp.id
       page.save
+      moved_single_pages << [id, slug_raw]
     else
       errors_single_pages << [id, slug_raw, "Page already moved"]
     end
@@ -43,13 +45,9 @@ CSV.foreach('210524_migration_phase_4_single_pages.csv', col_sep: ',', headers: 
   end 
 end
 
-puts "\n\n***Single pages report***\n\n
-==> Mismatched slugs:\n#{mismatched_slugs_single_pages.join("\n")}\n\n
-==> Errors:\n#{errors_single_pages.join("\n")}\n\n
-***End of single pages report***\n\n"
-
 
 # Main loop for parents
+moved_parents = []
 mismatched_slugs_parents = []
 errors_parents = []
 
@@ -76,6 +74,7 @@ CSV.foreach('210524_migration_phase_4_parents.csv', col_sep: ',', headers: false
         child.parent_id = rp.id
         child.save
       end
+      moved_parents << [id, slug_raw]
     else
       errors_parents << [id, slug_raw, "Page already moved"]
     end
@@ -85,7 +84,16 @@ CSV.foreach('210524_migration_phase_4_parents.csv', col_sep: ',', headers: false
   end 
 end
 
+
+puts "\n\n***Single pages report***\n\n
+==> Moved pages:\n#{moved_single_pages.join("\n")}\n\n
+==> Mismatched slugs:\n#{mismatched_slugs_single_pages.join("\n")}\n\n
+==> Errors:\n#{errors_single_pages.join("\n")}\n\n
+***End of single pages report***\n\n"
+
+
 puts "\n\n***Parents report***\n\n
+==> Moved pages:\n#{moved_parents.join("\n")}\n\n
 ==> Mismatched slugs:\n#{mismatched_slugs_parents.join("\n")}\n\n
 ==> Errors:\n#{errors_parents.join("\n")}\n\n
 ***End of parents report***\n\n"
