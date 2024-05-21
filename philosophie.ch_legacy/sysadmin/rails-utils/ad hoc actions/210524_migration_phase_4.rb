@@ -30,7 +30,8 @@ CSV.foreach('210524_migration_phase_4_single_pages_pt2.csv', col_sep: ',', heade
         page.language_code = rp.language_code
         page.parent_id = rp.id
         page.save
-        if page.parent_id == rp.id
+        new_page = Alchemy::Page.find(id)
+        if new_page.parent_id == rp.id
           moved_single_pages << [id, slug_raw]
         else
           errors_single_pages << [id, slug_raw, "Page not moved for unknown reason"]
