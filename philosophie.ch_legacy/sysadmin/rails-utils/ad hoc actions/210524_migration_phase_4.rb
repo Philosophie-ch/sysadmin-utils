@@ -30,7 +30,11 @@ CSV.foreach('210524_migration_phase_4_single_pages_pt2.csv', col_sep: ',', heade
         page.language_code = rp.language_code
         page.parent_id = rp.id
         page.save
-        moved_single_pages << [id, slug_raw]
+        if page.parent_id == rp.id
+          moved_single_pages << [id, slug_raw]
+        else
+          errors_single_pages << [id, slug_raw, "Page not moved for unknown reason"]
+        end
       else
         errors_single_pages << [id, slug_raw, "Page already moved"]
       end
