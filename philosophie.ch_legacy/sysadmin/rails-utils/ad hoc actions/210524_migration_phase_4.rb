@@ -9,3 +9,4 @@ CSV.foreach('210524_migration_phase_4_single_pages.csv', col_sep: ',', headers: 
   page = Alchemy::Page.find(id)
   ids_match = page.urlname == slug_raw
   puts "Page with id #{id} and urlname #{slug_raw} is matching? #{ids_match}"
+end
