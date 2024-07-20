@@ -45,7 +45,7 @@ page_1 = Alchemy::Page.find(2)
 page_1_elements = page_1.elements
 page_1_element_1_contents = page_1_elements[1].contents
 
-Loop to retrieve the content of each essence:
+# Loop to retrieve the content of each essence:
 page_1_element_1_contents .each do |c|
   essence = c.essence
   puts e.id
