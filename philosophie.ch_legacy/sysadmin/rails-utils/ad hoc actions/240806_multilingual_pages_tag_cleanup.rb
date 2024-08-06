@@ -1,5 +1,3 @@
-# Not executed yet
-
 tag_map = {
 
   # Page Type
@@ -97,6 +95,65 @@ tag_map = {
 
 # Helper method to map a tag to a new tag
 # Add "other: " to the tag if it's not in the map
+# E.g. 1, map_tag("article", tag_map) => "page type: article"
+# E.g. 2, map_tag("foo", tag_map) => "other: foo"
 def map_tag(tag, tag_map)
+  # ignore if tag is nil or empty
+  return tag if tag.nil? || tag.empty?
+
+  # ignore if tag is in the values of the map
+  return tag if tag_map.values.include?(tag)
+
   tag_map.fetch(tag, "other: #{tag}")
+
+end
+
+
+require 'csv'
+tag_cleanup_report = []
+
+begin
+  parent_page = Alchemy::Page.find(5098)
+
+
+  parent_page.children.each do |child|
+
+    begin
+      page_report = {
+        id: child.id,
+        old_tags: [],
+        new_tags: [],
+        tagging_status: "",
+        unexpected_error: "",
+      }
+
+      old_tags = child.tag_names
+      page_report[:old_tags] = old_tags
+
+      new_tags = old_tags.map { |tag| map_tag(tag, tag_map) }
+      page_report[:new_tags] = new_tags
+
+      child.tag_names = new_tags
+      child.save!
+
+      page_report[:tagging_status] = "success"
+
+    rescue => e
+      page_report[:unexpected_error] = e.message
+    ensure
+      tag_cleanup_report << page_report
+    end
+  end
+
+rescue => e
+  puts "An error occurred: #{e.message}"
+end
+
+
+CSV.open("240806_multilingual_pages_tag_cleanup_report.csv", "wb", col_sep: ',', force_quotes: true) do |csv|
+  csv << tag_cleanup_report.first.keys
+
+  tag_cleanup_report.each do |page|
+    csv << page.values
+  end
 end
