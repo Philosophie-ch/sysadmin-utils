@@ -18,13 +18,6 @@ article_ids.each do |id|
 end
 
 
-# Hot patch the Box model to fix the users method
-Box.class_eval do
-  def users_custom
-    Alchemy::User.where(id: user_ids)
-  end
-end
-
 parent_page = Alchemy::Page.find(5098)
 
 child_pages_info = []
@@ -36,15 +29,15 @@ parent_page.children.each do |child|
     title: child.title || "<no_title>",
     urlname: child.urlname || "<no_urlname>",
     page_layout: child.page_layout || "<no_page_layout>",
-    tags: Array(child.tags).map(&:name),
+    tags: Array(child.tags).compact.map(&:name), # Ensure tags is an array and remove nil values
     users: []
   }
 
   box = Box.find_by(page_id: child.id) # Query once and use the result
 
   if box
-    if box.respond_to?(:users_custom) && box.users_custom.present?
-      box.users_custom.each do |user|
+    if box.respond_to?(:users) && box.users.present?
+      box.users.each do |user|
         page_info[:users] << { id: user.id, login: user.login }
       end
     elsif box.respond_to?(:user) && box.user
