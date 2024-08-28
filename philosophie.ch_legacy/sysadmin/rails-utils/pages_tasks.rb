@@ -60,10 +60,10 @@ def tag_columns_to_array(row)
   tag_special_content_2 = col_tag_special_content_2.empty? ? [] : ["special content 2: #{col_tag_special_content_2}"]
 
   col_tag_references = row.fetch(:tag_references, '')
-  tag_references = col_tag_references.empty? ? [] : ["references? #{col_tag_references}"]
+  tag_references = col_tag_references.empty? ? [] : ["references?: #{col_tag_references}"]
 
   col_tag_footnotes = row.fetch(:tag_footnotes, '')
-  tag_footnotes = col_tag_footnotes.empty? ? [] : ["footnotes? #{col_tag_footnotes}"]
+  tag_footnotes = col_tag_footnotes.empty? ? [] : ["footnotes?: #{col_tag_footnotes}"]
 
   col_tag_others = row.fetch(:tag_others, '')
   tag_others = col_tag_others.empty? ? [] : col_tag_others.split(',').map(&:strip)
@@ -80,8 +80,8 @@ def tag_array_to_columns(tag_names)
   tag_canton = tag_names.find { |tag| tag.start_with?('canton: ') }&.gsub('canton: ', '') || ''
   tag_special_content_1 = tag_names.find { |tag| tag.start_with?('special content 1: ') }&.gsub('special content 1: ', '') || ''
   tag_special_content_2 = tag_names.find { |tag| tag.start_with?('special content 2: ') }&.gsub('special content 2: ', '') || ''
-  tag_references = tag_names.find { |tag| tag.start_with?('references? ') }&.gsub('references? ', '') || ''
-  tag_footnotes = tag_names.find { |tag| tag.start_with?('footnotes? ') }&.gsub('footnotes? ', '') || ''
+  tag_references = tag_names.find { |tag| tag.start_with?('references?: ') }&.gsub('references? ', '') || ''
+  tag_footnotes = tag_names.find { |tag| tag.start_with?('footnotes?:') }&.gsub('footnotes? ', '') || ''
   tag_others_arr = tag_names.select { |tag| !tag.start_with?('page type: ', 'media 1: ', 'media 2: ', 'language: ', 'university: ', 'canton: ', 'special content 1: ', 'special content 2: ', 'references? ', 'footnotes? ') }
   tag_others = tag_others_arr.blank? ? '' : tag_others_arr.join(', ')
 
@@ -415,12 +415,10 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     supported_requests = ['CREATE', 'CHANGE', 'GET', 'DELETE']
     req = page_report[:_request]
 
-    if req.nil? || req.strip.empty?
-      # Handle empty or nil request
+    if req.nil? || req.strip.empty? || req.strip == ''
       page_report[:status] = "skipped"
     else
       unless supported_requests.include?(req)
-        # Handle unsupported request
         page_report[:status] = "error"
         page_report[:error_message] = "Unsupported request '#{req}'. Skipping"
       end
