@@ -194,7 +194,20 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
         next
     end
 
-    if req == "UPDATE"
+    if req == "DELETE"
+      user.delete
+      if Alchemy::User.find_by(login: login).exists?
+        Rails.logger.error("User '#{login}' not deleted for an unknown reason!")
+        page_report[:status] = "error"
+        page_report[:error_message] = "User '#{login}' not deleted for an unknown reason!"
+      else
+        page_report[:status] = "success"
+      end
+      next
+    end
+
+
+    if req == "UPDATE" || req == "GET"
       old_user = {
         alchemy_roles: user.alchemy_roles.join(', '),
         id: user.id,
