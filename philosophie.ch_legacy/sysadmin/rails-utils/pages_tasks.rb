@@ -357,6 +357,10 @@ end
 
 
 
+############
+# MAIN
+############
+
 report = []
 counter = 0
 
@@ -416,7 +420,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     req = page_report[:_request]
 
     if req.nil? || req.strip.empty? || req.strip == ''
-      page_report[:status] = "skipped"
+      page_report[:status] = ""
     else
       unless supported_requests.include?(req)
         page_report[:status] = "error"
@@ -428,7 +432,8 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       retreived_pages = Alchemy::Page.where(urlname: urlname)
       exact_page_match = retreived_pages.find { |p| p.language_code == language_code }
       if exact_page_match
-        page_report[:status] = "Page already exists. Skipping"
+        page_report[:status] = "error"
+        page_report[:error_message] = "Page already exists. Skipping"
         next
       end
     end
@@ -436,7 +441,8 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     if req == 'UPDATE' || req == 'GET' || req == 'DELETE'
       id = page_report[:id] || ''
       if id.blank? || id == '' || id.nil?
-        page_report[:status] = "ID is empty, but required for '#{req}'. Skipping."
+        page_report[:status] = "error"
+        page_report[:error_message] = "ID is empty, but required for '#{req}'. Skipping."
         next
       end
     end
@@ -503,24 +509,26 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
       if page.nil?
         Rails.logger.error("Page with ID '#{id}' not found. Skipping")
-        page_report[:status] = "Page with ID '#{id}' not found. Skipping"
+        page_report[:status] = "error"
+        page_report[:error_message] = "Page with ID '#{id}' not found. Skipping"
         next
       end
 
     else  # Should not happen
       Rails.logger.error("Unsupported request '#{req}'. Skipping")
-      page_report[:status] = "Unsupported request '#{req}'. Skipping"
+      page_report[:status] = "error"
+      page_report[:error_message] = "Unsupported request '#{req}'. Skipping"
       next
     end
 
     if req == 'DELETE'
       page.delete
       if Alchemy::Page.find(id).exists?
-        page_report[:status] = "Page not deleted"
+        page_report[:status] = "error"
         page_report[:error_message] = "Page not deleted by an unknown reason!. Skipping"
         next
       else
-        page_report[:status] = "Page deleted successfully"
+        page_report[:status] = "success"
         next
       end
     end
@@ -611,7 +619,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       if update_authors_report[:status] != 'success'
         page_report[:status] = 'error'
         page_report[:error_message] = update_authors_report[:error_message]
-        page_report[:error_message] += ". Skipping!"
+        page_report[:error_message] += ". Skipping the rest!"
         next
       end
 
@@ -620,7 +628,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       if update_intro_box_image_report[:status] != 'success'
         page_report[:status] = 'error'
         page_report[:error_message] = update_intro_box_image_report[:error_message]
-        page_report[:error_message] += ". Skipping!"
+        page_report[:error_message] += ". Skipping the rest!"
         next
       end
 
@@ -698,7 +706,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
   rescue => e
     Rails.logger.error("Error while processing page '#{page_report[:slug]}': #{e.message}")
-    page_report[:status] = 'error'
+    page_report[:status] = 'unexpected error'
     page_report[:error_message] = e.message
 
   ensure

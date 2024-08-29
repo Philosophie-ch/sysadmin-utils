@@ -37,6 +37,11 @@ def generate_csv_report(report)
 end
 
 
+
+############
+# MAIN
+############
+
 report = []
 counter = 0
 CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
@@ -76,7 +81,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
     _function_title: row["_function_title"],
     _function_standardised: row["_function_standardised"],
     country: row["country"],
-    area_NEW_TO_IMPLEMENT: row["area_NEW_TO_IMPLEMENT"],
+    area: row["area"],
     _canton: row["_canton"],
     description: row["description"],
     website: row["website"],
@@ -94,26 +99,36 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
   begin
 
-
     # Control
-    Rails.logger.info("Processing user '#{row['login']}'")
     login = row['login'] || ''
-
     if login.blank? || login == ''
-      user_report[:status] = "Login is missing. Skipping."
+      Rails.logger.error("Login is missing. Skipping.")
+      user_report[:status] = "error"
+      user_report[:error_message] = "login field is missing. Skipping."
       next
     end
 
-    todo_profile = row['_todo_profile'] || ''
-    unless ['POST', 'UPDATE', 'GET'].include?(todo_profile)
-      user_report[:status] = "Row type is not one of ['POST', 'UPDATE', 'GET'] for user '#{row['login']}'. Skipping"
+    Rails.logger.info("Processing user '#{login}']}'")
+
+    req = row['_todo_profile'] || ''
+    unless ['POST', 'UPDATE', 'GET', 'DELETE'].include?(req)
+      if req.blank? || req == ''
+        user_report[:status] = "success"
+        user_report[:error_message] = "Request is blank. Skipping."
+        next
+      end
+
+      user_report[:status] = "error"
+      user_report[:error_message] = "Request is not one of 'POST', 'UPDATE', 'GET', 'DELETE'. Skipping."
       next
+
     end
 
-    if todo_profile == "POST"
+    if req == "POST"
       user = Alchemy::User.find_by(login: login)
       if user
-        user_report[:status] = "User '#{login}' already exists. Skipping."
+        user_report[:status] = "error"
+        user_report[:error_message] = "User '#{login}' already exists. Skipping."
         next
       end
     end
@@ -153,30 +168,33 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
     # Setup
     Rails.logger.info("Processing user '#{login}': Setup")
-    if todo_profile == "POST"
+    if req == "POST"
         user = Alchemy::User.new()
 
-    elsif todo_profile == "UPDATE" || todo_profile == "GET"
+    elsif req == "UPDATE" || req == "GET"
         user = Alchemy::User.find_by(id: id)
 
         if user.nil?
           Rails.logger.error("User '#{login}' with id '#{id}' not found but requested 'UPDATE' or 'GET'. Skipping.")
-          user_report[:status] = "User '#{login}' with id '#{id}' not found but requested 'UPDATE' or 'GET'. Skipping."
+          user_report[:status] = "error"
+          user_report[:error_message] = "User '#{login}' with id '#{id}' not found but requested 'UPDATE' or 'GET'. Skipping."
           next
         end
         if user.profile.nil?
           Rails.logger.error("User '#{login}' with id '#{id}' does not have a profile but requested 'UPDATE' or 'GET'. Skipping.")
-          user_report[:status] = "User '#{login}' with id '#{id}' does not have a profile but requested 'UPDATE' or 'GET'. Skipping."
+          user_report[:status] = "error"
+          user_report[:error_message] = "User '#{login}' with id '#{id}' does not have a profile but requested 'UPDATE' or 'GET'. Skipping."
           next
         end
 
     else # Should not happen
         Rails.logger.error("Error: _todo_profile not supported")
-        user_report[:status] = "Error: _todo_profile not supported"
+        user_report[:status] = "error"
+        user_report[:error_message] = "_todo_profile not supported"
         next
     end
 
-    if todo_profile == "UPDATE"
+    if req == "UPDATE"
       old_user = {
         alchemy_roles: user.alchemy_roles.join(', '),
         id: user.id,
@@ -190,7 +208,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
         language: user.language,
         gender: user.gender,
         country: user.profile.country,
-        #area_NEW_TO_IMPLEMENT: user.profile.area,
+        #area: user.profile.area,
         description: user.profile.description,
         website: user.profile.website,
         teacher_at_institution: user.profile.teacher_at_institution,
@@ -203,7 +221,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
     # Execution
     Rails.logger.info("Processing user '#{login}': Execution")
-    if todo_profile == "POST" || todo_profile == "UPDATE"
+    if req == "POST" || req == "UPDATE"
         Rails.logger.info("Processing user '#{login}': MUTATION FOLLOWING!")
         user.login = login
         user.email = email
@@ -219,7 +237,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
         user.lastname = lastname
 
-        if todo_profile == "POST"
+        if req == "POST"
           user.password = password
           user.password_confirmation = password
           user.profile = Profile.new(
@@ -249,7 +267,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
           Rails.logger.info("User '#{login}': saved successfully!")
         else
           Rails.logger.info("User '#{login}': NOT saved!")
-          user_report[:status] = "User '#{login}' not saved!"
+          user_report[:status] = "error"
           user_report[:error_message] = "User '#{login}' not saved!"
           if !successful_user_save
             Rails.logger.error("User '#{login}': user not saved!")
@@ -287,7 +305,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
       facebook_profile: user.profile.facebook_profile,
     })
 
-    if todo_profile == "UPDATE"
+    if req == "UPDATE"
       changes = []
       user_report.each do |key, value|
         if old_user[key] != value
@@ -298,7 +316,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
       user_report[:changes_made] = changes.join(' ;;; ')
     end
 
-    user_report[:status] = "User '#{login}' processed successfully"
+    user_report[:status] = "success"
     Rails.logger.info("Processing user '#{login}': Done")
 
 
