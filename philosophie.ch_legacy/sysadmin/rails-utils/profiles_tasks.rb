@@ -50,7 +50,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
     _correspondence: row["_correspondence"],
     _todo_person: row["_todo_person"],
     _todo_profile: row["_todo_profile"],
-    alchemy_roles: row["alchemy_roles"].split(', '),
+    alchemy_roles: row["alchemy_roles"],
     _member_subcategory: row["_member_subcategory"],
     _status_wrt_association: row["_status_wrt_association"],
     id: row["id"],
@@ -136,10 +136,10 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
     # Parsing
     Rails.logger.info("Processing user '#{login}': Parsing")
-    alchemy_roles = row['alchemy_roles'] || ''  # user
+    alchemy_roles_str = row['alchemy_roles'] || ''  # user
     id = row['id'] || ''  # user
     profile_name = row['profile_name'] || ''  # profile
-    firstname = row['firstnames'] || '' # user
+    firstname = row['firstname'] || '' # user
     lastname = row['lastname'] || '' # user
     email = row['email'] || ''  # user
     academic_page = row['academic_page'] || ''  # profile
@@ -172,10 +172,10 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
         user = Alchemy::User.new()
 
     elsif req == "UPDATE" || req == "GET"
-        user = Alchemy::User.find_by(id: id)
+        user = Alchemy::User.find_by(login: login)
 
         if user.nil?
-          Rails.logger.error("User '#{login}' with id '#{id}' not found but requested 'UPDATE' or 'GET'. Skipping.")
+          Rails.logger.error("User '#{login}' not found in the server, but requested 'UPDATE' or 'GET'. Skipping.")
           user_report[:status] = "error"
           user_report[:error_message] = "User '#{login}' with id '#{id}' not found but requested 'UPDATE' or 'GET'. Skipping."
           next
@@ -198,26 +198,39 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
       user.delete
       if Alchemy::User.find_by(login: login).exists?
         Rails.logger.error("User '#{login}' not deleted for an unknown reason!")
-        page_report[:status] = "error"
-        page_report[:error_message] = "User '#{login}' not deleted for an unknown reason!"
+        user_report[:status] = "error"
+        user_report[:error_message] = "User '#{login}' not deleted for an unknown reason!"
       else
-        page_report[:status] = "success"
+        user_report[:id] = ""
+        user_report[:login] = ""
+        user_report[:_link] = "USER WAS DELETED IN THE SERVER"
+        user_report[:status] = "success"
       end
       next
     end
 
-
     if req == "UPDATE" || req == "GET"
       old_user = {
-        alchemy_roles: user.alchemy_roles.join(', '),
+        _correspondence: user_report[:_correspondence],
+        _todo_person: user_report[:_todo_person],
+        _todo_profile: user_report[:_todo_profile],
+        alchemy_roles: user.alchemy_roles,
+        _member_subcategory: user_report[:_member_subcategory],
         id: user.id,
+        _role_wrt_portal: user_report[:_role_wrt_portal],
+        _biblio_name: user_report[:_biblio_name],
+        _new_login: user_report[:_new_login],
+        _biblio_full_name: user_report[:_biblio_full_name],
         profile_name: user.profile.name,
         firstname: user.firstname,
         lastname: user.lastname,
         email: user.email,
+        _NL: user_report[:_NL],
         academic_page: user.profile.academic_page,
         abbreviation: user.profile.abbreviation,
+        _function: user_report[:_function],
         login: user.login,
+        _link: user_report[:_link],
         language: user.language,
         gender: user.gender,
         country: user.profile.country,
@@ -238,7 +251,8 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
         Rails.logger.info("Processing user '#{login}': MUTATION FOLLOWING!")
         user.login = login
         user.email = email
-        user.alchemy_roles = [alchemy_roles]
+        alchemy_roles = alchemy_roles_str.split(',').map(&:strip)
+        user.alchemy_roles = alchemy_roles
         user.language = language
         user.gender = gender
 
@@ -297,6 +311,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
     user_report.merge!({
       id: user.id,
       login: user.login,
+      _link: "https://www.philosophie.ch/profil/#{user.login}",
       profile_name: user.profile.name,
       email: user.email,
       academic_page: user.profile.academic_page,
@@ -318,11 +333,14 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
       facebook_profile: user.profile.facebook_profile,
     })
 
-    if req == "UPDATE"
+    if req == "UPDATE" || req == "GET"
       changes = []
       user_report.each do |key, value|
-        if old_user[key] != value
-          changes << "#{key}: ''#{old_user[key]}'' → ''#{value}''"
+        if old_user[key] != value && key != :changes_made && key != :status && key != :error_message
+          # Skip if both old and new values are empty
+          unless old_user[key].to_s.empty? && value.to_s.empty?
+            changes << "#{key}: #{old_user[key]} => #{value}"
+          end
         end
       end
 

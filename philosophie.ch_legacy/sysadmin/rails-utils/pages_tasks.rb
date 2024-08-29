@@ -528,6 +528,9 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         page_report[:error_message] = "Page not deleted by an unknown reason!. Skipping"
         next
       else
+        page_report[:id] = ''
+        page_report[:slug] = ''
+        page_report[:link] = 'PAGE WAS DELETED IN THE SERVER'
         page_report[:status] = "success"
         next
       end
