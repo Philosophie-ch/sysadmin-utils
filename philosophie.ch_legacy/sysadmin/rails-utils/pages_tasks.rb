@@ -260,7 +260,7 @@ def update_assigned_authors(page, authors_str)
       return result
     end
 
-    author_list = authors_str.split(',').map(&:strip)
+    author_list = authors_str.to_s.split(',').map(&:strip)
     users = []
 
     for author in author_list
