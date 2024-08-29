@@ -412,7 +412,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     Rails.logger.info("Processing page '#{page_report[:slug]}'...")
 
     # Control
-    supported_requests = ['CREATE', 'CHANGE', 'GET', 'DELETE']
+    supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE']
     req = page_report[:_request]
 
     if req.nil? || req.strip.empty? || req.strip == ''
@@ -424,7 +424,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       end
     end
 
-    if req == 'CREATE'
+    if req == 'POST'
       retreived_pages = Alchemy::Page.where(urlname: urlname)
       exact_page_match = retreived_pages.find { |p| p.language_code == language_code }
       if exact_page_match
@@ -433,7 +433,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       end
     end
 
-    if req == 'CHANGE' || req == 'GET' || req == 'DELETE'
+    if req == 'UPDATE' || req == 'GET' || req == 'DELETE'
       id = page_report[:id] || ''
       if id.blank? || id == '' || id.nil?
         page_report[:status] = "ID is empty, but required for '#{req}'. Skipping."
@@ -441,7 +441,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       end
     end
 
-    if req == 'CHANGE'
+    if req == 'UPDATE'
       language_code = page_report[:language_code]
       urlname = page_report[:urlname]
 
@@ -495,10 +495,10 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     # Setup
     Rails.logger.info("Processing page '#{page_report[:slug]}': Setup")
 
-    if req == 'CREATE'
+    if req == 'POST'
       page = Alchemy::Page.new
 
-    elsif req == 'CHANGE' || req == 'GET' || req == 'DELETE'
+    elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'
       page = Alchemy::Page.find(id)
 
       if page.nil?
@@ -525,7 +525,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       end
     end
 
-    if req == 'CHANGE' || req == 'GET'
+    if req == 'UPDATE' || req == 'GET'
       old_page_tag_names = page.tag_names
       old_page_tag_columns = tag_array_to_columns(old_page_tag_names)
       old_page_assigned_authors = get_assigned_authors(page)
@@ -578,7 +578,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     # Execution
     Rails.logger.info("Processing page '#{page_report[:slug]}': Execution")
 
-    if req == "CREATE" || req == "CHANGE"
+    if req == "POST" || req == "UPDATE"
       Rails.logger.info("Processing page '#{page_report[:slug]}': Setting attributes")
       page.name = name
       page.title = title
@@ -679,7 +679,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     })
 
 
-    if req == "CHANGE" || req == "GET"
+    if req == "UPDATE" || req == "GET"
       changes = []
       page_report.each do |key, value|
         if old_page[key] != value && key != :changes_made && key != :status && key != :error_message

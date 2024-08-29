@@ -105,12 +105,12 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
     end
 
     todo_profile = row['_todo_profile'] || ''
-    unless ['CREATE PROFILE', 'MAKE CHANGES', 'GET'].include?(todo_profile)
-      user_report[:status] = "Row type is not one of ['CREATE PROFILE', 'MAKE CHANGES', 'GET'] for user '#{row['login']}'. Skipping"
+    unless ['POST', 'UPDATE', 'GET'].include?(todo_profile)
+      user_report[:status] = "Row type is not one of ['POST', 'UPDATE', 'GET'] for user '#{row['login']}'. Skipping"
       next
     end
 
-    if todo_profile == "CREATE PROFILE"
+    if todo_profile == "POST"
       user = Alchemy::User.find_by(login: login)
       if user
         user_report[:status] = "User '#{login}' already exists. Skipping."
@@ -153,20 +153,20 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
     # Setup
     Rails.logger.info("Processing user '#{login}': Setup")
-    if todo_profile == "CREATE PROFILE"
+    if todo_profile == "POST"
         user = Alchemy::User.new()
 
-    elsif todo_profile == "MAKE CHANGES" || todo_profile == "GET"
+    elsif todo_profile == "UPDATE" || todo_profile == "GET"
         user = Alchemy::User.find_by(id: id)
 
         if user.nil?
-          Rails.logger.error("User '#{login}' with id '#{id}' not found but requested 'MAKE CHANGES' or 'GET'. Skipping.")
-          user_report[:status] = "User '#{login}' with id '#{id}' not found but requested 'MAKE CHANGES' or 'GET'. Skipping."
+          Rails.logger.error("User '#{login}' with id '#{id}' not found but requested 'UPDATE' or 'GET'. Skipping.")
+          user_report[:status] = "User '#{login}' with id '#{id}' not found but requested 'UPDATE' or 'GET'. Skipping."
           next
         end
         if user.profile.nil?
-          Rails.logger.error("User '#{login}' with id '#{id}' does not have a profile but requested 'MAKE CHANGES' or 'GET'. Skipping.")
-          user_report[:status] = "User '#{login}' with id '#{id}' does not have a profile but requested 'MAKE CHANGES' or 'GET'. Skipping."
+          Rails.logger.error("User '#{login}' with id '#{id}' does not have a profile but requested 'UPDATE' or 'GET'. Skipping.")
+          user_report[:status] = "User '#{login}' with id '#{id}' does not have a profile but requested 'UPDATE' or 'GET'. Skipping."
           next
         end
 
@@ -176,7 +176,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
         next
     end
 
-    if todo_profile == "MAKE CHANGES"
+    if todo_profile == "UPDATE"
       old_user = {
         alchemy_roles: user.alchemy_roles.join(', '),
         id: user.id,
@@ -203,7 +203,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
     # Execution
     Rails.logger.info("Processing user '#{login}': Execution")
-    if todo_profile == "CREATE PROFILE" || todo_profile == "MAKE CHANGES"
+    if todo_profile == "POST" || todo_profile == "UPDATE"
         Rails.logger.info("Processing user '#{login}': MUTATION FOLLOWING!")
         user.login = login
         user.email = email
@@ -219,7 +219,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
         user.lastname = lastname
 
-        if todo_profile == "CREATE PROFILE"
+        if todo_profile == "POST"
           user.password = password
           user.password_confirmation = password
           user.profile = Profile.new(
@@ -287,7 +287,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
       facebook_profile: user.profile.facebook_profile,
     })
 
-    if todo_profile == "MAKE CHANGES"
+    if todo_profile == "UPDATE"
       changes = []
       user_report.each do |key, value|
         if old_user[key] != value
