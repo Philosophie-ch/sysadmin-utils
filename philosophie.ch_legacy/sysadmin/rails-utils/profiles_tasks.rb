@@ -251,8 +251,9 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
       else
         user_report[:id] = ""
         user_report[:login] = ""
-        user_report[:_link] = "USER WAS DELETED IN THE SERVER"
+        user_report[:_link] = ""
         user_report[:status] = "success"
+        user_report[:changes_made] = "USER WAS DELETED IN THE SERVER"
       end
       next
     end

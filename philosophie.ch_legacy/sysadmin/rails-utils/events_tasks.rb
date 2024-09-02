@@ -176,8 +176,9 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
         subreport[:error_message] = "Event with ID #{id} not deleted for an unknown reason!"
         next
       else
-        subreport[:id] = 'EVENT WAS DELETED IN THE SERVER'
+        subreport[:id] = ''
         subreport[:status] = 'success'
+        subreport[:changes_made] = 'EVENT WAS DELETED IN THE SERVER'
         next
       end
     end

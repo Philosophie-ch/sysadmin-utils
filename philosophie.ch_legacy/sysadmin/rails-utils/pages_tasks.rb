@@ -523,15 +523,16 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
     if req == 'DELETE'
       page.delete
-      if Alchemy::Page.find(id).exists?
+      if Alchemy::Page.find_by(id: id).exists?
         page_report[:status] = "error"
         page_report[:error_message] = "Page not deleted by an unknown reason!. Skipping"
         next
       else
         page_report[:id] = ''
         page_report[:slug] = ''
-        page_report[:link] = 'PAGE WAS DELETED IN THE SERVER'
+        page_report[:link] = ''
         page_report[:status] = "success"
+        page_report[:changes_made] = "PAGE WAS DELETED IN THE SERVER"
         next
       end
     end
