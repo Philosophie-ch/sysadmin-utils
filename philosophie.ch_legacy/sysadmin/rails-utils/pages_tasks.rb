@@ -101,7 +101,7 @@ def tag_array_to_columns(tag_names)
   }
 end
 
-def get_intro_box_image(page)
+def get_intro_block_image(page)
   intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
 
   page.elements.each do |element|
@@ -118,20 +118,31 @@ def get_intro_box_image(page)
   ""
 end
 
-def update_intro_box_image(page, image_file_name)
+def update_intro_block_image(page, image_file_name)
   result = {
     status: 'not started',
-    error_message: ''
+    error_message: '',
+    error_trace: '',
   }
   begin
+
+    if image_file_name.blank? || image_file_name.nil? || image_file_name.empty? || image_file_name.strip == ''
+      Rails.logger.info("Image file name is empty. Skipping...")
+      # Just ignore if image_file_name is empty
+      result[:status] = 'success'
+      return result
+    end
+
     intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
 
     # Find the picture with the given image_file_name
     new_picture = Alchemy::Picture.find_by(image_file_name: image_file_name)
 
     if new_picture.nil?
+      Rails.logger.error("Picture with image_file_name '#{image_file_name}' not found. Skipping...")
       result[:status] = 'error'
       result[:error_message] = "Picture with image_file_name '#{image_file_name}' not found"
+      result[:error_trace] = "pages_tasks.rb::update_intro_block_image"
       return result
     end
 
@@ -141,31 +152,34 @@ def update_intro_box_image(page, image_file_name)
       has_intro_picture = element.contents&.any? { |content| content.essence.is_a?(Alchemy::EssencePicture) }
 
       if has_intro_picture
+        Rails.logger.info("Updating intro block image...")
         content = element.contents.find { |content| content.essence.is_a?(Alchemy::EssencePicture) }
         content.essence.update(picture: new_picture)
         page.publish!
         result[:status] = 'success'
+        Rails.logger.info("Intro block image updated successfully")
         return result
       end
     end
 
     result[:status] = 'error'
     result[:error_message] = "No intro picture found"
+    result[:error_trace] = "pages_tasks.rb::update_intro_block_image"
+    return result
 
   rescue => e
-    result[:status] = 'error'
+    result[:status] = 'unexpected error'
     result[:error_message] = e.message
-
-  ensure
-    result
+    result[:error_trace] = e.backtrace.join("\n")
+    return result
   end
 end
 
-def get_audio_boxes_file_names(page)
-  audio_boxes = page&.elements&.select { |element| element.name == 'audio_box' }
+def get_audio_blocks_file_names(page)
+  audio_blocks = page&.elements&.select { |element| element.name == 'audio_block' }
 
-  audio_files = audio_boxes&.flat_map do |audio_box|
-    audio_box.contents&.map do |content|
+  audio_files = audio_blocks&.flat_map do |audio_block|
+    audio_block.contents&.map do |content|
       essence = content.essence
       essence.respond_to?(:attachment) ? essence.attachment&.file_name : nil
     end
@@ -174,11 +188,11 @@ def get_audio_boxes_file_names(page)
   return audio_files&.compact&.blank? ? "" : audio_files.compact.join(', ')
 end
 
-def get_video_boxes_file_names(page)
-  video_boxes = page&.elements&.select { |element| element.name == 'video_box' }
+def get_video_blocks_file_names(page)
+  video_blocks = page&.elements&.select { |element| element.name == 'video_block' }
 
-  video_files = video_boxes&.flat_map do |video_box|
-    video_box.contents&.map do |content|
+  video_files = video_blocks&.flat_map do |video_block|
+    video_block.contents&.map do |content|
       essence = content.essence
       essence.respond_to?(:attachment) ? essence.attachment&.file_name : nil
     end
@@ -187,11 +201,11 @@ def get_video_boxes_file_names(page)
   return video_files&.compact&.blank? ? "" : video_files.compact.join(', ')
 end
 
-def get_pdf_boxes_file_names(page)
-  pdf_boxes = page&.elements&.select { |element| element.name == 'pdf_box' }
+def get_pdf_blocks_file_names(page)
+  pdf_blocks = page&.elements&.select { |element| element.name == 'pdf_block' }
 
-  pdf_files = pdf_boxes&.flat_map do |pdf_box|
-    pdf_box.contents&.map do |content|
+  pdf_files = pdf_blocks&.flat_map do |pdf_block|
+    pdf_block.contents&.map do |content|
       essence = content.essence
       essence.respond_to?(:attachment) ? essence.attachment&.file_name : nil
     end
@@ -200,11 +214,11 @@ def get_pdf_boxes_file_names(page)
   return pdf_files&.compact&.blank? ? "" : pdf_files.compact.join(', ')
 end
 
-def get_single_pictures_file_names(page)
-  single_picture_elements = page&.elements&.select { |element| element.name == 'single_picture' }
+def get_picture_blocks_file_names(page)
+  picture_block_elements = page&.elements&.select { |element| element.name == 'picture_block' }
 
-  picture_files = single_picture_elements&.flat_map do |single_picture|
-    single_picture.contents&.map do |content|
+  picture_files = picture_block_elements&.flat_map do |picture_block|
+    picture_block.contents&.map do |content|
       essence = content.essence
       essence.respond_to?(:picture) ? essence.picture&.image_file_name : nil
     end
@@ -240,13 +254,15 @@ def update_assigned_authors(page, authors_str)
   unless page_is_article || page_is_event
     return {
       status: 'success',
-      error_message: ''
+      error_message: '',
+      error_trace: '',
     }
   end
 
   result = {
     status: 'not started',
     error_message: '',
+    error_trace: '',
   }
 
   begin
@@ -257,31 +273,31 @@ def update_assigned_authors(page, authors_str)
     unless creator_essence
       result[:status] = 'error'
       result[:error_message] = "Creator essence not found"
+      result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
       return result
     end
 
     author_list = authors_str.to_s.split(',').map(&:strip)
     users = []
 
+    flag = true
+    user_error_message = "Users with the following logins not found: "
     for author in author_list
-      flag = true
       user = Alchemy::User.find_by(login: author)
-      user_error_message = "Users with the following logins not found: "
 
       if user.nil?
         user_error_message += "'#{author}', "
         flag = false
-      end
-
-      if flag
+      else
         users << user
       end
     end
 
     if !flag
       result[:status] = 'error'
-      user_error_message = user_error_message[0..-3]
-      result[:error_message] = user_error_message
+      user_error_message = user_error_message[0..-3] unless user_error_message.nil? || user_error_message.empty?
+      result[:error_message] = user_error_message unless user_error_message.nil? || user_error_message.empty?
+      result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
       return result
     end
 
@@ -289,12 +305,12 @@ def update_assigned_authors(page, authors_str)
     creator_essence.save!
 
     result[:status] = 'success'
+    return result
 
   rescue => e
-    result[:status] = 'error'
+    result[:status] = 'unexpected error'
     result[:error_message] = e.message
-
-  ensure
+    result[:error_trace] = e.backtrace.join("\n")
     return result
   end
 end
@@ -376,6 +392,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     slug: row['slug'],  # "#{page.language_code}/#{page.urlname}" or just page.urlname if language_code == "en_UK"
     link: row['link'],  # "https://www.philosophie.ch/#{slug}"
     _request: row['_request'],
+    _additional_info: row['_additional_info'],
     page_layout: row['page_layout'],  # page
 
     tag_page_type: row['tag_page_type'],  # tag
@@ -394,13 +411,14 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
     assigned_authors: row['assigned_authors'],  # box
 
-    intro_box_image: row['intro_box_image'],  # element
-    audio_box_files: row['audio_box_files'],  # element
-    video_box_files: row['video_box_files'],  # element
-    pdf_box_files: row['pdf_box_files'],  # element
-    picture_box_files: row['picture_box_files'],  # element
+    intro_block_image: row['intro_block_image'],  # element
+    audio_block_files: row['audio_block_files'],  # element
+    video_block_files: row['video_block_files'],  # element
+    pdf_block_files: row['pdf_block_files'],  # element
+    picture_block_files: row['picture_block_files'],  # element
 
     has_picture_with_text: row['has_picture_with_text'],  # element
+    _other_assets: row['_other_assets'],
     has_html_header_tags: row['has_html_header_tags'],  # element
 
     themetags: row['themetags'],  # themetags
@@ -408,12 +426,13 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     status: '',
     changes_made: '',
     error_message: '',
+    error_trace: '',
   }
 
 
   begin
 
-    Rails.logger.info("Processing page '#{page_report[:slug]}'...")
+    Rails.logger.info("Processing page '#{page_report[:urlname]}'...")
 
     # Control
     supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE']
@@ -425,24 +444,17 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       unless supported_requests.include?(req)
         page_report[:status] = "error"
         page_report[:error_message] = "Unsupported request '#{req}'. Skipping"
+        page_report[:error_trace] = "pages_tasks.rb::main::Control::Main"
       end
     end
 
     if req == 'POST'
-      retreived_pages = Alchemy::Page.where(urlname: urlname)
-      exact_page_match = retreived_pages.find { |p| p.language_code == language_code }
+      retreived_pages = Alchemy::Page.where(urlname: page_report[:urlname])
+      exact_page_match = retreived_pages.find { |p| p.language_code == page_report[:language_code] }
       if exact_page_match
         page_report[:status] = "error"
         page_report[:error_message] = "Page already exists. Skipping"
-        next
-      end
-    end
-
-    if req == 'UPDATE' || req == 'GET' || req == 'DELETE'
-      id = page_report[:id] || ''
-      if id.blank? || id == '' || id.nil?
-        page_report[:status] = "error"
-        page_report[:error_message] = "ID is empty, but required for '#{req}'. Skipping."
+        page_report[:error_trace] = "pages_tasks.rb::main::Control::POST"
         next
       end
     end
@@ -454,6 +466,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       if language_code.blank? || language_code == '' || language_code.nil? || urlname.blank? || urlname == '' || urlname.nil?
         page_report[:status] = "error"
         page_report[:error_message] = "language_code or urlname is empty. Skipping!"
+        page_report[:error_trace] = "pages_tasks.rb::main::Control::UPDATE"
         next
       end
 
@@ -461,7 +474,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
 
     # Parsing
-    Rails.logger.info("Processing page '#{page_report[:slug]}': Parsing")
+    Rails.logger.info("Processing page '#{page_report[:urlname]}': Parsing")
     id = page_report[:id] || ''
     name = page_report[:name] || ''
     title = page_report[:title] || ''
@@ -485,12 +498,12 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
     assigned_authors = page_report[:assigned_authors] || ''
 
-    intro_box_image = page_report[:intro_box_image] || ''
+    intro_block_image = page_report[:intro_block_image] || ''
 
-    audio_box_files = page_report[:audio_box_files] || ''
-    video_box_files = page_report[:video_box_files] || ''
-    pdf_box_files = page_report[:pdf_box_files] || ''
-    picture_box_files = page_report[:picture_box_files] || ''
+    audio_block_files = page_report[:audio_block_files] || ''
+    video_block_files = page_report[:video_block_files] || ''
+    pdf_block_files = page_report[:pdf_block_files] || ''
+    picture_block_files = page_report[:picture_block_files] || ''
 
     has_picture_with_text = page_report[:has_picture_with_text] || ''
     has_html_header_tags = page_report[:has_html_header_tags] || ''
@@ -499,33 +512,83 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
 
     # Setup
-    Rails.logger.info("Processing page '#{page_report[:slug]}': Setup")
+    Rails.logger.info("Processing page '#{page_report[:urlname]}': Setup")
 
     if req == 'POST'
       page = Alchemy::Page.new
 
+      alchemy_language_code = ''
+      alchemy_country_code = ''
+      if page_report[:language_code].include?('-')
+        alchemy_language_code = page_report[:language_code].split('-').first
+        alchemy_country_code= page_report[:language_code].split('-').last
+      else
+        alchemy_language_code = page_report[:language_code]
+      end
+
+      language = Alchemy::Language.find_by(language_code: alchemy_language_code, country_code: alchemy_country_code)
+
+      if language.nil?
+        Rails.logger.error("Language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping")
+        page_report[:status] = "error"
+        page_report[:error_message] = "Language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping"
+        page_report[:error_trace] = "pages_tasks.rb::main::Setup::POST"
+        next
+
+      else
+        root_page = Alchemy::Page.language_root_for(language.id)
+
+        if root_page.nil?
+          Rails.logger.error("Root page for language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping")
+          page_report[:status] = "error"
+          page_report[:error_message] = "Root page for language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping"
+          page_report[:error_trace] = "pages_tasks.rb::main::Setup::POST"
+          next
+        else
+          page.parent_id = root_page.id
+          page.language_id = root_page.language_id
+          page.language_code = root_page.language_code
+        end
+      end
+
     elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'
-      page = Alchemy::Page.find(id)
+      unless id.nil? || id.empty? || id.strip == '' || id.blank?
+        page = Alchemy::Page.find(id)
+      else
+        unless urlname.nil? || urlname.empty? || urlname.strip == '' || urlname.blank? || language_code.nil? || language_code.empty? || language_code.strip == '' || language_code.blank?
+          page = Alchemy::Page.find_by(urlname: urlname, language_code: language_code)  # this combination is unique
+
+        else
+          Rails.logger.error("Need ID, or urlname + language code for '#{req}'. Skipping")
+          page_report[:status] = "error"
+          page_report[:error_message] = "Need ID, or urlname + language code for '#{req}'. Skipping"
+          page_report[:error_trace] = "pages_tasks.rb::main::Setup::UPDATE-GET-DELETE"
+          next
+        end
+      end
 
       if page.nil?
-        Rails.logger.error("Page with ID '#{id}' not found. Skipping")
+        Rails.logger.error("Page with ID '#{id}' or urlname '#{urlname}' and language code '#{language_code}' not found. Skipping")
         page_report[:status] = "error"
-        page_report[:error_message] = "Page with ID '#{id}' not found. Skipping"
+        page_report[:error_message] = "Page with ID '#{id}' or urlname '#{urlname}' and language code '#{language_code}' not found. Skipping"
+        page_report[:error_trace] = "pages_tasks.rb::main::Setup::UPDATE-GET-DELETE"
         next
       end
 
     else  # Should not happen
       Rails.logger.error("Unsupported request '#{req}'. Skipping")
       page_report[:status] = "error"
-      page_report[:error_message] = "Unsupported request '#{req}'. Skipping"
+      page_report[:error_message] = "How did we get here? Unsupported request '#{req}'. Skipping"
+      page_report[:error_trace] = "pages_tasks.rb::main::Setup::Main"
       next
     end
 
     if req == 'DELETE'
       page.delete
-      if Alchemy::Page.find_by(id: id).exists?
+      if Alchemy::Page.find_by(id: id).present?
         page_report[:status] = "error"
         page_report[:error_message] = "Page not deleted by an unknown reason!. Skipping"
+        page_report[:error_trace] = "pages_tasks.rb::main::Setup::DELETE"
         next
       else
         page_report[:id] = ''
@@ -552,6 +615,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         slug: page_report[:slug],
         link: page_report[:link],
         _request: page_report[:_request],
+        _additional_info: page_report[:_additional_info],
         page_layout: page.page_layout,
 
         tag_page_type: old_page_tag_columns[:tag_page_type],
@@ -570,13 +634,14 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
         assigned_authors: old_page_assigned_authors,
 
-        intro_box_image: get_intro_box_image(page),
-        audio_box_files: get_audio_boxes_file_names(page),
-        video_box_files: get_video_boxes_file_names(page),
-        pdf_box_files: get_pdf_boxes_file_names(page),
-        picture_box_files: get_single_pictures_file_names(page),
+        intro_block_image: get_intro_block_image(page),
+        audio_block_files: get_audio_blocks_file_names(page),
+        video_block_files: get_video_blocks_file_names(page),
+        pdf_block_files: get_pdf_blocks_file_names(page),
+        picture_block_files: get_picture_blocks_file_names(page),
 
         has_picture_with_text: page.elements.any? { |element| element.name == 'text_and_picture' } ? "yes" : "",
+        _other_assets: page_report[:_other_assets],
         has_html_header_tags: has_html_header_tags(page),
 
         themetags: get_themetags(page),
@@ -584,14 +649,15 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         status: '',
         changes_made: '',
         error_message: '',
+        error_trace: '',
       }
     end
 
     # Execution
-    Rails.logger.info("Processing page '#{page_report[:slug]}': Execution")
+    Rails.logger.info("Processing page '#{page_report[:urlname]}': Execution")
 
     if req == "POST" || req == "UPDATE"
-      Rails.logger.info("Processing page '#{page_report[:slug]}': Setting attributes")
+      Rails.logger.info("Processing page '#{page_report[:urlname]}': Setting attributes")
       page.name = name
       page.title = title
       page.language_code = language_code
@@ -621,18 +687,22 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       update_authors_report = update_assigned_authors(page, page_report[:assigned_authors])
 
       if update_authors_report[:status] != 'success'
+        page_report = old_page  # Revert to old page
         page_report[:status] = 'error'
         page_report[:error_message] = update_authors_report[:error_message]
-        page_report[:error_message] += ". Skipping the rest!"
+        page_report[:error_message] += ". Not saved!\n"
+        page_report[:error_trace] = update_authors_report[:error_trace] + "\n"
         next
       end
 
-      update_intro_box_image_report = update_intro_box_image(page, intro_box_image)
+      update_intro_block_image_report = update_intro_block_image(page, intro_block_image)
 
-      if update_intro_box_image_report[:status] != 'success'
+      if update_intro_block_image_report[:status] != 'success'
+        page_report = old_page  # Revert to old page
         page_report[:status] = 'error'
-        page_report[:error_message] = update_intro_box_image_report[:error_message]
-        page_report[:error_message] += ". Skipping the rest!"
+        page_report[:error_message] = update_intro_block_image_report[:error_message]
+        page_report[:error_message] += ". Not saved!\n"
+        page_report[:error_trace] = update_intro_block_image_report[:error_trace] + "\n"
         next
       end
 
@@ -648,13 +718,14 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         page_report[:changes_made] = 'created'
       else
         page_report[:status] = 'error'
-        page_report[:error_message] = 'Error while saving or publishing page'
+        page_report[:error_message] += 'Error while saving or publishing page'
+        page_report[:error_trace] += 'pages_tasks.rb::main::Saving'
         next
       end
     end
 
     # Update report
-    Rails.logger.info("Processing page '#{page_report[:slug]}': Updating report")
+    Rails.logger.info("Processing page '#{page_report[:urlname]}': Updating report")
     tags_to_cols = tag_array_to_columns(page.tag_names)
     retrieved_slug = Alchemy::Engine.routes.url_helpers.show_page_path({
       locale: !page.language.default ? page.language_code : nil, urlname: page.urlname
@@ -680,11 +751,11 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       tag_references: tags_to_cols[:tag_references],
       tag_footnotes: tags_to_cols[:tag_footnotes],
       assigned_authors: get_assigned_authors(page),
-      intro_box_image: get_intro_box_image(page),
-      audio_box_files: get_audio_boxes_file_names(page),
-      video_box_files: get_video_boxes_file_names(page),
-      pdf_box_files: get_pdf_boxes_file_names(page),
-      picture_box_files: get_single_pictures_file_names(page),
+      intro_block_image: get_intro_block_image(page),
+      audio_block_files: get_audio_blocks_file_names(page),
+      video_block_files: get_video_blocks_file_names(page),
+      pdf_block_files: get_pdf_blocks_file_names(page),
+      picture_block_files: get_picture_blocks_file_names(page),
       has_picture_with_text: page.elements.any? { |element| element.name == 'text_and_picture' } ? "yes" : "",
       has_html_header_tags: has_html_header_tags(page),
       themetags: get_themetags(page),
@@ -694,7 +765,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     if req == "UPDATE" || req == "GET"
       changes = []
       page_report.each do |key, value|
-        if old_page[key] != value && key != :changes_made && key != :status && key != :error_message
+        if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace
           # Skip if both old and new values are empty
           unless old_page[key].to_s.empty? && value.to_s.empty?
             changes << "#{key}: #{old_page[key]} => #{value}"
@@ -705,13 +776,14 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     end
 
     page_report[:status] = 'success'
-    Rails.logger.info("Processing page '#{page_report[:slug]}': Done")
+    Rails.logger.info("Processing page '#{page_report[:urlname]}': Done")
 
 
   rescue => e
-    Rails.logger.error("Error while processing page '#{page_report[:slug]}': #{e.message}")
+    Rails.logger.error("Error while processing page '#{page_report[:urlname]}': #{e.message}")
     page_report[:status] = 'unexpected error'
     page_report[:error_message] = e.message
+    page_report[:error_trace] = e.backtrace.join("\n")
 
   ensure
     report << page_report
