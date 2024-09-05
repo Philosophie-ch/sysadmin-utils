@@ -244,7 +244,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
     if req == "DELETE"
       user.delete
-      if Alchemy::User.find_by(login: login).exists?
+      if Alchemy::User.find_by(login: login).present?
         Rails.logger.error("User '#{login}' not deleted for an unknown reason!")
         user_report[:status] = "error"
         user_report[:error_message] = "User '#{login}' not deleted for an unknown reason!"

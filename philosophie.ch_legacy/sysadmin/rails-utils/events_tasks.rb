@@ -171,7 +171,7 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
 
     if req == 'DELETE'
       event.delete
-      if Event.find_by(id: id).exists?
+      if Event.find_by(id: id).present?
         subreport[:status] = 'error'
         subreport[:error_message] = "Event with ID #{id} not deleted for an unknown reason!"
         next
