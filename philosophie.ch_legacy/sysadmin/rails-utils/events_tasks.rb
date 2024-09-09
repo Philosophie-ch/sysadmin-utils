@@ -50,14 +50,15 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
     profile_slug: row["profile_slug"] || '',
     title: row["title"] || '',
     city: row["city"] || '',
-    _old_link: row["_old_link"] || '',
     link: row["link"] || '',
+    _url: row["_url"] || '',
     _recurrent: row["_recurrent"] || '',
     _to_do_for_us: row["_to_do_for_us"] || '',
 
     status: '',
     changes_made: '',
-    error_message: ''
+    error_message: '',
+    error_trace: '',
   }
 
 
@@ -67,7 +68,7 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
     Rails.logger.info("Starting task for event...")
 
     supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE']
-    req = subreport[:_request]
+    req = subreport[:_request].upcase.strip
 
     if req.nil? || req.empty? || req.strip == ''
       subreport[:status] = ''
@@ -75,6 +76,8 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
       unless supported_requests.include?(req)
         subreport[:status] = 'error'
         subreport[:error_message] = "Request not supported: #{req}. Skipping..."
+        subreport[:error_trace] = "Main::Control"
+        next
       end
     end
 
@@ -83,6 +86,7 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
       unless same_events.empty?
         subreport[:status] = 'error'
         subreport[:error_message] = "Event with the same title, city, and date already exists. Skipping..."
+        subreport[:error_trace] = "Main::Control::POST"
         next
       end
     end
@@ -91,29 +95,34 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
       if subreport[:title].nil? || subreport[:title].empty? || subreport[:title].strip == '' || subreport[:title].blank?
         subreport[:status] = 'error'
         subreport[:error_message] = "Title is empty, but required for '#{req}'. Skipping..."
+        subreport[:error_trace] = "Main::Control::UPDATE/POST"
         next
       end
 
       if subreport[:city].nil? || subreport[:city].empty? || subreport[:city].strip == '' || subreport[:city].blank?
         subreport[:status] = 'error'
         subreport[:error_message] = "City is empty, but required for '#{req}'. Skipping..."
+        subreport[:error_trace] = "Main::Control::UPDATE/POST"
         next
       end
 
       if subreport[:date].nil? || subreport[:date].empty? || subreport[:date].strip == '' || subreport[:date].blank?
         subreport[:status] = 'error'
         subreport[:error_message] = "Date is empty, but required for '#{req}'. Skipping..."
+        subreport[:error_trace] = "Main::Control::UPDATE/POST"
         next
       end
 
       if subreport[:profile_slug].nil? || subreport[:profile_slug].empty? || subreport[:profile_slug].strip == '' || subreport[:profile_slug].blank?
         subreport[:status] = 'error'
         subreport[:error_message] = "Profile slug is empty, but required for '#{req}'. Skipping..."
+        subreport[:error_trace] = "Main::Control::UPDATE/POST"
         next
       else
         if Profile.find_by(slug: subreport[:profile_slug]).nil?
           subreport[:status] = 'error'
           subreport[:error_message] = "Profile with slug '#{subreport[:profile_slug]}' not found. Skipping..."
+          subreport[:error_trace] = "Main::Control::UPDATE/POST"
           next
         end
       end
@@ -146,17 +155,28 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
           Rails.logger.error("Event with ID #{id} not found. Skipping...")
           subreport[:status] = 'error'
           subreport[:error_message] = "Event with ID #{id} not found. Skipping..."
+          subreport[:error_trace] = "Main::Setup"
           next
         end
 
       else
         # else try to retrieve event by title, city, and date
         event = Event.where(title: title, city: city, date: date).first
+
+        if event.nil?
+          Rails.logger.error("Event with title '#{title}', city '#{city}', and date '#{date}' not found. Skipping...")
+          subreport[:status] = 'error'
+          subreport[:error_message] = "Event with title '#{title}', city '#{city}', and date '#{date}' not found. Skipping..."
+          subreport[:error_trace] = "Main::Setup"
+          next
+        end
+
         retrieved_profile_slug = event.profile.slug
 
         if subreport[:profile_slug] != retrieved_profile_slug
           subreport[:status] = 'error'
           subreport[:error_message] = "Profile slug mismatch: '#{subreport[:profile_slug]}' != '#{retrieved_profile_slug}'. Skipping..."
+          subreport[:error_trace] = "Main::Setup"
           next
         end
       end
@@ -166,6 +186,7 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
       Rails.logger.error("Request not supported: #{req}. Skipping...")
       subreport[:status] = 'error'
       subreport[:error_message] = "Request not supported: #{req}. Skipping..."
+      subreport[:error_trace] = "Main::Setup"
       next
     end
 
@@ -174,6 +195,7 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
       if Event.find_by(id: id).present?
         subreport[:status] = 'error'
         subreport[:error_message] = "Event with ID #{id} not deleted for an unknown reason!"
+        subreport[:error_trace] = "Main::Setup::DELETE"
         next
       else
         subreport[:id] = ''
@@ -191,14 +213,15 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
         profile_slug: event.profile.slug,
         title: event.title,
         city: event.city,
-        _old_link: subreport[:_old_link],
         link: event.link,
+        _url: subreport[:_url],
         _recurrent: subreport[:_recurrent],
         _to_do_for_us: subreport[:_to_do_for_us],
 
         status: subreport[:status],
         changes_made: subreport[:changes_made],
-        error_message: subreport[:error_message]
+        error_message: subreport[:error_message],
+        error_trace: subreport[:error_trace],
       }
     end
 
@@ -219,6 +242,7 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
       else
         subreport[:status] = 'error'
         subreport[:error_message] = "Event not saved for an unknown reason! Skipping..."
+        subreport[:error_trace] = "Main::Execution"
         next
       end
     end
@@ -231,13 +255,14 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
       profile_slug: event.profile.slug,
       title: event.title,
       city: event.city,
-      link: event.link
+      link: event.link,
+      _url: "https://www.philosophie.ch#{event.link}",
     })
 
     if req == 'UPDATE' || req == 'GET'
       changes = []
       subreport.each do |key, value|
-        if old_event[key] != value && key != :changes_made && key != :status && key != :error_message
+        if old_event[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace
           unless old_event[key].to_s.empty? && value.to_s.empty?
             changes << "#{key}: #{old_event[key]} => #{value}"
           end
@@ -252,6 +277,7 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
   rescue StandardError => e
     subreport[:status] = 'unexpected error'
     subreport[:error_message] = e.message
+    subreport[:error_trace] = e.backtrace.join("\n")
 
   ensure
     report << subreport
