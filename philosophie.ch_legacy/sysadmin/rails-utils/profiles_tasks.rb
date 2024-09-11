@@ -19,6 +19,10 @@ if ARGV[0]
 end
 
 
+############
+# FUNCTIONS
+############
+
 def generate_csv_report(report)
   return if report.empty?
   headers = report.first.keys
