@@ -48,7 +48,6 @@ def generate_hashed_email_address(counter)
   short_hash = Digest::SHA256.hexdigest(Time.now.to_s)[-16, 16]
   unique_hash = "#{short_hash}#{counter}"
   email = "info-#{unique_hash}@philosophie.ch"
-  counter += 1
 end
 
 def get_assigned_articles(user)
@@ -82,7 +81,7 @@ end
 
 report = []
 counter = 0
-CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
+CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16') do |row|
 
   subreport = {
     _correspondence: row["_correspondence"] || "",
@@ -106,7 +105,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
     login: row["login"] || "",
     _old_login: row["_old_login"] || "",
     _link: row["_link"] || "",
-    password: ["password"] || "",
+    password: row["password"] || "",
     language: row["language"] || "",
     gender: row["gender"] || "",
 
@@ -169,8 +168,11 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
     # Control
     login = subreport[:login].strip
     id = subreport[:id].strip
+    req = subreport[:_request].strip
+
     if login.blank? && id.blank?
       Rails.logger.error("Login and ID are missing. Skipping.")
+      subreport[:_request] = req + " ERROR"
       subreport[:status] = "error"
       subreport[:error_message] = "Either login or ID are missing, but need at least one to uniquely identify a profile. Skipping."
       subreport[:error_trace] = "Main::Control"
@@ -178,17 +180,17 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
     end
 
     Rails.logger.info("Processing user '#{login}']}'")
-
-    req = subreport[:_request].strip
     supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE']
     unless supported_requests.include?(req)
       if req.blank?
+        subreport[:_request] = req + " ERROR"
         subreport[:status] = "success"
         subreport[:error_message] = "Request is blank. Skipping."
         subreport[:error_trace] = "Main::Control"
         next
       end
 
+      subreport[:_request] = req + " ERROR"
       subreport[:status] = "error"
       subreport[:error_message] = "Request is not one of #{supported_requests.join(", ")}. Skipping."
       subreport[:error_trace] = "Main::Control"
@@ -199,6 +201,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
     if req == "POST"
       user = Alchemy::User.find_by(login: login)
       if user
+        subreport[:_request] = req + " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "User '#{login}' already exists. Skipping."
         subreport[:error_trace] = "Main::Control::POST"
@@ -264,7 +267,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
     if req == "POST"
         user = Alchemy::User.new()
 
-    elsif req == "UPDATE" || req == "GET"
+    elsif req == "UPDATE" || req == "GET" || req == "DELETE"
 
       unless id.blank?
         user = Alchemy::User.find(id)
@@ -273,6 +276,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
         user = Alchemy::User.find_by(login: login)
         else
           Rails.logger.error("Error: login and id are both blank. Skipping.")
+          subreport[:_request] = req + " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Login and id are both blank. Skipping."
           subreport[:error_trace] = "Main::Setup"
@@ -282,6 +286,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
       if user.nil?
         Rails.logger.error("User '#{login}' not found in the server, but requested 'UPDATE' or 'GET'. Skipping.")
+        subreport[:_request] = req + " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "User '#{login}' with id '#{id}' not found but requested 'UPDATE' or 'GET'. Skipping."
         subreport[:error_trace] = "Main::Setup::UPDATE/GET"
@@ -290,6 +295,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
       if user.profile.nil?
         Rails.logger.error("User '#{login}' with id '#{id}' does not have a profile attached to it. How is this even possible? Verify manually. Skipping.")
+        subreport[:_request] = req + " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "User '#{login}' with id '#{id}' does not have a profile but requested 'UPDATE' or 'GET'. Skipping."
         subreport[:error_trace] = "Main::Setup::UPDATE/GET"
@@ -298,6 +304,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
     else # Should not happen
         Rails.logger.error("Error: _request not supported")
+        subreport[:_request] = req + " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "_request not supported"
         subreport[:error_trace] = "Main::Setup"
@@ -309,9 +316,14 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
     Rails.logger.info("Processing user '#{login}': Execution")
 
     if req == "DELETE"
+      profile = user.profile
+      profile_id = profile.id
       user.delete
-      if Alchemy::User.find_by(login: login).present?
+      profile.delete
+
+      if Alchemy::User.find_by(login: login).present? || Profile.find_by(id: profile_id).present?
         Rails.logger.error("User '#{login}' not deleted for an unknown reason!")
+        subreport[:_request] = req + " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "User '#{login}' not deleted for an unknown reason!"
         subreport[:error_trace] = "Main::Execution::DELETE"
@@ -404,6 +416,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
         if req == "POST"
           password = generate_randomized_password
           email = generate_hashed_email_address(counter)
+          counter += 1
           user.email = email
           user.password = password
           user.password_confirmation = password
@@ -462,6 +475,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
             while !successful_save && post_counter < 3
               post_counter += 1
               email = generate_hashed_email_address(counter)
+              counter += 1
               user.email = email
               user.password = password
               user.password_confirmation = password
@@ -473,6 +487,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
         end
 
         if !successful_save
+          subreport[:_request] = req + " ERROR"
           subreport[:status] = "error"
           err_msg = ""
           err_trace = ""
@@ -573,6 +588,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true) do |row|
 
   rescue => e
     Rails.logger.error("Error while processing '#{login}': #{e.message}")
+    subreport[:_request] = req + " ERROR"
     subreport[:status] = 'unexpected error'
     subreport[:error_message] = e.message
     subreport[:error_trace] = e.backtrace.join("\n")
