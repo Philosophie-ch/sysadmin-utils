@@ -409,11 +409,12 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
         user.alchemy_roles = alchemy_roles
         user.language = language
         user.gender = gender
-
+        user.password = password
         user.firstname = firstname
         user.lastname = lastname
 
         if req == "POST"
+          # Randomize password on POST
           password = generate_randomized_password
           email = generate_hashed_email_address(counter)
           counter += 1
@@ -423,6 +424,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
           user.profile = Profile.new(
             slug: user.login,
           )
+          subreport[:password] = password
         end
 
         user.profile.slug = login
