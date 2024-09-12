@@ -173,7 +173,7 @@ def update_intro_block_image(page, image_file_name)
     return result
 
   rescue => e
-    result[:status] = 'unexpected error'
+    result[:status] = 'unhandled error'
     result[:error_message] = e.message
     result[:error_trace] = e.backtrace.join("\n")
     return result
@@ -313,7 +313,7 @@ def update_assigned_authors(page, authors_str)
     return result
 
   rescue => e
-    result[:status] = 'unexpected error'
+    result[:status] = 'unhandled error'
     result[:error_message] = e.message
     result[:error_trace] = e.backtrace.join("\n")
     return result
@@ -786,7 +786,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
   rescue => e
     Rails.logger.error("Error while processing page '#{subreport[:urlname]}': #{e.message}")
-    subreport[:status] = 'unexpected error'
+    subreport[:status] = 'unhandled error'
     subreport[:error_message] = e.message
     subreport[:error_trace] = e.backtrace.join("\n")
 

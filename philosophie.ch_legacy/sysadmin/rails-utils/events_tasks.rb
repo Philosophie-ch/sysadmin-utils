@@ -279,7 +279,7 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
     Rails.logger.info("Event processed successfully!")
 
   rescue StandardError => e
-    subreport[:status] = 'unexpected error'
+    subreport[:status] = 'unhandled error'
     subreport[:error_message] = e.message
     subreport[:error_trace] = e.backtrace.join("\n")
 
