@@ -2,6 +2,7 @@ require 'csv'
 require 'digest'
 
 ActiveRecord::Base.logger.level = Logger::WARN
+ActiveSupport::Deprecation.behavior = [:silence]  # silence useless deprecation warnings
 
 Rails.logger.level = Logger::INFO
 
@@ -40,15 +41,18 @@ def generate_csv_report(report)
   Rails.logger.info("\n\n\n============ Report generated at #{file_name} ============\n\n\n")
 end
 
+
 def generate_randomized_password
   Digest::SHA256.hexdigest(Time.now.to_s)[-16, 16]
 end
+
 
 def generate_hashed_email_address(counter)
   short_hash = Digest::SHA256.hexdigest(Time.now.to_s)[-16, 16]
   unique_hash = "#{short_hash}#{counter}"
   email = "info-#{unique_hash}@philosophie.ch"
 end
+
 
 def get_assigned_articles(user)
   all_articles = Alchemy::Page.where(page_layout: 'article')
@@ -66,11 +70,205 @@ def get_assigned_articles(user)
   user_creator_essences.map(&:page)
 end
 
+
 def get_page_link(page)
     retrieved_slug = Alchemy::Engine.routes.url_helpers.show_page_path({
       locale: !page.language.default ? page.language_code : nil, urlname: page.urlname
     })
     "https://www.philosophie.ch#{retrieved_slug}"
+end
+
+
+def update_links(new_login, old_login)
+  ActiveSupport::Deprecation.behavior = [:silence]  # silence useless deprecation warnings
+  Rails.logger.info("Updating links from '#{old_login}' to '#{new_login}'...")
+  update_links_report = {
+    status: "not started",
+    old_login: old_login,
+    new_login: new_login,
+    error_message: "",
+    error_trace: "",
+    changed_essences: [],
+    failed_essences: []
+  }
+
+  begin
+    if old_login.blank? || new_login.blank?
+      update_links_report[:status] = "error"
+      update_links_report[:error_message] = "Old login or new login is blank. Skipping update_links."
+      return update_links_report
+    end
+
+    if old_login == new_login
+      update_links_report[:status] = "success"
+      update_links_report[:error_message] = "Old login is the same as new login, no need to update links."
+      return update_links_report
+    end
+
+    Rails.logger.info("\t...setup...")
+    old_link_double_quotes = sprintf('/profil/%s"', old_login)
+    new_link_double_quotes = sprintf('/profil/%s"', new_login)
+    old_link_single_quotes = sprintf("/profil/%s'", old_login)
+    new_link_single_quotes = sprintf("/profil/%s'", new_login)
+
+    all_essences_text = Alchemy::EssenceText.all
+    all_essences_richtext = Alchemy::EssenceRichtext.all
+
+    Rails.logger.info("\t...retrieved essences, now processing...")
+    # Text
+    all_essences_text.each do |essence|
+      begin
+        body = essence.body.to_s
+
+        if body.include?(old_link_double_quotes) || body.include?(old_link_single_quotes)
+
+          if body.include?(old_link_double_quotes)
+          new_body = body.gsub(old_link_double_quotes, new_link_double_quotes)
+          elsif body.include?(old_link_single_quotes)
+          new_body = body.gsub(old_link_single_quotes, new_link_single_quotes)
+          end
+
+          essence.body = new_body
+          essence.save!
+          essence.page.save!
+          essence.page.publish!
+          changed_essence = {
+            e_id: essence.id,
+            p_id: essence&.page&.id,
+            p_urlname: essence&.page&.urlname
+          }
+          update_links_report[:changed_essences] << changed_essence
+        end
+      rescue => e
+        failed_essence = {
+          essence_id: essence.id,
+          error_message: e.message,
+          error_trace: e.backtrace.first
+        }
+        update_links_report[:failed_essences] << failed_essence
+      end
+    end
+    # Richtext
+    all_essences_richtext.each do |essence|
+      begin
+        body = essence.body.to_s
+
+        if body.include?(old_link_double_quotes) || body.include?(old_link_single_quotes)
+
+          if body.include?(old_link_double_quotes)
+            new_body = body.gsub(old_link_double_quotes, new_link_double_quotes)
+          elsif body.include?(old_link_single_quotes)
+            new_body = body.gsub(old_link_single_quotes, new_link_single_quotes)
+          end
+
+          essence.body = new_body
+          essence.save!
+          if essence.page.nil?
+            changed_essence = {
+              e_id: essence.id,
+              p_id: nil,
+              p_urlname: "essence is not attached to a page!",
+          }
+          else
+            essence.page.save!
+            essence.page.publish!
+            changed_essence = {
+              e_id: essence.id,
+              p_id: essence&.page&.id,
+              p_urlname: essence&.page&.urlname
+            }
+          end
+          update_links_report[:changed_essences] << changed_essence
+        end
+      rescue => e
+        failed_essence = {
+          essence_id: essence.id,
+          error_message: e.message,
+          error_trace: e.backtrace.first
+        }
+        update_links_report[:failed_essences] << failed_essence
+      end
+    end
+
+    # Update report
+    if update_links_report[:failed_essences].empty?
+      update_links_report[:status] = "success"
+      Rails.logger.info("\t...success!")
+    else
+      update_links_report[:status] = "partial success"
+      Rails.logger.info("\t...partial success!")
+    end
+
+    return update_links_report
+
+  rescue => e
+    update_links_report[:status] = "unhandled error"
+    update_links_report[:error_message] = e.message
+    update_links_report[:error_trace] = e.backtrace.first
+    return update_links_report
+  end
+end
+
+
+def get_profile_picture(user)
+  profile_picture = user.profile&.avatar&.attached? ? user&.profile&.avatar&.filename.to_s : ''
+  return profile_picture
+end
+
+def set_profile_picture(user, new_filename)
+
+  set_profile_picture_report = {
+    new_filename: new_filename,
+    status: "not started",
+    error_message: "",
+    error_trace: "",
+  }
+  begin
+    Rails.logger.info("Updating profile picture for '#{user.login}'...")
+
+    if new_filename.blank?
+      Rails.logger.info("\tnew filename is blank. Skipping...")
+      set_profile_picture_report[:status] = "success"
+      return set_profile_picture_report
+    end
+
+    old_filename = get_profile_picture(user)
+
+    if old_filename == new_filename
+      Rails.logger.info("\tnew filename is the same as the old one. Skipping...")
+      set_profile_picture_report[:status] = "success"
+      return set_profile_picture_report
+    end
+
+    picture = Alchemy::Picture.find_by(image_file_name: new_filename)
+
+    if picture.nil?
+      Rails.logger.error("Picture with image_file_name '#{new_filename}' not found. Skipping...")
+      set_profile_picture_report[:status] = 'error'
+      set_profile_picture_report[:error_message] = "Picture with image_file_name '#{new_filename}' not found"
+      set_profile_picture_report[:error_trace] = "profiles_tasks.rb::set_profile_picture"
+      return set_profile_picture_report
+    end
+
+    Rails.logger.info("\t #{new_filename} found, attaching to user...")
+    user.profile.avatar.attach(
+      io: File.open(picture.image_file.path),
+      filename: picture.image_file_name,
+      content_type: picture.image_file.mime_type
+    )
+
+    user.profile.avatar.save!
+    user.profile.save!
+    user.save!
+    return set_profile_picture_report
+    Rails.logger.info("\t...success!")
+
+  rescue => e
+    set_profile_picture_report[:status] = "unhandled error"
+    set_profile_picture_report[:error_message] = e.message
+    set_profile_picture_report[:error_trace] = e.backtrace.first
+    return set_profile_picture_report
+  end
 end
 
 
@@ -82,7 +280,8 @@ end
 report = []
 counter = 0
 CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16') do |row|
-
+  puts "\n"
+  Rails.logger.info("Processing row...")
   subreport = {
     _correspondence: row["_correspondence"] || "",
     _todo_person: row["_todo_person"] || "",
@@ -137,6 +336,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
     changes_made: '',
     error_message: '',
     error_trace: '',
+    update_links_report: '',
 
     # dump
     birth_date: row["birth_date"] || "",
@@ -179,8 +379,8 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
       next
     end
 
-    Rails.logger.info("Processing user '#{login}']}'")
-    supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE']
+    Rails.logger.info("Processing user '#{login}'")
+    supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'UPDATE LINKS']
     unless supported_requests.include?(req)
       if req.blank?
         subreport[:_request] = req + " ERROR"
@@ -267,7 +467,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
     if req == "POST"
         user = Alchemy::User.new()
 
-    elsif req == "UPDATE" || req == "GET" || req == "DELETE"
+    elsif req == "UPDATE" || req == "GET" || req == "DELETE" || req == "UPDATE LINKS" || req == "UPDATE PASSWORD"
 
       unless id.blank?
         user = Alchemy::User.find(id)
@@ -289,7 +489,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
         subreport[:_request] = req + " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "User '#{login}' with id '#{id}' not found but requested 'UPDATE' or 'GET'. Skipping."
-        subreport[:error_trace] = "Main::Setup::UPDATE/GET"
+        subreport[:error_trace] = "Main::Setup"
         next
       end
 
@@ -298,7 +498,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
         subreport[:_request] = req + " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "User '#{login}' with id '#{id}' does not have a profile but requested 'UPDATE' or 'GET'. Skipping."
-        subreport[:error_trace] = "Main::Setup::UPDATE/GET"
+        subreport[:error_trace] = "Main::Setup"
         next
       end
 
@@ -342,7 +542,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
         _correspondence: subreport[:_correspondence],
         _todo_person: subreport[:_todo_person],
         _request: subreport[:_request],
-        alchemy_roles: user.alchemy_roles,
+        alchemy_roles: user.alchemy_roles.join(', '),
         _member_subcategory: subreport[:_member_subcategory],
         id: user.id,
         _role_wrt_portal: subreport[:_role_wrt_portal],
@@ -368,12 +568,14 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
         teacher_at_institution: user.profile.teacher_at_institution,
         societies: user.profile.societies.map(&:name).join(', '),
         cms_public_email_toggle: user.profile.cms_public_email_toggle,
+        profile_picture: get_profile_picture(user),
         facebook_profile: user.profile.facebook_profile,
 
         status: '',
         changes_made: '',
         error_message: '',
         error_trace: '',
+        update_links_report: '',
 
         birth_date: user.profile.birth_date,
         public: user.profile.public,
@@ -404,12 +606,10 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
 
     if req == "POST" || req == "UPDATE"
         Rails.logger.info("Processing user '#{login}': MUTATION FOLLOWING!")
-        user.login = login
         alchemy_roles = alchemy_roles_str.split(',').map(&:strip)
         user.alchemy_roles = alchemy_roles
         user.language = language
         user.gender = gender
-        user.password = password
         user.firstname = firstname
         user.lastname = lastname
 
@@ -427,7 +627,9 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
           subreport[:password] = password
         end
 
+        user.login = login
         user.profile.slug = login
+
         user.profile.name = profile_name
         user.profile.abbreviation = abbreviation
         user.profile.email_addresses = email_addresses
@@ -488,6 +690,27 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
           end
         end
 
+        if req == "UPDATE"
+          retrieved_user = Alchemy::User.find_by(login: login)
+          if retrieved_user.nil?
+            Rails.logger.error("User '#{login}': user not saved!")
+            subreport[:_request] = req + " ERROR"
+            subreport[:status] = "error"
+            subreport[:error_message] = "User not saved!"
+            subreport[:error_trace] = "Main::Execution::Save"
+            subreport[:update_links_report] = "User not saved, no need to update links."
+            next
+          end
+          if retrieved_user.login != old_user[:login]
+            # Update links
+            old_login = old_user[:login]
+            update_links_report = update_links(login, old_login)
+            subreport[:update_links_report] = update_links_report
+          else
+            subreport[:update_links_report] = "Old login is the same as new login, no need to update links."
+          end
+        end
+
         if !successful_save
           subreport[:_request] = req + " ERROR"
           subreport[:status] = "error"
@@ -507,6 +730,34 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
           subreport[:error_trace] = err_trace
           next
         end
+
+    end
+
+    if req == "UPDATE LINKS"
+      old_login = subreport[:_old_login].strip
+      update_links_report = update_links(login, old_login)
+      subreport[:update_links_report] = update_links_report
+    end
+
+    if req == "UPDATE PASSWORD"
+      password = generate_randomized_password
+      user.password = password
+      user.password_confirmation = password
+      user.save!
+      subreport[:password] = password
+    end
+
+    # Complex actions
+    if req == "UPDATE"
+
+      # Set profile picture
+      if profile_picture.present?
+        set_profile_picture_report = set_profile_picture(user, profile_picture)
+        if set_profile_picture_report[:status] != "success"
+          subreport[:error_message] = set_profile_picture_report[:error_message]
+          subreport[:error_trace] = set_profile_picture_report[:error_trace]
+        end
+      end
 
     end
 
@@ -534,7 +785,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
       societies: user.profile.societies.map(&:name).join(', '),
       show_email: user.profile.show_email,
       cms_public_email_toggle: user.profile.cms_public_email_toggle,
-      profile_picture: user.profile&.avatar&.attached? ? user&.profile&.avatar&.filename.to_s : '',
+      profile_picture: get_profile_picture(user),
       facebook_profile: user.profile.facebook_profile,
 
       birth_date: user.profile.birth_date,
@@ -573,7 +824,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
     if req == "UPDATE" || req == "GET"
       changes = []
       subreport.each do |key, value|
-        if old_user[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace
+        if old_user[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :update_links_report
           # Skip if both old and new values are empty
           unless old_user[key].to_s.empty? && value.to_s.empty?
             changes << "#{key}: {{ #{old_user[key]} }} => {{ #{value} }}"
@@ -591,12 +842,13 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
   rescue => e
     Rails.logger.error("Error while processing '#{login}': #{e.message}")
     subreport[:_request] = req + " ERROR"
-    subreport[:status] = 'unexpected error'
+    subreport[:status] = 'unhandled error'
     subreport[:error_message] = e.message
     subreport[:error_trace] = e.backtrace.join("\n")
 
   ensure
     report << subreport
+    Rails.logger.info("Processed user '#{login}'")
   end
 
 end
