@@ -1,5 +1,5 @@
 require 'csv'
-require 'digest'
+require 'securerandom'
 
 ActiveRecord::Base.logger.level = Logger::WARN
 ActiveSupport::Deprecation.behavior = [:silence]  # silence useless deprecation warnings
@@ -43,14 +43,13 @@ end
 
 
 def generate_randomized_password
-  Digest::SHA256.hexdigest(Time.now.to_s)[-16, 16]
+  SecureRandom.uuid.gsub('-', '')[0, 16]
 end
 
 
-def generate_hashed_email_address(counter)
-  short_hash = Digest::SHA256.hexdigest(Time.now.to_s)[-16, 16]
-  unique_hash = "#{short_hash}#{counter}"
-  email = "info-#{unique_hash}@philosophie.ch"
+def generate_hashed_email_address
+  hash = SecureRandom.uuid.gsub('-', '')[-16, 16]
+  email = "info-#{hash}@philosophie.ch"
 end
 
 
@@ -278,10 +277,10 @@ end
 ############
 
 report = []
-counter = 0
+processed_lines = 0
 CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16') do |row|
   puts "\n"
-  Rails.logger.info("Processing row...")
+  Rails.logger.info("Processing row #{processed_lines + 1}...")
   subreport = {
     _correspondence: row["_correspondence"] || "",
     _todo_person: row["_todo_person"] || "",
@@ -616,8 +615,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
         if req == "POST"
           # Randomize password on POST
           password = generate_randomized_password
-          email = generate_hashed_email_address(counter)
-          counter += 1
+          email = generate_hashed_email_address
           user.email = email
           user.password = password
           user.password_confirmation = password
@@ -678,8 +676,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
             post_counter = 0
             while !successful_save && post_counter < 3
               post_counter += 1
-              email = generate_hashed_email_address(counter)
-              counter += 1
+              email = generate_hashed_email_address
               user.email = email
               user.password = password
               user.password_confirmation = password
@@ -848,7 +845,8 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
 
   ensure
     report << subreport
-    Rails.logger.info("Processed user '#{login}'")
+    Rails.logger.info("Processed user '#{login.blank? ? id : login}'. Processed lines so far: #{processed_lines + 1}")
+    processed_lines += 1
   end
 
 end

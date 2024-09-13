@@ -390,9 +390,10 @@ end
 
 report = []
 counter = 0
+processed_lines = 0
 
 CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
-
+  Rails logger.info("Processing row #{processed_lines + 1}")
   subreport = {
     _sort: row['_sort'] || "",
     id: row['id'] || "",  # page
@@ -404,7 +405,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     link: row['link'] || "",  # crafted
     _request: row['_request'] || "",
     _additional_info: row['_additional_info'] || "",
-    publication_date: row['publication_date'] || "",  # page
+    created_at: row['created_at'] || "",  # page
     page_layout: row['page_layout'] || "",  # page
 
     tag_page_type: row['tag_page_type'] || "",  # tag
@@ -454,7 +455,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       subreport[:status] = ""
     else
       unless supported_requests.include?(req)
-        subreport[_request] += " ERROR"
+        subreport[:_request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "Unsupported request '#{req}'. Skipping"
         subreport[:error_trace] = "pages_tasks.rb::main::Control::Main"
@@ -467,7 +468,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
     if req == 'POST'
       if urlname.blank? || language_code.blank?
-        subreport[_request] += " ERROR"
+        subreport[:_request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "Need urlname and language code for 'POST'. Skipping"
         subreport[:error_trace] = "pages_tasks.rb::main::Control::POST"
@@ -476,7 +477,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       retreived_pages = Alchemy::Page.where(urlname: urlname)
       exact_page_match = retreived_pages.find { |p| p.language_code == language_code }
       if exact_page_match
-        subreport[_request] += " ERROR"
+        subreport[:_request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "Page already exists. Skipping"
         subreport[:error_trace] = "pages_tasks.rb::main::Control::POST"
@@ -486,7 +487,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
     if req == 'UPDATE' || req == 'GET' || req == 'DELETE'
       if id.blank? && (language_code.blank? || urlname.blank?)
-        subreport[_request] += " ERROR"
+        subreport[:_request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "Need ID, or urlname + language code for '#{req}'. Skipping"
         subreport[:error_trace] = "pages_tasks.rb::main::Control::UPDATE/GET/DELETE"
@@ -503,7 +504,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     title = subreport[:title].strip
     slug = subreport[:slug].strip
     link = subreport[:link].strip
-    publication_date = subreport[:publication_date].strip
+    created_at = subreport[:created_at].strip
     page_layout = subreport[:page_layout].strip
 
     tag_page_type = subreport[:tag_page_type].strip
@@ -651,7 +652,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         link: subreport[:link],
         _request: subreport[:_request],
         _additional_info: subreport[:_additional_info],
-        publication_date: subreport[:publication_date],
+        created_at: page.created_at,
         page_layout: page.page_layout,
 
         tag_page_type: old_page_tag_columns[:tag_page_type],
@@ -699,7 +700,6 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       page.title = title
       page.language_code = language_code
       page.urlname = urlname
-      # TODO: implement publication_date
       page.page_layout = page_layout
 
       tag_columns = {
@@ -736,6 +736,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       urlname: page.urlname,
       slug: retrieved_slug,
       link: "https://www.philosophie.ch#{retrieved_slug}",
+      created_at: page.created_at,
       page_layout: page.page_layout,
       tag_page_type: tags_to_cols[:tag_page_type],
       tag_media_1: tags_to_cols[:tag_media_1],
@@ -747,6 +748,8 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       tag_special_content_2: tags_to_cols[:tag_special_content_2],
       tag_references: tags_to_cols[:tag_references],
       tag_footnotes: tags_to_cols[:tag_footnotes],
+      assigned_authors: get_assigned_authors(page),
+      intro_block_image: get_intro_block_image(page),
       audio_block_files: get_audio_blocks_file_names(page),
       video_block_files: get_video_blocks_file_names(page),
       pdf_block_files: get_pdf_blocks_file_names(page),
@@ -816,6 +819,8 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
   ensure
     report << subreport
+    Rails.logger.info("Processing page: Done!. Processed lines so far: #{processed_lines + 1}")
+    processed_lines += 1
   end
 
 end
