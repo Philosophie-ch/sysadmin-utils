@@ -376,6 +376,12 @@ def get_themetags(page)
   return ""
 end
 
+def retrieve_page_slug(page)
+  Alchemy::Engine.routes.url_helpers.show_page_path({
+    locale: !page.language.default ? page.language_code : nil, urlname: page.urlname
+  })
+end
+
 
 
 ############
@@ -388,45 +394,47 @@ counter = 0
 CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
   subreport = {
-    _sort: row['_sort'],
-    id: row['id'],  # page
-    name: row['name'],  # page
-    title: row['title'],  # page
-    language_code: row['language_code'],  # page
-    urlname: row['urlname'],  # page
-    slug: row['slug'],  # "#{page.language_code}/#{page.urlname}" or just page.urlname if language_code == "en_UK"
-    link: row['link'],  # "https://www.philosophie.ch/#{slug}"
-    _request: row['_request'],
-    _additional_info: row['_additional_info'],
-    page_layout: row['page_layout'],  # page
+    _sort: row['_sort'] || "",
+    id: row['id'] || "",  # page
+    name: row['name'] || "",  # page
+    title: row['title'] || "",  # page
+    language_code: row['language_code'] || "",  # page
+    urlname: row['urlname'] || "",  # page
+    slug: row['slug'] || "", # page
+    link: row['link'] || "",  # crafted
+    _request: row['_request'] || "",
+    _additional_info: row['_additional_info'] || "",
+    publication_date: row['publication_date'] || "",  # page
+    page_layout: row['page_layout'] || "",  # page
 
-    tag_page_type: row['tag_page_type'],  # tag
-    tag_media_1: row['tag_media_1'],  # tag
-    tag_media_2: row['tag_media_2'],  # tag
-    tag_language: row['tag_language'],  # tag
-    tag_university: row['tag_university'],  # tag
-    tag_canton: row['tag_canton'],  # tag
-    tag_special_content_1: row['tag_special_content_1'],  # tag
-    tag_special_content_2: row['tag_special_content_2'],  # tag
-    tag_references: row['tag_references'],  # tag
-    tag_footnotes: row['tag_footnotes'],  # tag
-    tag_others: row['tag_others'],  # tag
+    tag_page_type: row['tag_page_type'] || "",  # tag
+    tag_media_1: row['tag_media_1'] || "",  # tag
+    tag_media_2: row['tag_media_2'] || "",  # tag
+    tag_language: row['tag_language'] || "",  # tag
+    tag_university: row['tag_university'] || "",  # tag
+    tag_canton: row['tag_canton'] || "",  # tag
+    tag_special_content_1: row['tag_special_content_1'] || "",  # tag
+    tag_special_content_2: row['tag_special_content_2'] || "",  # tag
+    tag_references: row['tag_references'] || "",  # tag
+    tag_footnotes: row['tag_footnotes'] || "",  # tag
+    tag_others: row['tag_others'] || "",  # tag
 
-    _to_do_on_the_portal: row['_to_do_on_the_portal'],
+    _assets: row['_assets'] || "",
+    _to_do_on_the_portal: row['_to_do_on_the_portal'] || "",
 
-    assigned_authors: row['assigned_authors'],  # box
+    assigned_authors: row['assigned_authors'] || "",  # box
 
-    intro_block_image: row['intro_block_image'],  # element
-    audio_block_files: row['audio_block_files'],  # element
-    video_block_files: row['video_block_files'],  # element
-    pdf_block_files: row['pdf_block_files'],  # element
-    picture_block_files: row['picture_block_files'],  # element
+    intro_block_image: row['intro_block_image'] || "",  # element
+    audio_block_files: row['audio_block_files'] || "",  # element
+    video_block_files: row['video_block_files'] || "",  # element
+    pdf_block_files: row['pdf_block_files'] || "",  # element
+    picture_block_files: row['picture_block_files'] || "",  # element
 
-    has_picture_with_text: row['has_picture_with_text'],  # element
-    _other_assets: row['_other_assets'],
-    has_html_header_tags: row['has_html_header_tags'],  # element
+    has_picture_with_text: row['has_picture_with_text'] || "",  # element
+    _other_assets: row['_other_assets'] || "",
+    has_html_header_tags: row['has_html_header_tags'] || "",  # element
 
-    themetags: row['themetags'],  # themetags
+    themetags: row['themetags'] || "",  # themetags
 
     status: '',
     changes_made: '',
@@ -437,26 +445,38 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
   begin
 
-    Rails.logger.info("Processing page '#{subreport[:urlname]}'...")
-
     # Control
+    Rails.logger.info("Processing page: Control")
     supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE']
-    req = subreport[:_request]
+    req = subreport[:_request].strip
 
-    if req.nil? || req.strip.empty? || req.strip == ''
+    if req.blank?
       subreport[:status] = ""
     else
       unless supported_requests.include?(req)
+        subreport[_request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "Unsupported request '#{req}'. Skipping"
         subreport[:error_trace] = "pages_tasks.rb::main::Control::Main"
       end
     end
 
+    id = subreport[:id].strip
+    urlname = subreport[:urlname].strip
+    language_code = subreport[:language_code].strip
+
     if req == 'POST'
-      retreived_pages = Alchemy::Page.where(urlname: subreport[:urlname])
-      exact_page_match = retreived_pages.find { |p| p.language_code == subreport[:language_code] }
+      if urlname.blank? || language_code.blank?
+        subreport[_request] += " ERROR"
+        subreport[:status] = "error"
+        subreport[:error_message] = "Need urlname and language code for 'POST'. Skipping"
+        subreport[:error_trace] = "pages_tasks.rb::main::Control::POST"
+        next
+      end
+      retreived_pages = Alchemy::Page.where(urlname: urlname)
+      exact_page_match = retreived_pages.find { |p| p.language_code == language_code }
       if exact_page_match
+        subreport[_request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "Page already exists. Skipping"
         subreport[:error_trace] = "pages_tasks.rb::main::Control::POST"
@@ -464,77 +484,75 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       end
     end
 
-    if req == 'UPDATE'
-      language_code = subreport[:language_code]
-      urlname = subreport[:urlname]
-
-      if language_code.blank? || language_code == '' || language_code.nil? || urlname.blank? || urlname == '' || urlname.nil?
+    if req == 'UPDATE' || req == 'GET' || req == 'DELETE'
+      if id.blank? && (language_code.blank? || urlname.blank?)
+        subreport[_request] += " ERROR"
         subreport[:status] = "error"
-        subreport[:error_message] = "language_code or urlname is empty. Skipping!"
-        subreport[:error_trace] = "pages_tasks.rb::main::Control::UPDATE"
+        subreport[:error_message] = "Need ID, or urlname + language code for '#{req}'. Skipping"
+        subreport[:error_trace] = "pages_tasks.rb::main::Control::UPDATE/GET/DELETE"
         next
       end
-
     end
 
+    page_identifier = urlname.blank? ? id : urlname
 
     # Parsing
-    Rails.logger.info("Processing page '#{subreport[:urlname]}': Parsing")
-    id = subreport[:id] || ''
-    name = subreport[:name] || ''
-    title = subreport[:title] || ''
-    language_code = subreport[:language_code] || ''
-    urlname = subreport[:urlname] || ''
-    slug = subreport[:slug] || ''
-    link = subreport[:link] || ''
-    page_layout = subreport[:page_layout] || ''
+    Rails.logger.info("Processing page '#{page_identifier}': Parsing")
+    id = subreport[:id].strip
+    name = subreport[:name].strip
+    title = subreport[:title].strip
+    slug = subreport[:slug].strip
+    link = subreport[:link].strip
+    publication_date = subreport[:publication_date].strip
+    page_layout = subreport[:page_layout].strip
 
-    tag_page_type = subreport[:tag_page_type] || ''
-    tag_media_1 = subreport[:tag_media_1] || ''
-    tag_media_2 = subreport[:tag_media_2] || ''
-    tag_language = subreport[:tag_language] || ''
-    tag_university = subreport[:tag_university] || ''
-    tag_canton = subreport[:tag_canton] || ''
-    tag_special_content_1 = subreport[:tag_special_content_1] || ''
-    tag_special_content_2 = subreport[:tag_special_content_2] || ''
-    tag_references = subreport[:tag_references] || ''
-    tag_footnotes = subreport[:tag_footnotes] || ''
-    tag_others = subreport[:tag_others] || ''
+    tag_page_type = subreport[:tag_page_type].strip
+    tag_media_1 = subreport[:tag_media_1].strip
+    tag_media_2 = subreport[:tag_media_2].strip
+    tag_language = subreport[:tag_language].strip
+    tag_university = subreport[:tag_university].strip
+    tag_canton = subreport[:tag_canton].strip
+    tag_special_content_1 = subreport[:tag_special_content_1].strip
+    tag_special_content_2 = subreport[:tag_special_content_2].strip
+    tag_references = subreport[:tag_references].strip
+    tag_footnotes = subreport[:tag_footnotes].strip
+    tag_others = subreport[:tag_others].strip
 
-    assigned_authors = subreport[:assigned_authors] || ''
+    assigned_authors = subreport[:assigned_authors].strip
 
-    intro_block_image = subreport[:intro_block_image] || ''
+    intro_block_image = subreport[:intro_block_image].strip
 
-    audio_block_files = subreport[:audio_block_files] || ''
-    video_block_files = subreport[:video_block_files] || ''
-    pdf_block_files = subreport[:pdf_block_files] || ''
-    picture_block_files = subreport[:picture_block_files] || ''
+    audio_block_files = subreport[:audio_block_files].strip
+    video_block_files = subreport[:video_block_files].strip
+    pdf_block_files = subreport[:pdf_block_files].strip
+    picture_block_files = subreport[:picture_block_files].strip
 
-    has_picture_with_text = subreport[:has_picture_with_text] || ''
-    has_html_header_tags = subreport[:has_html_header_tags] || ''
+    has_picture_with_text = subreport[:has_picture_with_text].strip
+    has_html_header_tags = subreport[:has_html_header_tags].strip
 
-    themetags = subreport[:themetags] || ''
+    themetags = subreport[:themetags].strip
 
 
     # Setup
-    Rails.logger.info("Processing page '#{subreport[:urlname]}': Setup")
+    Rails.logger.info("Processing page '#{page_identifier}': Setup")
 
     if req == 'POST'
       page = Alchemy::Page.new
 
       alchemy_language_code = ''
       alchemy_country_code = ''
-      if subreport[:language_code].include?('-')
-        alchemy_language_code = subreport[:language_code].split('-').first
-        alchemy_country_code= subreport[:language_code].split('-').last
+      if language_code.include?('-')
+        alchemy_language_code = language_code.split('-').first
+        alchemy_country_code = language_code.split('-').last
       else
-        alchemy_language_code = subreport[:language_code]
+        alchemy_language_code = language_code
       end
 
       language = Alchemy::Language.find_by(language_code: alchemy_language_code, country_code: alchemy_country_code)
 
       if language.nil?
         Rails.logger.error("Language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping")
+        subreport[:_request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "Language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping"
         subreport[:error_trace] = "pages_tasks.rb::main::Setup::POST"
@@ -545,6 +563,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
         if root_page.nil?
           Rails.logger.error("Root page for language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping")
+          subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Root page for language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping"
           subreport[:error_trace] = "pages_tasks.rb::main::Setup::POST"
@@ -557,14 +576,14 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       end
 
     elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'
-      unless id.nil? || id.empty? || id.strip == '' || id.blank?
+      unless id.blank?
         page = Alchemy::Page.find(id)
       else
-        unless urlname.nil? || urlname.empty? || urlname.strip == '' || urlname.blank? || language_code.nil? || language_code.empty? || language_code.strip == '' || language_code.blank?
+        unless urlname.blank? || language_code.blank?
           page = Alchemy::Page.find_by(urlname: urlname, language_code: language_code)  # this combination is unique
-
         else
           Rails.logger.error("Need ID, or urlname + language code for '#{req}'. Skipping")
+          subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Need ID, or urlname + language code for '#{req}'. Skipping"
           subreport[:error_trace] = "pages_tasks.rb::main::Setup::UPDATE-GET-DELETE"
@@ -574,14 +593,16 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
       if page.nil?
         Rails.logger.error("Page with ID '#{id}' or urlname '#{urlname}' and language code '#{language_code}' not found. Skipping")
+        subreport[:_request] += " ERROR"
         subreport[:status] = "error"
-        subreport[:error_message] = "Page with ID '#{id}' or urlname '#{urlname}' and language code '#{language_code}' not found. Skipping"
+        subreport[:error_message] = "Page with ID '#{id}' or urlname '#{urlname}' and language code '#{language_code}' not found, but needed for #{req}. Skipping"
         subreport[:error_trace] = "pages_tasks.rb::main::Setup::UPDATE-GET-DELETE"
         next
       end
 
     else  # Should not happen
       Rails.logger.error("Unsupported request '#{req}'. Skipping")
+      subreport[:_request] += " ERROR"
       subreport[:status] = "error"
       subreport[:error_message] = "How did we get here? Unsupported request '#{req}'. Skipping"
       subreport[:error_trace] = "pages_tasks.rb::main::Setup::Main"
@@ -590,7 +611,16 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
     if req == 'DELETE'
       page.delete
-      if Alchemy::Page.find_by(id: id).present?
+      if !id.blank?
+        page_present = Alchemy::Page.find_by(id: id).present?
+      elsif !urlname.blank? && !language_code.blank?
+        page_present = Alchemy::Page.find_by(urlname: urlname, language_code: language_code).present?
+      else
+        page_present = false
+      end
+
+      if page_present
+        subreport[:_request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "Page not deleted by an unknown reason!. Skipping"
         subreport[:error_trace] = "pages_tasks.rb::main::Setup::DELETE"
@@ -621,6 +651,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         link: subreport[:link],
         _request: subreport[:_request],
         _additional_info: subreport[:_additional_info],
+        publication_date: subreport[:publication_date],
         page_layout: page.page_layout,
 
         tag_page_type: old_page_tag_columns[:tag_page_type],
@@ -635,6 +666,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         tag_footnotes: old_page_tag_columns[:tag_footnotes],
         tag_others: old_page_tag_columns[:tag_others] || '',
 
+        _assets: subreport[:_assets],
         _to_do_on_the_portal: subreport[:_to_do_on_the_portal],
 
         assigned_authors: old_page_assigned_authors,
@@ -659,16 +691,16 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     end
 
     # Execution
-    Rails.logger.info("Processing page '#{subreport[:urlname]}': Execution")
+    Rails.logger.info("Processing page '#{page_identifier}': Execution")
 
     if req == "POST" || req == "UPDATE"
-      Rails.logger.info("Processing page '#{subreport[:urlname]}': Setting attributes")
+      Rails.logger.info("\t...POST or UPDATE: '#{page_identifier}': Setting attributes")
       page.name = name
       page.title = title
       page.language_code = language_code
       page.urlname = urlname
+      # TODO: implement publication_date
       page.page_layout = page_layout
-
 
       tag_columns = {
         tag_page_type: tag_page_type,
@@ -689,52 +721,12 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       page.save!
       page.publish!
 
-      update_authors_report = update_assigned_authors(page, subreport[:assigned_authors])
-
-      if update_authors_report[:status] != 'success'
-        subreport = old_page  # Revert to old page
-        subreport[:status] = 'error'
-        subreport[:error_message] = update_authors_report[:error_message]
-        subreport[:error_message] += ". Not saved!\n"
-        subreport[:error_trace] = update_authors_report[:error_trace] + "\n"
-        next
-      end
-
-      update_intro_block_image_report = update_intro_block_image(page, intro_block_image)
-
-      if update_intro_block_image_report[:status] != 'success'
-        subreport = old_page  # Revert to old page
-        subreport[:status] = 'error'
-        subreport[:error_message] = update_intro_block_image_report[:error_message]
-        subreport[:error_message] += ". Not saved!\n"
-        subreport[:error_trace] = update_intro_block_image_report[:error_trace] + "\n"
-        next
-      end
-
-      # TODO: update_themetags
-
-      # Saving
-      successful_page_save = page.save!
-      succcessful_page_publish = page.publish!
-      successful_save = successful_page_save && succcessful_page_publish
-
-      if successful_save
-        subreport[:status] = 'success'
-        subreport[:changes_made] = 'created'
-      else
-        subreport[:status] = 'error'
-        subreport[:error_message] += 'Error while saving or publishing page'
-        subreport[:error_trace] += 'pages_tasks.rb::main::Saving'
-        next
-      end
-    end
+     end
 
     # Update report
-    Rails.logger.info("Processing page '#{subreport[:urlname]}': Updating report")
+    Rails.logger.info("Processing page '#{page_identifier}': Updating report")
     tags_to_cols = tag_array_to_columns(page.tag_names)
-    retrieved_slug = Alchemy::Engine.routes.url_helpers.show_page_path({
-      locale: !page.language.default ? page.language_code : nil, urlname: page.urlname
-    })
+    retrieved_slug = retrieve_page_slug(page)
 
     subreport.merge!({
       id: page.id,
@@ -755,8 +747,6 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       tag_special_content_2: tags_to_cols[:tag_special_content_2],
       tag_references: tags_to_cols[:tag_references],
       tag_footnotes: tags_to_cols[:tag_footnotes],
-      assigned_authors: get_assigned_authors(page),
-      intro_block_image: get_intro_block_image(page),
       audio_block_files: get_audio_blocks_file_names(page),
       video_block_files: get_video_blocks_file_names(page),
       pdf_block_files: get_pdf_blocks_file_names(page),
@@ -766,6 +756,40 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       themetags: get_themetags(page),
     })
 
+    # Complex tasks
+    if req == "UPDATE" || req == "POST"
+      Rails.logger.info("Processing page '#{page_identifier}': Complex tasks")
+
+      update_authors_report = update_assigned_authors(page, subreport[:assigned_authors])
+      if update_authors_report[:status] != 'success'
+        subreport[:_request] += " PARTIAL"
+        subreport[:status] = 'partial success'
+        subreport[:error_message] = update_authors_report[:error_message]
+        subreport[:error_message] += ". Page saved, but update_assigned_authors failed! Stopping...\n"
+        subreport[:error_trace] = update_authors_report[:error_trace] + "\n"
+        next
+      end
+      subreport[:assigned_authors] = get_assigned_authors(page)
+
+      update_intro_block_image_report = update_intro_block_image(page, intro_block_image)
+      if update_intro_block_image_report[:status] != 'success'
+        subreport[:_request] += " PARTIAL"
+        subreport[:status] = 'error'
+        subreport[:error_message] = update_intro_block_image_report[:error_message]
+        subreport[:error_message] += ". Page saved, but update_intro_block_image failed! Stopping...\n"
+        subreport[:error_trace] = update_intro_block_image_report[:error_trace] + "\n"
+        next
+      end
+      subreport[:intro_block_image] = get_intro_block_image(page)
+
+      # TODO: update_themetags
+
+      # Saving
+      page.save!
+      page.publish!
+      Rails.logger.info("Processing page '#{page_identifier}': Complex tasks: Success!")
+    end
+
 
     if req == "UPDATE" || req == "GET"
       changes = []
@@ -773,7 +797,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace
           # Skip if both old and new values are empty
           unless old_page[key].to_s.empty? && value.to_s.empty?
-            changes << "#{key}: #{old_page[key]} => #{value}"
+            changes << "#{key}: {{ #{old_page[key]} }} => {{ #{value} }}"
           end
         end
       end
@@ -781,11 +805,11 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     end
 
     subreport[:status] = 'success'
-    Rails.logger.info("Processing page '#{subreport[:urlname]}': Done")
+    Rails.logger.info("Processing page '#{subreport[:urlname]}': Success!")
 
 
   rescue => e
-    Rails.logger.error("Error while processing page '#{subreport[:urlname]}': #{e.message}")
+    Rails.logger.error("Error while processing page '#{subreport[:urlname].blank? ? subreport[:id] : subreport[:urlname]}': #{e.message}")
     subreport[:status] = 'unhandled error'
     subreport[:error_message] = e.message
     subreport[:error_trace] = e.backtrace.join("\n")
