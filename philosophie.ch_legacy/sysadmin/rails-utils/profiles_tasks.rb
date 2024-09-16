@@ -325,7 +325,6 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
     website: row["website"] || "",
     teacher_at_institution: row["teacher_at_institution"] || "",
     societies: row["societies"] || "",
-    show_email: '',
     cms_public_email_toggle: row["cms_public_email_toggle"] || "",
     profile_picture: row["profile_picture"] || "",
     facebook_profile: row["facebook_profile"] || "",
@@ -379,7 +378,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
     end
 
     Rails.logger.info("Processing user '#{login}'")
-    supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'UPDATE LINKS']
+    supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'UPDATE LINKS', 'UPDATE PASSWORD']
     unless supported_requests.include?(req)
       if req.blank?
         subreport[:_request] = req + " ERROR"
@@ -780,7 +779,6 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
       website: user.profile.website,
       teacher_at_institution: user.profile.teacher_at_institution,
       societies: user.profile.societies.map(&:name).join(', '),
-      show_email: user.profile.show_email,
       cms_public_email_toggle: user.profile.cms_public_email_toggle,
       profile_picture: get_profile_picture(user),
       facebook_profile: user.profile.facebook_profile,
