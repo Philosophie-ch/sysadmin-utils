@@ -268,7 +268,7 @@ CSV.foreach("events_tasks.csv", col_sep: ',', headers: true) do |row|
       subreport.each do |key, value|
         if old_event[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace
           unless old_event[key].to_s.empty? && value.to_s.empty?
-            changes << "#{key}: #{old_event[key]} => #{value}"
+            changes << "#{key}: {{ #{old_event[key]} }} => {{ #{value} }}"
           end
         end
       end

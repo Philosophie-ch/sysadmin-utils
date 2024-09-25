@@ -253,10 +253,12 @@ end
 
 def update_assigned_authors(page, authors_str)
 
+  Rails.logger.info("Updating assigned authors...")
   page_is_article = page.page_layout == "article" ? true : false
   page_is_event = page.page_layout == "event" ? true : false
 
   unless page_is_article || page_is_event
+    Rails.logger.debug("\tPage is not an article or event. Skipping...")
     return {
       status: 'success',
       error_message: '',
@@ -271,11 +273,13 @@ def update_assigned_authors(page, authors_str)
   }
 
   begin
+    Rails.logger.debug("\tPage is an article or event. Proceeding...")
 
     intro_element = page.elements.find { |element| element.name.include?('intro') }
     creator_essence = intro_element&.content_by_name(:creator)&.essence
 
     unless creator_essence
+      Rails.logger.error("\tCreator essence not found. Skipping...")
       result[:status] = 'error'
       result[:error_message] = "Creator essence not found"
       result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
@@ -299,6 +303,7 @@ def update_assigned_authors(page, authors_str)
     end
 
     if !flag
+      Rails.logger.error("\tUsers with the following logins not found: #{user_error_message}")
       result[:status] = 'error'
       user_error_message = user_error_message[0..-3] unless user_error_message.nil? || user_error_message.empty?
       result[:error_message] = user_error_message unless user_error_message.nil? || user_error_message.empty?
@@ -309,10 +314,12 @@ def update_assigned_authors(page, authors_str)
     creator_essence.alchemy_users = users.uniq.compact
     creator_essence.save!
 
+    Rails.logger.debug("\tAssigned authors updated successfully")
     result[:status] = 'success'
     return result
 
   rescue => e
+    Rails.logger.error("\tError while updating assigned authors: #{e.message}")
     result[:status] = 'unhandled error'
     result[:error_message] = e.message
     result[:error_trace] = e.backtrace.join("\n")
@@ -383,17 +390,20 @@ def retrieve_page_slug(page)
 end
 
 
+def get_created_at(page)
+  page.created_at.strftime('%Y-%m-%d')
+end
+
 
 ############
 # MAIN
 ############
 
 report = []
-counter = 0
 processed_lines = 0
 
 CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
-  Rails logger.info("Processing row #{processed_lines + 1}")
+  Rails.logger.info("Processing row #{processed_lines + 1}")
   subreport = {
     _sort: row['_sort'] || "",
     id: row['id'] || "",  # page
@@ -406,6 +416,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     _request: row['_request'] || "",
     _additional_info: row['_additional_info'] || "",
     created_at: row['created_at'] || "",  # page
+    _date_in_slug: row['_date_in_slug'] || "",
     page_layout: row['page_layout'] || "",  # page
 
     tag_page_type: row['tag_page_type'] || "",  # tag
@@ -652,7 +663,8 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         link: subreport[:link],
         _request: subreport[:_request],
         _additional_info: subreport[:_additional_info],
-        created_at: page.created_at,
+        created_at: get_created_at(page),
+        _date_in_slug: subreport[:_date_in_slug],
         page_layout: page.page_layout,
 
         tag_page_type: old_page_tag_columns[:tag_page_type],
@@ -701,6 +713,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       page.language_code = language_code
       page.urlname = urlname
       page.page_layout = page_layout
+      page.created_at = created_at
 
       tag_columns = {
         tag_page_type: tag_page_type,
@@ -736,7 +749,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       urlname: page.urlname,
       slug: retrieved_slug,
       link: "https://www.philosophie.ch#{retrieved_slug}",
-      created_at: page.created_at,
+      created_at: get_created_at(page),
       page_layout: page.page_layout,
       tag_page_type: tags_to_cols[:tag_page_type],
       tag_media_1: tags_to_cols[:tag_media_1],
@@ -763,7 +776,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     if req == "UPDATE" || req == "POST"
       Rails.logger.info("Processing page '#{page_identifier}': Complex tasks")
 
-      update_authors_report = update_assigned_authors(page, subreport[:assigned_authors])
+      update_authors_report = update_assigned_authors(page, assigned_authors)
       if update_authors_report[:status] != 'success'
         subreport[:_request] += " PARTIAL"
         subreport[:status] = 'partial success'
