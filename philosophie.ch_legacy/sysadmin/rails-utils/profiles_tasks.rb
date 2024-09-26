@@ -626,7 +626,16 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
         user.profile.description = description
         user.profile.website = website
         user.profile.teacher_at_institution = teacher_at_institution
-        #user.profile.societies = societies  # not implemented yet
+
+        societies_names = societies.split(',').map(&:strip)
+        societies_names.map do |name|
+          society = Society.find_by(name: name)
+          if society.nil?
+            raise "Society '#{name}' not found in the database. Skipping."
+          end
+          user.profile.societies << society
+        end
+
         user.profile.cms_public_email_toggle = cms_public_email_toggle
         user.profile.facebook_profile = facebook_profile
 
