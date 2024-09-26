@@ -423,7 +423,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
     language = subreport[:language].strip  # user
     gender = subreport[:gender].strip  # user
     country = subreport[:country].strip  # profile
-    # To be.strip implemented:    area = row['area'] || ''  # profile
+    area = subreport[:area].strip  # profile
     description = subreport[:description].strip # profile
     website = subreport[:website].strip # profile
     teacher_at_institution = subreport[:teacher_at_institution].strip # profile
@@ -537,15 +537,8 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
 
     if req == "UPDATE" || req == "GET"
       old_user = {
-        _correspondence: subreport[:_correspondence],
-        _todo_person: subreport[:_todo_person],
-        _request: subreport[:_request],
         alchemy_roles: user.alchemy_roles.join(', '),
-        _member_subcategory: subreport[:_member_subcategory],
         id: user.id,
-        _role_wrt_portal: subreport[:_role_wrt_portal],
-        _biblio_name: subreport[:_biblio_name],
-        _biblio_full_name: subreport[:_biblio_full_name],
         profile_name: user.profile.name,
         firstname: user.firstname,
         lastname: user.lastname,
@@ -553,14 +546,11 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
         _NL: subreport[:_NL],
         academic_page: user.profile.academic_page,
         abbreviation: user.profile.abbreviation,
-        _function: subreport[:_function],
         login: user.login,
-        _old_login: subreport[:_old_login],
-        _link: subreport[:_link],
         language: user.language,
         gender: user.gender,
         country: user.profile.country,
-        #area: user.profile.area,  # not implemented yet
+        area: user.profile.area,
         description: user.profile.description,
         website: user.profile.website,
         teacher_at_institution: user.profile.teacher_at_institution,
@@ -632,6 +622,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
         user.profile.email_addresses = email_addresses
         user.profile.academic_page = academic_page
         user.profile.country = country
+        user.profile.area = area
         user.profile.description = description
         user.profile.website = website
         user.profile.teacher_at_institution = teacher_at_institution
@@ -770,7 +761,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
       abbreviation: user.profile.abbreviation,
       language: user.language,
       country: user.profile.country,
-      # area: user.profile.area,  # not implemented yet
+      area: user.profile.area,
       alchemy_roles: user.alchemy_roles.join(', '),
       gender: user.gender,
       firstname: user.firstname,
