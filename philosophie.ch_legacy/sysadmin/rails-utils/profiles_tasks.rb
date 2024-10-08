@@ -49,7 +49,7 @@ end
 
 def generate_hashed_email_address
   hash = SecureRandom.uuid.gsub('-', '')[-16, 16]
-  email = "info-#{hash}@philosophie.ch"
+  "info-#{hash}@philosophie.ch"
 end
 
 
@@ -819,7 +819,7 @@ CSV.foreach("profiles_tasks.csv", col_sep: ',', headers: true, encoding: 'utf-16
     if req == "UPDATE" || req == "GET"
       changes = []
       subreport.each do |key, value|
-        if old_user[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :update_links_report
+        if old_user[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :update_links_report && key != :_request
           # Skip if both old and new values are empty
           unless old_user[key].to_s.empty? && value.to_s.empty?
             changes << "#{key}: {{ #{old_user[key]} }} => {{ #{value} }}"
