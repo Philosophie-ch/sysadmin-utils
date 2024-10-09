@@ -810,7 +810,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     if req == "UPDATE" || req == "GET"
       changes = []
       subreport.each do |key, value|
-        if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace
+        if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :_request
           # Skip if both old and new values are empty
           unless old_page[key].to_s.empty? && value.to_s.empty?
             changes << "#{key}: {{ #{old_page[key]} }} => {{ #{value} }}"
