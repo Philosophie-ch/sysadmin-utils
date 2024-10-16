@@ -3,6 +3,7 @@ require 'securerandom'
 
 ActiveRecord::Base.logger.level = Logger::WARN
 ActiveSupport::Deprecation.behavior = [:silence]  # silence useless deprecation warnings
+ActiveSupport::Deprecation.silenced = true
 
 Rails.logger.level = Logger::INFO
 

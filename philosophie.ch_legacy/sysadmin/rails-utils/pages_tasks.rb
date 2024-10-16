@@ -395,6 +395,91 @@ def get_created_at(page)
 end
 
 
+def get_references_bib_keys(page)
+  references = page.find_elements.find_by(name: "references")
+  return "" unless references
+
+  references.contents.each_with_object([]) do |c, result|
+    result << c.essence.body if c.name == "bibkeys"
+  end
+
+  result.join(", ").strip.split(", ").uniq.join(", ")
+end
+
+
+def set_references_bib_keys(page, bibkeys)
+  result = {
+    status: 'not started',
+    error_message: '',
+    error_trace: '',
+  }
+  begin
+    references = page.find_elements.find_by(name: "references")
+
+    unless references
+      Rails.logger.error("References element not found. Skipping...")
+      result[:status] = 'success'
+      return result
+    end
+
+    bibkeys_content = references.contents.find_by(name: "bibkeys")
+
+    unless bibkeys_content
+      Rails.logger.error("Bibkeys content not found in the references element! How is this possible?. Skipping...")
+      result[:status] = 'error'
+      result[:error_message] = "Bibkeys content not found in the references element! How is this possible?"
+      result[:error_trace] = "pages_tasks.rb::set_references_bib_keys"
+      return result
+    end
+
+    bibkeys_content.essence.update(body: bibkeys)
+
+    Rails.logger.info("References bibkeys updated successfully")
+
+    result[:status] = 'success'
+    return result
+
+  rescue => e
+    result[:status] = 'unhandled error'
+    result[:error_message] = e.message
+    result[:error_trace] = e.backtrace.join("\n")
+    return result
+  end
+end
+
+
+def get_attachment_links(page)
+  result = []
+  attachment_links = page.elements.flat_map do |element|
+    element.contents.flat_map do |content|
+      next [] unless content.essence.is_a?(Alchemy::EssenceRichtext) && content.essence.body
+
+      content.essence.body.scan(/href="([^"]*attachments[^"]*)"/).flatten
+    end
+  end
+
+
+  attachment_links.each do |link|
+    # Remove everything from the link except the number after 'attachments/'
+    # This is the attachment ID
+    # Example: href="/attachments/1234/show" -> 1234
+    # Example 2: href="/attachments/1234/download" -> 1234
+    id = link.match(/\/attachment\/(\d+)\//)&.captures&.first
+
+    file_name = Alchemy::Attachment.find_by(id: id)&.file_name
+
+    unless file_name
+      result << "Attachment with ID '#{id}' not found"
+    end
+
+    result << file_name
+  end
+
+  return result.join(", ")
+
+end
+
+
 ############
 # MAIN
 ############
@@ -414,9 +499,9 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     slug: row['slug'] || "", # page
     link: row['link'] || "",  # crafted
     _request: row['_request'] || "",
-    _additional_info: row['_additional_info'] || "",
+    _article_bib_key: row['_article_bib_key'] || "",  # article
+    _doi: row['_doi'] || "",  # article
     created_at: row['created_at'] || "",  # page
-    _date_in_slug: row['_date_in_slug'] || "",
     page_layout: row['page_layout'] || "",  # page
 
     tag_page_type: row['tag_page_type'] || "",  # tag
@@ -431,6 +516,8 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     tag_footnotes: row['tag_footnotes'] || "",  # tag
     tag_others: row['tag_others'] || "",  # tag
 
+    ref_bib_keys: row['ref_bib_keys'] || "",  # box
+
     _assets: row['_assets'] || "",
     _to_do_on_the_portal: row['_to_do_on_the_portal'] || "",
 
@@ -443,6 +530,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     picture_block_files: row['picture_block_files'] || "",  # element
 
     has_picture_with_text: row['has_picture_with_text'] || "",  # element
+    attachment_links: row['attachment_links'] || "",  # element
     _other_assets: row['_other_assets'] || "",
     has_html_header_tags: row['has_html_header_tags'] || "",  # element
 
@@ -662,9 +750,9 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         slug: subreport[:slug],
         link: subreport[:link],
         _request: subreport[:_request],
-        _additional_info: subreport[:_additional_info],
+        _article_bib_key: subreport[:_article_bib_key],
+        _doi: subreport[:_doi],
         created_at: get_created_at(page),
-        _date_in_slug: subreport[:_date_in_slug],
         page_layout: page.page_layout,
 
         tag_page_type: old_page_tag_columns[:tag_page_type],
@@ -679,6 +767,8 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         tag_footnotes: old_page_tag_columns[:tag_footnotes],
         tag_others: old_page_tag_columns[:tag_others] || '',
 
+        ref_bib_keys: get_references_bib_keys(page),
+
         _assets: subreport[:_assets],
         _to_do_on_the_portal: subreport[:_to_do_on_the_portal],
 
@@ -691,6 +781,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         picture_block_files: get_picture_blocks_file_names(page),
 
         has_picture_with_text: page.elements.any? { |element| element.name == 'text_and_picture' } ? "yes" : "",
+        attachment_links: get_attachment_links(page),
         _other_assets: subreport[:_other_assets],
         has_html_header_tags: has_html_header_tags(page),
 
@@ -761,6 +852,8 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       tag_special_content_2: tags_to_cols[:tag_special_content_2],
       tag_references: tags_to_cols[:tag_references],
       tag_footnotes: tags_to_cols[:tag_footnotes],
+      tag_others: tags_to_cols[:tag_others],
+      ref_bib_keys: get_references_bib_keys(page),
       assigned_authors: get_assigned_authors(page),
       intro_block_image: get_intro_block_image(page),
       audio_block_files: get_audio_blocks_file_names(page),
@@ -768,6 +861,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       pdf_block_files: get_pdf_blocks_file_names(page),
       picture_block_files: get_picture_blocks_file_names(page),
       has_picture_with_text: page.elements.any? { |element| element.name == 'text_and_picture' } ? "yes" : "",
+      attachment_links: get_attachment_links(page),
       has_html_header_tags: has_html_header_tags(page),
       themetags: get_themetags(page),
     })
@@ -797,6 +891,16 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         next
       end
       subreport[:intro_block_image] = get_intro_block_image(page)
+
+      update_references_report = set_references_bib_keys(page, subreport[:ref_bib_keys])
+
+      if update_references_report[:status] != 'success'
+        subreport[:_request] += " PARTIAL"
+        subreport[:status] = 'partial success'
+        subreport[:error_message] = update_references_report[:error_message]
+        subreport[:error_message] += ". Page saved, but set_references_bib_keys failed! Stopping...\n"
+        subreport[:error_trace] = update_references_report[:error_trace] + "\n"
+      end
 
       # TODO: update_themetags
 
