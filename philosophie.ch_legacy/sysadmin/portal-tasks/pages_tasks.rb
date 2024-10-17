@@ -123,6 +123,23 @@ def get_intro_block_image(page)
   ""
 end
 
+def get_intro_block_image_raw_filename(page)
+  intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
+
+  page.elements.each do |element|
+    next unless intro_elements.include?(element.name)
+
+    has_intro_picture = element.contents&.any? { |content| content.essence.is_a?(Alchemy::EssencePicture) }
+
+    if has_intro_picture
+      picture = element.contents&.find { |content| content.essence.is_a?(Alchemy::EssencePicture) }&.essence&.picture&.image_file_name
+      return picture.blank? ? '' : picture
+    end
+  end
+
+  ""
+end
+
 def update_intro_block_image(page, image_file_name)
   result = {
     status: 'not started',
@@ -399,8 +416,8 @@ def get_references_bib_keys(page)
   references = page.find_elements.find_by(name: "references")
   return "" unless references
 
-  references.contents.each_with_object([]) do |c, result|
-    result << c.essence.body if c.name == "bibkeys"
+  result = references.contents.each_with_object([]) do |c, arr|
+    arr << c.essence.body if c.name == "bibkeys"
   end
 
   result.join(", ").strip.split(", ").uniq.join(", ")
