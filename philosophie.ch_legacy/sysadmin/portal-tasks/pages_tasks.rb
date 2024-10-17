@@ -33,8 +33,21 @@ def generate_csv_report(report)
     end
   end
 
-  file_name = "#{Time.now.strftime('%y%m%d')}_pages_tasks_report.csv"
-  File.write(file_name, csv_string)
+  base_folder = 'portal-tasks-reports'
+  FileUtils.mkdir_p(base_folder) unless Dir.exist?(base_folder)
+
+  file_name = "#{base_folder}/#{Time.now.strftime('%y%m%d')}_pages_tasks_report.csv"
+
+  begin
+    File.write(file_name, csv_string)
+    puts "File written successfully to #{file_name}"
+  rescue Errno::EACCES => e
+    puts "Permission denied: #{e.message}"
+  rescue Errno::ENOSPC => e
+    puts "No space left on device: #{e.message}"
+  rescue StandardError => e
+    puts "An error occurred: #{e.message}"
+  end
 
   Rails.logger.info("\n\n\n============ Report generated at #{file_name} ============\n\n\n")
 end
@@ -132,7 +145,7 @@ def get_intro_block_image_raw_filename(page)
     has_intro_picture = element.contents&.any? { |content| content.essence.is_a?(Alchemy::EssencePicture) }
 
     if has_intro_picture
-      picture = element.contents&.find { |content| content.essence.is_a?(Alchemy::EssencePicture) }&.essence&.picture&.image_file_name
+      picture = element.contents&.find { |content| content.essence.is_a?(Alchemy::EssencePicture) }&.essence&.picture&.image_file_uid
       return picture.blank? ? '' : picture
     end
   end
@@ -504,7 +517,7 @@ end
 report = []
 processed_lines = 0
 
-CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
+CSV.foreach("portal-tasks/pages_tasks.csv", col_sep: ',', headers: true) do |row|
   Rails.logger.info("Processing row #{processed_lines + 1}")
   subreport = {
     _sort: row['_sort'] || "",
@@ -564,7 +577,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
     # Control
     Rails.logger.info("Processing page: Control")
-    supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE']
+    supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES']
     req = subreport[:_request].strip
 
     if req.blank?
@@ -601,7 +614,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       end
     end
 
-    if req == 'UPDATE' || req == 'GET' || req == 'DELETE'
+    if req == 'UPDATE' || req == 'GET' || req == 'DELETE' || req == 'GET RAW FILENAMES'
       if id.blank? && (language_code.blank? || urlname.blank?)
         subreport[:_request] += " ERROR"
         subreport[:status] = "error"
@@ -692,7 +705,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
         end
       end
 
-    elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'
+    elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'|| req == 'GET RAW FILENAMES'
       unless id.blank?
         page = Alchemy::Page.find(id)
       else
@@ -718,7 +731,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       end
 
     else  # Should not happen
-      Rails.logger.error("Unsupported request '#{req}'. Skipping")
+      Rails.logger.error("How did we get here? Unsupported request '#{req}'. Skipping")
       subreport[:_request] += " ERROR"
       subreport[:status] = "error"
       subreport[:error_message] = "How did we get here? Unsupported request '#{req}'. Skipping"
@@ -752,10 +765,18 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       end
     end
 
-    if req == 'UPDATE' || req == 'GET'
+    if req == 'UPDATE' || req == 'GET' || req == 'GET RAW FILENAMES'
       old_page_tag_names = page.tag_names
       old_page_tag_columns = tag_array_to_columns(old_page_tag_names)
       old_page_assigned_authors = get_assigned_authors(page)
+
+      if req == 'GET RAW FILENAMES'
+        retrieved_intro_block_image = get_intro_block_image_raw_filename(page)
+      elsif req == 'GET'
+        retrieved_intro_block_image = get_intro_block_image(page)
+      else
+        retrieved_intro_block_image = get_intro_block_image(page)
+      end
 
       old_page = {
         _sort: subreport[:_sort],
@@ -791,7 +812,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
 
         assigned_authors: old_page_assigned_authors,
 
-        intro_block_image: get_intro_block_image(page),
+        intro_block_image: retrieved_intro_block_image,
         audio_block_files: get_audio_blocks_file_names(page),
         video_block_files: get_video_blocks_file_names(page),
         pdf_block_files: get_pdf_blocks_file_names(page),
@@ -849,6 +870,14 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     tags_to_cols = tag_array_to_columns(page.tag_names)
     retrieved_slug = retrieve_page_slug(page)
 
+    if req == 'GET RAW FILENAMES'
+      retrieved_intro_block_image = get_intro_block_image_raw_filename(page)
+    elsif req == 'GET'
+      retrieved_intro_block_image = get_intro_block_image(page)
+    else
+      retrieved_intro_block_image = get_intro_block_image(page)
+    end
+
     subreport.merge!({
       id: page.id,
       name: page.name,
@@ -872,7 +901,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
       tag_others: tags_to_cols[:tag_others],
       ref_bib_keys: get_references_bib_keys(page),
       assigned_authors: get_assigned_authors(page),
-      intro_block_image: get_intro_block_image(page),
+      intro_block_image: retrieved_intro_block_image,
       audio_block_files: get_audio_blocks_file_names(page),
       video_block_files: get_video_blocks_file_names(page),
       pdf_block_files: get_pdf_blocks_file_names(page),
@@ -928,7 +957,7 @@ CSV.foreach("pages_tasks.csv", col_sep: ',', headers: true) do |row|
     end
 
 
-    if req == "UPDATE" || req == "GET"
+    if req == "UPDATE" || req == "GET" || req == "GET RAW FILENAMES"
       changes = []
       subreport.each do |key, value|
         if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :_request
