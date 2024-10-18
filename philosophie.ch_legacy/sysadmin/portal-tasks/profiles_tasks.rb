@@ -419,6 +419,15 @@ CSV.foreach("portal-tasks/profiles_tasks.csv", col_sep: ',', headers: true, enco
         subreport[:error_trace] = "Main::Control::POST"
         next
       end
+
+      invalid_login_chars = ["_", "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", ":"]
+      invalid_char_found = invalid_login_chars.any? { |char| login.include?(char) }
+      if invalid_char_found
+        subreport[:_request] = req + " ERROR"
+        subreport[:status] = "error"
+        subreport[:error_message] = "Login '#{login}' contains one or more invalid characters (#{invalid_login_chars.join(', ')}). Skipping"
+        subreport[:error_trace] = "Main::Control::POST"
+      end
     end
 
 
