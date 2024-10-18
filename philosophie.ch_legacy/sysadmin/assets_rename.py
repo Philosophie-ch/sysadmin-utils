@@ -18,7 +18,7 @@ def rename_file(old: str, new: str) -> Ok[tuple[str,str]] | Err:
     try:
         # Assert that the old file exists
         if not os.path.exists(old):
-            return Err(f"File {old} does not exist.")
+            return Err(f"File '{old}' does not exist.")
 
         os.rename(old, new)
 
@@ -33,9 +33,9 @@ class MainOutput:
     header: list[str]
     results: list[tuple[str,str,str]]
 
-def main(input_csv: str) -> Ok[MainOutput] | Err:
+def main(input_csv: str, encoding: str) -> Ok[MainOutput] | Err:
     try:
-        with open(input_csv, 'r') as f:
+        with open(input_csv, 'r', encoding=encoding) as f:
             reader = csv.DictReader(f)
 
             required_columns = ['old', 'new']
@@ -54,7 +54,7 @@ def main(input_csv: str) -> Ok[MainOutput] | Err:
                 case Ok(out):
                     results.append((out[0], out[1], "OK"))
                 case Err(msg):
-                    results.append((row['old'], row['new'], msg))
+                    results.append((row['old'], row['new'], f"ERR: {msg}"))
 
     except Exception as e:
         return Err(str(e))
@@ -70,7 +70,7 @@ def cli(result: Ok[MainOutput] | Err) -> None:
         case Ok(out):
             print(",".join(out.header))
             for row in out.results:
-                print(f"\"{row[0]}\",\"{row[1]}\",\"{row[2]}")
+                print(f"\"{row[0]}\",\"{row[1]}\",\"{row[2]}\"")
 
         case Err(msg):
             print(f"\n============ Error ============\n\t{msg}")
@@ -83,12 +83,14 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Rename assets") 
     parser.add_argument("-i", "--input", type=str, help="CSV file with old and new filenames. Needs to have a header row with 'old' and 'new' columns, with the corresponding filenames. Prints the result to the stdout.", required=True)
+    parser.add_argument("-e", "--encoding", type=str, help="CSV file encoding", default='utf-8')
 
     args = parser.parse_args()
 
     csv_file = args.input
+    encoding = args.encoding
 
-    result = main(csv_file)
+    result = main(csv_file, encoding)
     cli(result)
    
 
