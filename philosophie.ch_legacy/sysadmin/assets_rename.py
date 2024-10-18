@@ -1,5 +1,6 @@
 import csv
 import os
+import shutil
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
@@ -20,7 +21,8 @@ def rename_file(old: str, new: str) -> Ok[tuple[str,str]] | Err:
         if not os.path.exists(old):
             return Err(f"File '{old}' does not exist.")
 
-        os.rename(old, new)
+        # Copy instead of moving, in case the input batch mentions the same file multiple times
+        shutil.copy2(old, new)
 
     except Exception as e:
         return Err(str(e))
