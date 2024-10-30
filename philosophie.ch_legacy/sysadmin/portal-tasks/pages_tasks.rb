@@ -22,7 +22,7 @@ require 'csv'
 # FUNCTIONS
 ############
 
-def generate_csv_report(report)
+def generate_csv_report(report, file_name)
   return if report.empty?
   headers = report.first.keys
 
@@ -32,11 +32,6 @@ def generate_csv_report(report)
       csv << headers.map { |header| row[header] }
     end
   end
-
-  base_folder = 'portal-tasks-reports'
-  FileUtils.mkdir_p(base_folder) unless Dir.exist?(base_folder)
-
-  file_name = "#{base_folder}/#{Time.now.strftime('%y%m%d')}_pages_tasks_report.csv"
 
   begin
     File.write(file_name, csv_string)
@@ -989,4 +984,9 @@ CSV.foreach("portal-tasks/pages_tasks.csv", col_sep: ',', headers: true) do |row
 end
 
 
-generate_csv_report(report)
+base_folder = 'portal-tasks-reports'
+FileUtils.mkdir_p(base_folder) unless Dir.exist?(base_folder)
+
+file_name = "#{base_folder}/#{Time.now.strftime('%y%m%d')}_pages_tasks_report.csv"
+
+generate_csv_report(report, file_name)
