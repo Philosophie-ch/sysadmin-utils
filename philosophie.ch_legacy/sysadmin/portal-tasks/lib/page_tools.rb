@@ -437,6 +437,8 @@ end
 
 def get_attachment_links(page)
   result = []
+
+  # 1. Look in the Richtext essences
   attachment_links = page.elements.flat_map do |element|
     element.contents.flat_map do |content|
       next [] unless content.essence.is_a?(Alchemy::EssenceRichtext) && content.essence.body
@@ -444,7 +446,6 @@ def get_attachment_links(page)
       content.essence.body.scan(/href="([^"]*attachments[^"]*)"/).flatten
     end
   end
-
 
   attachment_links.each do |link|
     # Remove everything from the link except the number after 'attachments/'
@@ -456,11 +457,37 @@ def get_attachment_links(page)
     file_name = Alchemy::Attachment.find_by(id: id)&.file_name
 
     unless file_name
-      result << "Attachment with ID '#{id}' not found"
+      result << "Attachment with ID '#{id}' in link '#{link}' not found"
     end
 
     result << file_name
   end
+
+  # 2. Look in the Embed elements of the page
+  html_embed_elements = page.elements.flat_map do |element|
+    element.contents.flat_map do |content|
+      next [] unless content.essence.is_a?(Alchemy::EssenceHtml) && content.essence.source
+
+      content.essence.source.scan(/src="([^"]*attachments[^"]*)"/).flatten
+    end
+  end
+
+  html_embed_elements.each do |link|
+    # Remove everything from the link except the number after 'attachments/'
+    # This is the attachment ID
+    # Example: src="/attachments/1234/show" -> 1234
+    # Example 2: src="/attachments/1234/download" -> 1234
+    id = link.match(/\/attachment\/(\d+)\//)&.captures&.first
+
+    file_name = Alchemy::Attachment.find_by(id: id)&.file_name
+
+    unless file_name
+      result << "Attachment with ID '#{id}' in link '#{link}' not found"
+    end
+
+    result << file_name
+  end
+
 
   return result.join(", ")
 

@@ -525,4 +525,11 @@ end
 
 
 
-main("portal-tasks/pages_tasks.csv", ARGV[0])
+if ARGV[0].blank?
+  log_level = ""
+
+else
+  log_level = ARGV[0]
+end
+
+main("portal-tasks/pages_tasks.csv", log_level)
