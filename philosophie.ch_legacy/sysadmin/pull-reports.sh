@@ -29,11 +29,18 @@ fi
 
 # MAIN 
 
+echo "=> Cleaning old reports"
+rm -rf portal-tasks-reports
+ssh -p ${SERVER_PORT} ${SERVER_USER_AT_IP} "rm -rf ${SERVER_REPORTS_PATH}/portal-tasks-reports"
+
 echo "=> Pulling all reports files from the container"
 ssh -p ${SERVER_PORT} ${SERVER_USER_AT_IP} "cd ${SERVER_REPORTS_PATH} && rails_container=\$(docker ps --format '{{.Names}}' | grep ${SERVER_CONTAINER_BASENAME}) && docker cp \$rails_container:/rails/portal-tasks-reports ."
 
 echo "=> Pulling all *_report.csv files from the server"
 rsync -avzP --delete -L -K -e "ssh -p ${SERVER_PORT}" "${SERVER_USER_AT_IP}:${SERVER_REPORTS_PATH}/portal-tasks-reports" .
+
+echo "=> Cleanup container"
+ssh -p ${SERVER_PORT} ${SERVER_USER_AT_IP} "cd ${SERVER_REPORTS_PATH} && rails_container=\$(docker ps --format '{{.Names}}' | grep ${SERVER_CONTAINER_BASENAME}) && docker exec \$rails_container rm -rf /rails/portal-tasks-reports"
 
 echo "=> Pull complete"
 
