@@ -407,7 +407,7 @@ def set_references_bib_keys(page, bibkeys)
     references = page.find_elements.find_by(name: "references")
 
     unless references
-      Rails.logger.error("References element not found. Skipping...")
+      Rails.logger.warn("References element not found. Skipping...")
       result[:status] = 'success'
       return result
     end
@@ -493,5 +493,61 @@ def get_attachment_links(page)
 
 
   return result.join(", ")
+
+end
+
+
+def get_pre_headline(page)
+  page.elements.find_by(name: "intro")&.content_by_name(:pre_headline)&.essence&.body || ""
+end
+
+
+def set_pre_headline(page, pre_headline)
+  page.elements.find_by(name: "intro")&.content_by_name(:pre_headline)&.essence&.update({body: pre_headline})
+end
+
+
+def get_lead_text(page)
+  page.elements.find_by(name: "intro")&.content_by_name(:lead_text)&.essence&.body || ""
+end
+
+
+def set_lead_text(page, lead_text)
+  page.elements.find_by(name: "intro")&.content_by_name(:lead_text)&.essence&.update({body: lead_text})
+end
+
+
+def get_embed_blocks(page)
+  page.elements.map { |element| element if element.name == "embed" }.compact
+end
+
+
+def read_raw_html(filename)
+  File.read(filename)
+end
+
+
+def dltc_set_embed_block(page, content)
+
+  embed_blocks = get_embed_blocks(page)
+
+  unless embed_blocks.blank? || embed_blocks.size == 0
+    embed_blocks.each do |embed_block|
+      embed_block.destroy!
+    end
+  end
+
+  # WARNING! page reloads! any uncommited changes are flushed
+  # Better to execute this function independently of the others
+  page.reload
+
+  page.elements.create(name: "embed")
+
+  embed_block = get_embed_blocks(page).first
+
+  embed_block.contents.first.essence.update({source: content})
+
+  page.save!
+  page.publish!
 
 end
