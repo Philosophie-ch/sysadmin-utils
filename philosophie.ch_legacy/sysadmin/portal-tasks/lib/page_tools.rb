@@ -381,6 +381,9 @@ def get_created_at(page)
   page.created_at.strftime('%Y-%m-%d')
 end
 
+def parse_created_at(date)
+  Date.parse(date.to_s)
+end
 
 def get_references_bib_keys(page)
   references = page.find_elements.find_by(name: "references")

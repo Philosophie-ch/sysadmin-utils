@@ -45,11 +45,15 @@ def main(csv_file, log_level = 'info')
 
   csv_data.each do |row|
     Rails.logger.info("Processing row #{processed_lines + 1} of #{total_lines}")
+    # Read data
     subreport = {
       _sort: row['_sort'] || "",
       id: row['id'] || "",  # page
       name: row['name'] || "",  # page
+      pre_headline: row['pre_headline'] || "",  # intro element
       title: row['title'] || "",  # page
+      lead_text: row['lead_text'] || "",  # intro element
+      _html_basename: row['_html_basename'] || "",  # page
       language_code: row['language_code'] || "",  # page
       urlname: row['urlname'] || "",  # page
       slug: row['slug'] || "", # page
