@@ -498,8 +498,10 @@ def main(csv_file, log_level = 'info')
 
 
       ############
-      # COMPLEX TASKS
+      # COMPLEX TASKS ON UPDATE AND POST
       ############
+
+      subreport[:status] = 'success'
 
       if req == "UPDATE" || req == "POST"
         Rails.logger.info("Processing page '#{page_identifier}': Complex tasks")
@@ -531,12 +533,23 @@ def main(csv_file, log_level = 'info')
         if update_references_report[:status] != 'success'
           subreport[:_request] += " PARTIAL"
           subreport[:status] = 'partial success'
-          subreport[:error_message] = update_references_report[:error_message]
+          subreport[:error_message] += update_references_report[:error_message]
           subreport[:error_message] += ". Page saved, but set_references_bib_keys failed! Stopping...\n"
-          subreport[:error_trace] = update_references_report[:error_trace] + "\n"
+          subreport[:error_trace] += update_references_report[:error_trace] + "\n"
         end
+        subreport[:ref_bib_keys] = get_references_bib_keys(page)
 
-        # TODO: update_themetags
+        update_themetags_report = set_themetags(page, themetags)
+
+        if update_themetags_report[:status] != 'success'
+          subreport[:_request] += " PARTIAL"
+          subreport[:status] = 'partial success'
+          subreport[:error_message] += update_themetags_report[:error_message]
+          subreport[:error_message] += ". Page saved, but set_themetags failed! Stopping...\n"
+          subreport[:error_trace] += update_themetags_report[:error_trace] + "\n"
+        end
+        subreport[:themetags] = get_themetags(page)
+
 
         # Saving
         page.save!
@@ -558,14 +571,13 @@ def main(csv_file, log_level = 'info')
         subreport[:changes_made] = changes.join(' ;;; ')
       end
 
-      subreport[:status] = 'success'
       Rails.logger.info("Processing page '#{subreport[:urlname]}': Success!")
 
 
     rescue => e
       Rails.logger.error("Error while processing page '#{subreport[:urlname].blank? ? subreport[:id] : subreport[:urlname]}': #{e.message}")
       subreport[:status] = 'unhandled error'
-      subreport[:error_message] = e.message
+      subreport[:error_message] = "#{e.class} :: #{e.message}"
       subreport[:error_trace] = e.backtrace.join("\n")
 
     ensure

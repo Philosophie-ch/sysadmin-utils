@@ -155,7 +155,7 @@ def update_intro_block_image(page, image_file_name)
 
   rescue => e
     result[:status] = 'unhandled error'
-    result[:error_message] = e.message
+    result[:error_message] = "#{e.class} :: #{e.message}"
     result[:error_trace] = e.backtrace.join("\n")
     return result
   end
@@ -308,7 +308,7 @@ def update_assigned_authors(page, authors_str)
   rescue => e
     Rails.logger.error("\tError while updating assigned authors: #{e.message}")
     result[:status] = 'unhandled error'
-    result[:error_message] = e.message
+    result[:error_message] = "#{e.class} :: #{e.message}"
     result[:error_trace] = e.backtrace.join("\n")
     return result
   end
@@ -369,6 +369,59 @@ def get_themetags(page)
   end
   return ""
 end
+
+class ThemetagNotFoundError < StandardError; end
+
+def get_themetag_by_name(name)
+  # nil name allows us to effectively delete the themetag in the set function
+  if name.blank? || name.nil? || name.empty?
+    return nil
+  end
+
+  found = Topic.find_by('LOWER(name) = ?', name.downcase.strip)
+
+  # if we do pass a name however, we expect to find the themetag
+  if found.nil? || found.blank?
+    raise ThemetagNotFoundError, "Themetag/Topic with name '#{name}' not found."
+  end
+
+  return found
+end
+
+def set_themetags(page, themetag_names)
+  report = {
+    status: 'not started',
+    error_message: '',
+    error_trace: '',
+  }
+
+  begin
+    intro_element = page.elements.find { |element| element.name.include?('intro') }
+    if intro_element
+      topic_content = intro_element.contents.find { |content| content.name == 'topics' }
+      themetags = themetag_names.split(',').map(&:strip).map { |name| get_themetag_by_name(name) }.compact.uniq
+      update_response = topic_content.essence.update(topics: themetags)
+    end
+
+    if !update_response
+      report[:status] = 'error'
+      report[:error_message] = "Unknown error while updating themetags, 'update' method returned `false`. Check logs for more details."
+      report[:error_trace] = "pages_tools.rb::set_themetags"
+    else
+      report[:status] = 'success'
+    end
+
+  rescue => e
+    report[:status] = 'error'
+    report[:error_message] = "#{e.class} :: #{e.message}"
+    report[:error_trace] = e.backtrace.join("\n")
+
+  ensure
+    return report
+  end
+
+end
+
 
 def retrieve_page_slug(page)
   Alchemy::Engine.routes.url_helpers.show_page_path({
@@ -431,7 +484,7 @@ def set_references_bib_keys(page, bibkeys)
 
   rescue => e
     result[:status] = 'unhandled error'
-    result[:error_message] = e.message
+    result[:error_message] = "#{e.class} :: #{e.message}"
     result[:error_trace] = e.backtrace.join("\n")
     return result
   end
