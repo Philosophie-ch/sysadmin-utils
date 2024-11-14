@@ -29,6 +29,10 @@ fi
 
 # MAIN
 
+echo "=> Cleanup: deleting dltc-web directory on the server and container"
+ssh -p ${SERVER_PORT} ${SERVER_USER_AT_IP} "rm -rf ${SERVER_REPORTS_PATH}/dltc-web"
+ssh -p ${SERVER_PORT} ${SERVER_USER_AT_IP} "rails_container=\$(docker ps --format '{{.Names}}' | grep ${SERVER_CONTAINER_BASENAME}) && docker exec \$rails_container rm -rf /rails/dltc-web"
+
 echo "=> Pushing dltc-web HTML files to the server"
 rsync -avzP --delete -L -K -e "ssh -p ${SERVER_PORT}" dltc-web "${SERVER_USER_AT_IP}:${SERVER_REPORTS_PATH}"
 
