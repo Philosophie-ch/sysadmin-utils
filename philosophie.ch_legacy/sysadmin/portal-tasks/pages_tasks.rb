@@ -115,7 +115,7 @@ def main(csv_file, log_level = 'info')
 
       # Control
       Rails.logger.info("Processing page: Control")
-      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'DLTC-WEB']
+      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'DLTC-WEB', 'DL-RN']
       req = subreport[:_request].strip
 
       if req.blank?
@@ -152,7 +152,7 @@ def main(csv_file, log_level = 'info')
         end
       end
 
-      if req == 'UPDATE' || req == 'GET' || req == 'DELETE' || req == 'GET RAW FILENAMES' || req == 'DLTC-WEB'
+      if req == 'UPDATE' || req == 'GET' || req == 'DELETE' || req == 'GET RAW FILENAMES' || req == 'DLTC-WEB' || req == 'DL-RN'
         if id.blank? && (language_code.blank? || urlname.blank?)
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
@@ -247,7 +247,7 @@ def main(csv_file, log_level = 'info')
           end
         end
 
-      elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'|| req == 'GET RAW FILENAMES' || req == 'DLTC-WEB'
+      elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'|| req == 'GET RAW FILENAMES' || req == 'DLTC-WEB' || req == 'DL-RN'
         unless id.blank?
           page = Alchemy::Page.find(id)
         else
@@ -466,6 +466,56 @@ def main(csv_file, log_level = 'info')
         dltc_set_embed_block(page, html_content)
 
         Rails.logger.info("\t...DLTC-WEB: '#{page_identifier}': Embed block set!")
+      end
+
+      ############
+      # DL-RN
+      ############
+
+      if req == 'DL-RN'
+
+        Rails.logger.info("\t...DL-RN: '#{page_identifier}': Downloading and renaming pictures from 'picture_block' elements...")
+
+        pictures = page.elements.where(name: "picture_block").map(&:contents).flatten.filter { |content| content.name == "picture" }.map(&:essence).map(&:picture)
+
+        if !pictures.empty?
+          base_dir = "dl-rn"
+          n = 1
+          asset_names = []
+
+          pictures.each do |picture|
+            if picture.nil?
+              Rails.logger.error("\t...DL-RN: '#{page_identifier}': Picture #{n} is nil. Skipping")
+              subreport[:error_message] += " --- DL-RN: Picture object n. #{n} is nil. Skipping --- "
+              next
+            end
+            picture_path = picture.image_file.path
+            picture_extension = picture.image_file_format
+            filename = "#{page.urlname}-pic#{n}.#{picture_extension}"
+
+            download_report = Utils.download_asset(base_dir, filename, picture_path, "picture_block")
+
+            if !download_report[:status] == "success"
+              Rails.logger.error("\t...DL-RN: '#{page_identifier}': Error downloading picture '#{picture_path}': #{download_report[:status]} --- #{download_report[:error_message]}")
+              subreport[:_request] += " PARTIAL"
+              subreport[:status] = 'partial success'
+              subreport[:error_message] = download_report[:error_message]
+              subreport[:error_trace] = download_report[:error_trace]
+              asset_names << "ERROR"
+
+            else
+              asset_names << filename
+            end
+            n += 1
+          end
+
+          subreport[:_picture_block_assets] = asset_names.join(', ')
+
+          Rails.logger.info("\t...DL-RN: '#{page_identifier}': Pictures downloaded and renamed!")
+
+        else
+          Rails.logger.info("\t...DL-RN: '#{page_identifier}': No pictures found")
+        end
       end
 
 

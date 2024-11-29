@@ -1,5 +1,7 @@
 require 'csv'
 
+SUPPORTED_ASSET_TYPES = ["audio_block", "video_block", "picture_block", "pdf_block"]
+
 module Utils
 
   def generate_csv_report(report, models_affected)
@@ -34,4 +36,44 @@ module Utils
 
   module_function :generate_csv_report
 
+  def download_asset(base_dir, filename, asset_path, asset_type)
+
+    report = {
+      status: "not started",
+      error_message: "",
+      error_trace: ""
+    }
+
+    unless SUPPORTED_ASSET_TYPES.include?(asset_type)
+      report[:status] = "failed"
+      report[:error_message] = "Unsupported asset type: #{asset_type}"
+      return report
+    end
+
+    begin
+      destination_path = "#{base_dir}/#{filename}"
+      FileUtils.mkdir_p(base_dir) unless Dir.exist?(base_dir)
+
+      if File.exist?(destination_path)
+        report[:status] = "skipped"
+        report[:error_message] = "File #{destination_path} already exists"
+        return report
+      end
+
+      open(destination_path, 'wb') do |file|
+        file << open(asset_path).read
+      end
+
+      report[:status] = "success"
+      return report
+
+    rescue StandardError => e
+      report[:status] = "unhandled exception"
+      report[:error_message] = "#{e.message}"
+      report[:error_trace] = e.backtrace.join(" ::: ")
+      return report
+    end
+  end
+
+  module_function :download_asset
 end
