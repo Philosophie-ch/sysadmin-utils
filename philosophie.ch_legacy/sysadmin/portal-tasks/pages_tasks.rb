@@ -491,7 +491,9 @@ def main(csv_file, log_level = 'info')
             end
             picture_path = picture.image_file.path
             picture_extension = picture.image_file_format
-            filename = "#{page.urlname}-pic#{n}.#{picture_extension}"
+            # replace slashes with dashes
+            sanitized_urlname = page.urlname.gsub('/', '-')
+            filename = "#{sanitized_urlname}-pic#{n}.#{picture_extension}"
 
             download_report = Utils.download_asset(base_dir, filename, picture_path, "picture_block")
 
