@@ -359,15 +359,30 @@ def has_html_header_tags(page)
 
 end
 
+def themetag_names_by_interest_type(topics, interest_type)
+  return topics.filter { |topic| topic.interest_type == interest_type }.map(&:name).join(", ")
+end
 
 def get_themetags(page)
+
+  themetags_hashmap = {
+    discipline: "",
+    focus: "",
+    structural: "",
+  }
+
   intro_element = page.elements.find { |element| element.name.include?('intro') }
   if intro_element
     topic_content = intro_element.contents.find { |content| content.name == 'topics' }
-    topics = topic_content&.essence&.topics&.map(&:name).uniq.join(', ')
-    return topics.blank? ? "" : topics
+    topics = topic_content&.essence&.topics&.uniq || []
+
+    themetags_hashmap[:discipline] = themetag_names_by_interest_type(topics, "discipline")
+    themetags_hashmap[:focus] = themetag_names_by_interest_type(topics, "focus")
+    themetags_hashmap[:structural] = themetag_names_by_interest_type(topics, "structural")
   end
-  return ""
+
+  return themetags_hashmap
+
 end
 
 class ThemetagNotFoundError < StandardError; end
@@ -399,7 +414,7 @@ def set_themetags(page, themetag_names)
     intro_element = page.elements.find { |element| element.name.include?('intro') }
     if intro_element
       topic_content = intro_element.contents.find { |content| content.name == 'topics' }
-      themetags = themetag_names.split(',').map(&:strip).map { |name| get_themetag_by_name(name) }.compact.uniq
+      themetags = themetag_names.map { |name| get_themetag_by_name(name) }.compact.uniq
       update_response = topic_content.essence.update(topics: themetags)
     end
 

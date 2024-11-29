@@ -76,7 +76,7 @@ def main(csv_file, log_level = 'info')
       tag_footnotes: row['tag_footnotes'] || "",  # tag
       tag_others: row['tag_others'] || "",  # tag
 
-      ref_bib_keys: row['ref_bib_keys'] || "",  # box
+      ref_bib_keys: row['ref_bib_keys'] || "",  # element
       _further_refs: row['_further_refs'] || "",
       _depends_on: row['_depends_on'] || "",
 
@@ -86,9 +86,13 @@ def main(csv_file, log_level = 'info')
       assigned_authors: row['assigned_authors'] || "",  # box
 
       intro_block_image: row['intro_block_image'] || "",  # element
+      _audio_block_assets: row['_audio_block_assets'] || "",
       audio_block_files: row['audio_block_files'] || "",  # element
+      _video_block_assets: row['_video_block_assets'] || "",
       video_block_files: row['video_block_files'] || "",  # element
+      _pdf_block_assets: row['_pdf_block_assets'] || "",
       pdf_block_files: row['pdf_block_files'] || "",  # element
+      _picture_block_assets: row['_picture_block_assets'] || "",
       picture_block_files: row['picture_block_files'] || "",  # element
 
       has_picture_with_text: row['has_picture_with_text'] || "",  # element
@@ -96,7 +100,9 @@ def main(csv_file, log_level = 'info')
       _other_assets: row['_other_assets'] || "",
       has_html_header_tags: row['has_html_header_tags'] || "",  # element
 
-      themetags: row['themetags'] || "",  # themetags
+      themetags_discipline: row['themetags_discipline'] || "",  # themetags
+      themetags_focus: row['themetags_focus'] || "",  # themetags
+      themetags_structural: row['themetags_structural'] || "",  # themetags
 
       status: '',
       changes_made: '',
@@ -195,8 +201,9 @@ def main(csv_file, log_level = 'info')
       has_picture_with_text = subreport[:has_picture_with_text].strip
       has_html_header_tags = subreport[:has_html_header_tags].strip
 
-      themetags = subreport[:themetags].strip
-
+      themetags_discipline = subreport[:themetags_discipline].strip
+      themetags_focus = subreport[:themetags_focus].strip
+      themetags_structural = subreport[:themetags_structural].strip
 
       # Setup
       Rails.logger.info("Processing page '#{page_identifier}': Setup")
@@ -363,7 +370,9 @@ def main(csv_file, log_level = 'info')
           _other_assets: subreport[:_other_assets],
           has_html_header_tags: has_html_header_tags(page),
 
-          themetags: get_themetags(page),
+          themetags_discipline: subreport[:themetags_discipline],
+          themetags_focus: subreport[:themetags_focus],
+          themetags_structural: subreport[:themetags_structural],
 
           status: '',
           changes_made: '',
@@ -464,6 +473,9 @@ def main(csv_file, log_level = 'info')
       # REPORT
       ############
 
+      themetags_hashmap = get_themetags(page)
+
+
       subreport.merge!({
         id: page.id,
         name: page.name,
@@ -490,14 +502,20 @@ def main(csv_file, log_level = 'info')
         ref_bib_keys: get_references_bib_keys(page),
         assigned_authors: get_assigned_authors(page),
         intro_block_image: retrieved_intro_block_image,
+        _audio_block_assets: subreport[:_audio_block_assets],
         audio_block_files: get_audio_blocks_file_names(page),
+        _video_block_assets: subreport[:_video_block_assets],
         video_block_files: get_video_blocks_file_names(page),
+        _pdf_block_assets: subreport[:_pdf_block_assets],
         pdf_block_files: get_pdf_blocks_file_names(page),
+        _picture_block_assets: subreport[:_picture_block_assets],
         picture_block_files: get_picture_blocks_file_names(page),
         has_picture_with_text: page.elements.any? { |element| element.name == 'text_and_picture' } ? "yes" : "",
         attachment_links: get_attachment_links(page),
         has_html_header_tags: has_html_header_tags(page),
-        themetags: get_themetags(page),
+        themetags_discipline: themetags_hashmap[:discipline],
+        themetags_focus: themetags_hashmap[:focus],
+        themetags_structural: themetags_hashmap[:structural],
       })
 
 
@@ -510,6 +528,8 @@ def main(csv_file, log_level = 'info')
       if req == "UPDATE" || req == "POST"
         Rails.logger.info("Processing page '#{page_identifier}': Complex tasks")
 
+
+        # Authors
         update_authors_report = update_assigned_authors(page, assigned_authors)
         if update_authors_report[:status] != 'success'
           subreport[:_request] += " PARTIAL"
@@ -521,6 +541,8 @@ def main(csv_file, log_level = 'info')
         end
         subreport[:assigned_authors] = get_assigned_authors(page)
 
+
+        # Intro block image
         update_intro_block_image_report = update_intro_block_image(page, intro_block_image)
         if update_intro_block_image_report[:status] != 'success'
           subreport[:_request] += " PARTIAL"
@@ -532,6 +554,8 @@ def main(csv_file, log_level = 'info')
         end
         subreport[:intro_block_image] = get_intro_block_image(page)
 
+
+        # References
         update_references_report = set_references_bib_keys(page, subreport[:ref_bib_keys])
 
         if update_references_report[:status] != 'success'
@@ -543,6 +567,9 @@ def main(csv_file, log_level = 'info')
         end
         subreport[:ref_bib_keys] = get_references_bib_keys(page)
 
+
+        # Themetags
+        themetags = themetags_discipline.split(',').map(&:strip) + themetags_focus.split(',').map(&:strip) + themetags_structural.split(',').map(&:strip)
         update_themetags_report = set_themetags(page, themetags)
 
         if update_themetags_report[:status] != 'success'
@@ -552,7 +579,11 @@ def main(csv_file, log_level = 'info')
           subreport[:error_message] += ". Page saved, but set_themetags failed! Stopping...\n"
           subreport[:error_trace] += update_themetags_report[:error_trace] + "\n"
         end
-        subreport[:themetags] = get_themetags(page)
+
+        new_themetags_hashmap = get_themetags(page)
+        subreport[:themetags_discipline] = new_themetags_hashmap[:discipline]
+        subreport[:themetags_focus] = new_themetags_hashmap[:focus]
+        subreport[:themetags_structural] = new_themetags_hashmap[:structural]
 
 
         # Saving
