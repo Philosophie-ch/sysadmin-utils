@@ -178,6 +178,7 @@ def main(csv_file, log_level = 'info')
           subreport[:status] = "error"
           subreport[:error_message] = "Login '#{login}' contains one or more invalid characters (#{invalid_login_chars.join(', ')}). Skipping"
           subreport[:error_trace] = "Main::Control::POST"
+          next
         end
       end
 
