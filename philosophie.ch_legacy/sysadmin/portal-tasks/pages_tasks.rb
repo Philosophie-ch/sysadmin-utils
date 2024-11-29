@@ -77,6 +77,8 @@ def main(csv_file, log_level = 'info')
       tag_others: row['tag_others'] || "",  # tag
 
       ref_bib_keys: row['ref_bib_keys'] || "",  # box
+      _further_refs: row['_further_refs'] || "",
+      _depends_on: row['_depends_on'] || "",
 
       _assets: row['_assets'] || "",
       _to_do_on_the_portal: row['_to_do_on_the_portal'] || "",
@@ -342,6 +344,8 @@ def main(csv_file, log_level = 'info')
           tag_others: old_page_tag_columns[:tag_others] || '',
 
           ref_bib_keys: get_references_bib_keys(page),
+          _further_refs: subreport[:_further_refs],
+          _depends_on: subreport[:_depends_on],
 
           _assets: subreport[:_assets],
           _to_do_on_the_portal: subreport[:_to_do_on_the_portal],
