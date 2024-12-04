@@ -60,7 +60,10 @@ def main(csv_file, log_level = 'info')
       link: row['link'] || "",  # crafted
       _request: row['_request'] || "",
       _article_bib_key: row['_article_bib_key'] || "",  # article
-      _doi: row['_doi'] || "",  # article
+      how_to_cite: row['how_to_cite'] || "",  # article
+      pure_html_asset: row['pure_html_asset'] || "",  # element
+      pure_pdf_asset: row['pure_pdf_asset'] || "",  # element
+      doi: row['doi'] || "",  # article
       created_at: row['created_at'] || "",  # page
       page_layout: row['page_layout'] || "",  # page
 
@@ -86,7 +89,6 @@ def main(csv_file, log_level = 'info')
       _to_do_on_the_portal: row['_to_do_on_the_portal'] || "",
 
       assigned_authors: row['assigned_authors'] || "",  # box
-      _what_is_this: row['_what_is_this'] || "",  # box
 
       intro_block_image: row['intro_block_image'] || "",  # element
       _audio_block_assets: row['_audio_block_assets'] || "",
@@ -177,6 +179,30 @@ def main(csv_file, log_level = 'info')
       html_basename = subreport[:_html_basename].strip
       slug = subreport[:slug].strip
       link = subreport[:link].strip
+
+
+      # Metadata block
+      how_to_cite = subreport[:how_to_cite].strip
+
+      pure_links_base_url = "https://assets.philosophie.ch/dialectica/"
+
+      pure_html_asset = subreport[:pure_html_asset].strip
+      if pure_html_asset.blank?
+        pure_html_asset_full_url = ""
+      else
+        pure_html_asset_full_url = pure_links_base_url + pure_html_asset
+      end
+
+      pure_pdf_asset = subreport[:pure_pdf_asset].strip
+      if pure_pdf_asset.blank?
+        pure_pdf_asset_full_url = ""
+      else
+        pure_pdf_asset_full_url = pure_links_base_url + pure_pdf_asset
+      end
+
+      doi = subreport[:doi].strip
+      ##
+
       created_at = subreport[:created_at].strip
       page_layout = subreport[:page_layout].strip
 
@@ -349,6 +375,19 @@ def main(csv_file, log_level = 'info')
         old_references_asset_url = all_references_urls[:references_url] ? all_references_urls[:references_url].gsub(references_base_url, '') : ''
         old_further_references_asset_url = all_references_urls[:further_references_url] ? all_references_urls[:further_references_url].gsub(references_base_url, '') : ''
 
+        article_metadata_element = get_article_metadata_element(page)
+        if article_metadata_element.nil?
+          old_doi = ''
+          old_how_to_cite = ''
+          old_pure_html_asset = ''
+          old_pure_pdf_asset = ''
+        else
+          old_doi = get_doi(article_metadata_element)
+          old_how_to_cite = get_how_to_cite(article_metadata_element)
+          old_pure_html_asset = get_pure_html_asset(article_metadata_element)
+          old_pure_pdf_asset = get_pure_pdf_asset(article_metadata_element)
+        end
+
         old_page = {
           _sort: subreport[:_sort],
           id: page.id,
@@ -363,7 +402,10 @@ def main(csv_file, log_level = 'info')
           link: subreport[:link],
           _request: subreport[:_request],
           _article_bib_key: subreport[:_article_bib_key],
-          _doi: subreport[:_doi],
+          how_to_cite: old_how_to_cite,
+          pure_html_asset: old_pure_html_asset,
+          pure_pdf_asset: old_pure_pdf_asset,
+          doi: old_doi,
           created_at: get_created_at(page),
           page_layout: page.page_layout,
 
@@ -692,11 +734,37 @@ def main(csv_file, log_level = 'info')
         subreport[:themetags_focus] = new_themetags_hashmap[:focus]
         subreport[:themetags_structural] = new_themetags_hashmap[:structural]
 
+
+        # Article metadata
+        # Only if doi or how_to_cite are not blank, or if there are orcids
+        orcids = get_authors_orcids(page)
+        if !how_to_cite.blank? || !pure_html_asset_full_url.blank? || !pure_pdf_asset_full_url.blank? || !doi.blank? || !orcids.blank?
+          set_article_metadata_report = set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, orcids)
+
+          if set_article_metadata_report[:status] != 'success'
+            subreport[:_request] += " PARTIAL"
+            subreport[:status] = 'partial success'
+            subreport[:error_message] += set_article_metadata_report[:error_message]
+            subreport[:error_message] += ". Page saved, but set_article_metadata failed! Stopping...\n"
+            subreport[:error_trace] += set_article_metadata_report[:error_trace] + "\n"
+          end
+
+          new_how_to_cite = get_how_to_cite(get_article_metadata_element(page))
+          new_pure_html_asset = get_pure_html_asset(get_article_metadata_element(page))
+          new_pure_pdf_asset = get_pure_pdf_asset(get_article_metadata_element(page))
+          new_doi = get_doi(get_article_metadata_element(page))
+          subreport[:how_to_cite] = new_how_to_cite
+          subreport[:pure_html_asset] = new_pure_html_asset
+          subreport[:pure_pdf_asset] = new_pure_pdf_asset
+          subreport[:doi] = new_doi
+        end
+
         # Saving
         page.save!
         page.publish!
         Rails.logger.info("Processing page '#{page_identifier}': Complex tasks: Success!")
       end
+
 
 
       if req == "UPDATE" || req == "GET" || req == "GET RAW FILENAMES" || req == 'AD HOC' || req == 'REFS URLS'

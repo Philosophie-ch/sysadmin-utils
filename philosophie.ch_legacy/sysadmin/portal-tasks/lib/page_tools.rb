@@ -68,10 +68,10 @@ def tag_array_to_columns(tag_names)
 end
 
 
-def get_intro_block_image(page)
+def get_intro_block_image(article_page)
   intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
 
-  page.elements.each do |element|
+  article_page.elements.each do |element|
     next unless intro_elements.include?(element.name)
 
     has_intro_picture = element.contents&.any? { |content| content.essence.is_a?(Alchemy::EssencePicture) }
@@ -86,10 +86,10 @@ def get_intro_block_image(page)
 end
 
 
-def get_intro_block_image_raw_filename(page)
+def get_intro_block_image_raw_filename(article_page)
   intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
 
-  page.elements.each do |element|
+  article_page.elements.each do |element|
     next unless intro_elements.include?(element.name)
 
     has_intro_picture = element.contents&.any? { |content| content.essence.is_a?(Alchemy::EssencePicture) }
@@ -104,7 +104,7 @@ def get_intro_block_image_raw_filename(page)
 end
 
 
-def update_intro_block_image(page, image_file_name)
+def update_intro_block_image(article_page, image_file_name)
   result = {
     status: 'not started',
     error_message: '',
@@ -132,7 +132,7 @@ def update_intro_block_image(page, image_file_name)
       return result
     end
 
-    page.elements.each do |element|
+    article_page.elements.each do |element|
       next unless intro_elements.include?(element.name)
 
       has_intro_picture = element.contents&.any? { |content| content.essence.is_a?(Alchemy::EssencePicture) }
@@ -141,7 +141,7 @@ def update_intro_block_image(page, image_file_name)
         Rails.logger.info("Updating intro block image...")
         content = element.contents.find { |content| content.essence.is_a?(Alchemy::EssencePicture) }
         content.essence.update(picture: new_picture)
-        page.publish!
+        article_page.publish!
         result[:status] = 'success'
         Rails.logger.info("Intro block image updated successfully")
         return result
@@ -162,8 +162,8 @@ def update_intro_block_image(page, image_file_name)
 end
 
 
-def get_audio_blocks_file_names(page)
-  audio_blocks = page&.elements&.select { |element| element.name == 'audio_block' }
+def get_audio_blocks_file_names(article_page)
+  audio_blocks = article_page&.elements&.select { |element| element.name == 'audio_block' }
 
   audio_files = audio_blocks&.flat_map do |audio_block|
     audio_block.contents&.map do |content|
@@ -176,8 +176,8 @@ def get_audio_blocks_file_names(page)
 end
 
 
-def get_video_blocks_file_names(page)
-  video_blocks = page&.elements&.select { |element| element.name == 'video_block' }
+def get_video_blocks_file_names(article_page)
+  video_blocks = article_page&.elements&.select { |element| element.name == 'video_block' }
 
   video_files = video_blocks&.flat_map do |video_block|
     video_block.contents&.map do |content|
@@ -190,8 +190,8 @@ def get_video_blocks_file_names(page)
 end
 
 
-def get_pdf_blocks_file_names(page)
-  pdf_blocks = page&.elements&.select { |element| element.name == 'pdf_block' }
+def get_pdf_blocks_file_names(article_page)
+  pdf_blocks = article_page&.elements&.select { |element| element.name == 'pdf_block' }
 
   pdf_files = pdf_blocks&.flat_map do |pdf_block|
     pdf_block.contents&.map do |content|
@@ -204,8 +204,8 @@ def get_pdf_blocks_file_names(page)
 end
 
 
-def get_picture_blocks_file_names(page)
-  picture_block_elements = page&.elements&.select { |element| element.name == 'picture_block' }
+def get_picture_blocks_file_names(article_page)
+  picture_block_elements = article_page&.elements&.select { |element| element.name == 'picture_block' }
 
   picture_files = picture_block_elements&.flat_map do |picture_block|
     picture_block.contents&.map do |content|
@@ -218,15 +218,15 @@ def get_picture_blocks_file_names(page)
 end
 
 
-def get_assigned_authors(page)
-  page_is_article = page.page_layout == "article" ? true : false
-  page_is_event = page.page_layout == "event" ? true : false
+def get_assigned_authors(article_page)
+  page_is_article = article_page.page_layout == "article" ? true : false
+  page_is_event = article_page.page_layout == "event" ? true : false
 
   unless page_is_article || page_is_event
     return ""
   end
 
-  intro_element = page.elements.find { |element| element.name.include?('intro') }
+  intro_element = article_page.elements.find { |element| element.name.include?('intro') }
   creator_essence = intro_element&.content_by_name(:creator)&.essence
 
   unless creator_essence
@@ -238,11 +238,11 @@ def get_assigned_authors(page)
 end
 
 
-def update_assigned_authors(page, authors_str)
+def update_assigned_authors(article_page, authors_str)
 
   Rails.logger.info("Updating assigned authors...")
-  page_is_article = page.page_layout == "article" ? true : false
-  page_is_event = page.page_layout == "event" ? true : false
+  page_is_article = article_page.page_layout == "article" ? true : false
+  page_is_event = article_page.page_layout == "event" ? true : false
 
   unless page_is_article || page_is_event
     Rails.logger.debug("\tPage is not an article or event. Skipping...")
@@ -262,7 +262,7 @@ def update_assigned_authors(page, authors_str)
   begin
     Rails.logger.debug("\tPage is an article or event. Proceeding...")
 
-    intro_element = page.elements.find { |element| element.name.include?('intro') }
+    intro_element = article_page.elements.find { |element| element.name.include?('intro') }
     creator_essence = intro_element&.content_by_name(:creator)&.essence
 
     unless creator_essence
@@ -315,10 +315,10 @@ def update_assigned_authors(page, authors_str)
 end
 
 
-def has_html_header_tags(page)
+def has_html_header_tags(article_page)
   has_html_header_tags = false
 
-  page.elements.each do |element|
+  article_page.elements.each do |element|
 
     case element.name
     when 'intro', 'text_block', 'text_and_picture'
@@ -363,7 +363,7 @@ def themetag_names_by_interest_type(topics, interest_type)
   return topics.filter { |topic| topic.interest_type == interest_type }.map(&:name).join(", ")
 end
 
-def get_themetags(page)
+def get_themetags(article_page)
 
   themetags_hashmap = {
     discipline: "",
@@ -371,7 +371,7 @@ def get_themetags(page)
     structural: "",
   }
 
-  intro_element = page.elements.find { |element| element.name.include?('intro') }
+  intro_element = article_page.elements.find { |element| element.name.include?('intro') }
   if intro_element
     topic_content = intro_element.contents.find { |content| content.name == 'topics' }
     topics = topic_content&.essence&.topics&.uniq || []
@@ -403,7 +403,7 @@ def get_themetag_by_name(name)
   return found
 end
 
-def set_themetags(page, themetag_names)
+def set_themetags(article_page, themetag_names)
   report = {
     status: 'not started',
     error_message: '',
@@ -411,7 +411,7 @@ def set_themetags(page, themetag_names)
   }
 
   begin
-    intro_element = page.elements.find { |element| element.name.include?('intro') }
+    intro_element = article_page.elements.find { |element| element.name.include?('intro') }
     if intro_element
       topic_content = intro_element.contents.find { |content| content.name == 'topics' }
       themetags = themetag_names.map { |name| get_themetag_by_name(name) }.compact.uniq
@@ -440,21 +440,21 @@ end
 
 def retrieve_page_slug(page)
   Alchemy::Engine.routes.url_helpers.show_page_path({
-    locale: !page.language.default ? page.language_code : nil, urlname: page.urlname
+    locale: !article_page.language.default ? article_page.language_code : nil, urlname: article_page.urlname
   })
 end
 
 
-def get_created_at(page)
-  page.created_at.strftime('%Y-%m-%d')
+def get_created_at(article_page)
+  article_page.created_at.strftime('%Y-%m-%d')
 end
 
 def parse_created_at(date)
   Date.parse(date.to_s)
 end
 
-def get_references_bib_keys(page)
-  references = page.find_elements.find_by(name: "references")
+def get_references_bib_keys(article_page)
+  references = article_page.find_elements.find_by(name: "references")
   return "" unless references
 
   result = references.contents.each_with_object([]) do |c, arr|
@@ -465,14 +465,14 @@ def get_references_bib_keys(page)
 end
 
 
-def set_references_bib_keys(page, bibkeys)
+def set_references_bib_keys(article_page, bibkeys)
   result = {
     status: 'not started',
     error_message: '',
     error_trace: '',
   }
   begin
-    references = page.find_elements.find_by(name: "references")
+    references = article_page.find_elements.find_by(name: "references")
 
     unless references
       Rails.logger.warn("References element not found. Skipping...")
@@ -506,11 +506,11 @@ def set_references_bib_keys(page, bibkeys)
 end
 
 
-def get_attachment_links(page)
+def get_attachment_links(article_page)
   result = []
 
   # 1. Look in the Richtext essences
-  attachment_links = page.elements.flat_map do |element|
+  attachment_links = article_page.elements.flat_map do |element|
     element.contents.flat_map do |content|
       next [] unless content.essence.is_a?(Alchemy::EssenceRichtext) && content.essence.body
 
@@ -535,7 +535,7 @@ def get_attachment_links(page)
   end
 
   # 2. Look in the Embed elements of the page
-  html_embed_elements = page.elements.flat_map do |element|
+  html_embed_elements = article_page.elements.flat_map do |element|
     element.contents.flat_map do |content|
       next [] unless content.essence.is_a?(Alchemy::EssenceHtml) && content.essence.source
 
@@ -565,28 +565,28 @@ def get_attachment_links(page)
 end
 
 
-def get_pre_headline(page)
-  page.elements.find_by(name: "intro")&.content_by_name(:pre_headline)&.essence&.body || ""
+def get_pre_headline(article_page)
+  article_page.elements.find_by(name: "intro")&.content_by_name(:pre_headline)&.essence&.body || ""
 end
 
 
-def set_pre_headline(page, pre_headline)
-  page.elements.find_by(name: "intro")&.content_by_name(:pre_headline)&.essence&.update({body: pre_headline})
+def set_pre_headline(article_page, pre_headline)
+  article_page.elements.find_by(name: "intro")&.content_by_name(:pre_headline)&.essence&.update({body: pre_headline})
 end
 
 
-def get_lead_text(page)
-  page.elements.find_by(name: "intro")&.content_by_name(:lead_text)&.essence&.body || ""
+def get_lead_text(article_page)
+  article_page.elements.find_by(name: "intro")&.content_by_name(:lead_text)&.essence&.body || ""
 end
 
 
-def set_lead_text(page, lead_text)
-  page.elements.find_by(name: "intro")&.content_by_name(:lead_text)&.essence&.update({body: lead_text})
+def set_lead_text(article_page, lead_text)
+  article_page.elements.find_by(name: "intro")&.content_by_name(:lead_text)&.essence&.update({body: lead_text})
 end
 
 
-def get_embed_blocks(page)
-  page.elements.map { |element| element if element.name == "embed" }.compact
+def get_embed_blocks(article_page)
+  article_page.elements.map { |element| element if element.name == "embed" }.compact
 end
 
 
@@ -595,9 +595,9 @@ def read_raw_html(filename)
 end
 
 
-def dltc_set_embed_block(page, content)
+def dltc_set_embed_block(article_page, content)
 
-  embed_blocks = get_embed_blocks(page)
+  embed_blocks = get_embed_blocks(article_page)
 
   unless embed_blocks.blank? || embed_blocks.size == 0
     embed_blocks.each do |embed_block|
@@ -607,28 +607,28 @@ def dltc_set_embed_block(page, content)
 
   # WARNING! page reloads! any uncommited changes are flushed
   # Better to execute this function independently of the others
-  page.reload
+  article_page.reload
 
-  page.elements.create(name: "embed")
+  article_page.elements.create(name: "embed")
 
-  embed_block = get_embed_blocks(page).first
+  embed_block = get_embed_blocks(article_page).first
 
   embed_block.contents.first.essence.update({source: content})
 
-  page.save!
-  page.publish!
+  article_page.save!
+  article_page.publish!
 
 end
 
 
-def get_references_blocks(page)
-  page.elements.map { |element| element if element.name == "references" }.compact
+def get_references_blocks(article_page)
+  article_page.elements.map { |element| element if element.name == "references" }.compact
 end
 
-def set_references_block(page, references_url, further_references_url)
+def set_references_block(article_page, references_url, further_references_url)
   # Same as with the embed block, we delete all references blocks and create a new one
 
-  references_blocks = get_references_blocks(page)
+  references_blocks = get_references_blocks(article_page)
 
   unless references_blocks.blank? || references_blocks.size == 0
     references_blocks.each do |references_block|
@@ -638,27 +638,27 @@ def set_references_block(page, references_url, further_references_url)
 
   # WARNING! page reloads! any uncommited changes are flushed
   # Better to execute this function independently of the others
-  page.reload
+  article_page.reload
 
-  page.elements.create(name: "references")
+  article_page.elements.create(name: "references")
 
-  references_block = get_references_blocks(page).first
+  references_block = get_references_blocks(article_page).first
 
   references_block.content_by_name("references_asset_url").essence.update({link: references_url})
 
   references_block.content_by_name("further_references_asset_url").essence.update({link: further_references_url})
 
-  page.save!
-  page.publish!
+  article_page.save!
+  article_page.publish!
 
 end
 
-def get_references_urls(page)
+def get_references_urls(article_page)
   urls = {
     references_url: "",
     further_references_url: ""
   }
-  references_blocks = get_references_blocks(page)
+  references_blocks = get_references_blocks(article_page)
 
   unless references_blocks.blank? || references_blocks.size == 0
     references_block = references_blocks.first
@@ -671,4 +671,93 @@ def get_references_urls(page)
 
   return urls
 
+end
+
+
+def get_article_metadata_element(article_page)
+  # This is a nested element inside the aside_column element
+  aside_column = Alchemy::Element.where(parent_element_id: nil, page_id: article_page.id, name: "aside_column").first
+
+  unless aside_column.blank?
+    article_metadata = aside_column.nested_elements.select { |nested_element| nested_element.name == "article_metadata" }.first
+    unless article_metadata.blank?
+      return article_metadata
+    end
+  end
+  return nil
+end
+
+def get_authors_orcids(page)
+    # Find the authors
+    authors = article_page.elements.find_by(name: "intro")&.content_by_name(:creator)&.essence&.alchemy_users&.uniq&.compact || []
+
+    if authors.blank? || authors.size == 0
+      orcids_string = ""
+    else
+      # Extract the ORCIDs from the users
+      orcids_list = authors.map { |user| user.profile.other_personal_information }.compact.map(&:strip).reject(&:empty?)
+      orcids_string = orcids_list.join(", ")
+    end
+
+    return orcids_string
+end
+
+def set_article_metadata(article_page, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, how_to_cite, orcids)
+  # pure_html_asset_full_url and pure_pdf_asset_full_url are meant to be full URLs
+  # doi is EssenceText
+  # how_to_cite is EssenceRichtext
+  # orcids is EssenceText, meant to be comma-separated, coming from the authors of the page, which we need to extract
+
+  report = {
+    status: 'not started',
+    error_message: '',
+  }
+
+  begin
+    article_metadata = get_article_metadata_element(article_page)
+
+    if article_metadata.blank?
+      report[:status] = 'error'
+      report[:error_message] = "Article metadata element not found"
+      return report
+    end
+
+    article_metadata.contents.find_by(name: "doi").essence.update({body: doi})
+
+    article_metadata.contents.find_by(name: "how_to_cite").essence.update({body: how_to_cite})
+
+    article_metadata.contents.find_by(name: "pure_html_url").essence.update({body: pure_html_asset_full_url})
+
+    article_metadata.contents.find_by(name: "pure_pdf_url").essence.update({body: pure_pdf_asset_full_url})
+
+    article_metadata.contents.find_by(name: "orcids").essence.update({body: orcids})
+
+    report[:status] = 'success'
+
+    return report
+
+  rescue => e
+    report[:status] = 'error'
+    report[:error_message] = "#{e.class} :: #{e.message}"
+
+  end
+
+end
+
+def get_doi(article_metadata_element)
+  article_metadata_element.contents.find_by(name: "doi").essence.body
+end
+
+def get_how_to_cite(article_metadata_element)
+  article_metadata_element.contents.find_by(name: "how_to_cite").essence.body
+end
+
+def get_pure_html_asset(article_metadata_element, pure_links_base_url)
+  full_url = article_metadata_element.contents.find_by(name: "pure_html_asset_url").essence.body
+  return full_url.gsub(pure_links_base_url, "") if full_url.start_with?(pure_links_base_url)
+end
+
+def get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
+  full_url = article_metadata_element.contents.find_by(name: "pure_pdf_asset_url").essence.body
+  return full_url.gsub(pure_links_base_url, "") if full_url.start_with?(pure_links_base_url)
 end
