@@ -75,7 +75,9 @@ def main(csv_file, log_level = 'info')
       _articles_assigned_to_profile: row["_articles_assigned_to_profile"] || "",
       _articles_assigned_to_profile_links: row["_articles_assigned_to_profile_links"] || "",
       biblio_keys: row["biblio_keys"] || "",
+      bibliography_asset_url: row["bibliography_asset_url"] || "",
       biblio_keys_further_references: row["biblio_keys_further_references"] || "",
+      bibliography_further_references_asset_url: row["bibliography_further_references_asset_url"] || "",
       bibio_dependencies_keys: row["bibio_dependencies_keys"] || "",
       _comments: row["_comments"] || "",
       _employment: row["_employment"] || "",
@@ -143,7 +145,7 @@ def main(csv_file, log_level = 'info')
       end
 
       Rails.logger.info("Processing user '#{login}'")
-      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'UPDATE LINKS', 'UPDATE PASSWORD']
+      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'UPDATE LINKS', 'UPDATE PASSWORD', 'AD HOC']
       unless supported_requests.include?(req)
         if req.blank?
           subreport[:_request] = req + " ERROR"
@@ -208,6 +210,24 @@ def main(csv_file, log_level = 'info')
       profile_picture = subreport[:profile_picture].strip # profile
       facebook_profile = subreport[:facebook_profile].strip # profile
 
+      # bibliography
+      bibliography_base_url = "https://assets.philosophie.ch/references/"
+
+      bibliography_asset_url = subreport[:bibliography_asset_url].strip  # profile
+      if bibliography_asset_url.blank?
+        bibliography_asset_full_url = nil
+      else
+        bibliography_asset_full_url = bibliography_base_url + bibliography_asset_url
+
+        bibliography_further_references_asset_url = subreport[:bibliography_further_references_asset_url].strip  # profile
+
+        if bibliography_further_references_asset_url.blank?
+          bibliography_further_references_asset_full_url = nil
+        else
+          bibliography_further_references_asset_full_url = bibliography_base_url + bibliography_further_references_asset_url
+        end
+      end
+
       # profile dump
       birth_date = subreport[:birth_date].strip
       public_field = subreport[:public].strip
@@ -240,7 +260,7 @@ def main(csv_file, log_level = 'info')
       if req == "POST"
           user = Alchemy::User.new()
 
-      elsif req == "UPDATE" || req == "GET" || req == "DELETE" || req == "UPDATE LINKS" || req == "UPDATE PASSWORD"
+      elsif req == "UPDATE" || req == "GET" || req == "DELETE" || req == "UPDATE LINKS" || req == "UPDATE PASSWORD" || req == "AD HOC"
 
         unless id.blank?
           user = Alchemy::User.find(id)
@@ -310,7 +330,11 @@ def main(csv_file, log_level = 'info')
         next
       end
 
-      if req == "UPDATE" || req == "GET"
+      if req == "UPDATE" || req == "GET" || req == "AD HOC"
+
+        old_biblio_asset_url = user.profile.bibliography_asset_url.blank? ? "" : user.profile.bibliography_asset_url.gsub(bibliography_base_url, '')
+        old_biblio_further_asset_url = user.profile.bibliography_further_references_asset_url.blank? ? "" : user.profile.bibliography_further_references_asset_url.gsub(bibliography_base_url, '')
+
         old_user = {
           _correspondence: subreport[:_correspondence],
           _todo_person: subreport[:_todo_person],
@@ -342,7 +366,9 @@ def main(csv_file, log_level = 'info')
           _articles_assigned_to_profile: subreport[:_articles_assigned_to_profile],
           _articles_assigned_to_profile_links: subreport[:_articles_assigned_to_profile_links],
           biblio_keys: subreport[:biblio_keys],
+          bibliography_asset_url: old_biblio_asset_url,
           biblio_keys_further_references: subreport[:biblio_keys_further_references],
+          bibliography_further_references_asset_url: old_biblio_further_asset_url,
           bibio_dependencies_keys: subreport[:bibio_dependencies_keys],
           _comments: subreport[:_comments],
           _employment: subreport[:_employment],
@@ -439,6 +465,10 @@ def main(csv_file, log_level = 'info')
           end
 
           user.profile.cms_public_email_toggle = cms_public_email_toggle
+
+          user.profile.bibliography_asset_url = bibliography_asset_full_url
+          user.profile.bibliography_further_references_asset_url = bibliography_further_references_asset_full_url
+
           user.profile.facebook_profile = facebook_profile
 
           user.profile.birth_date = birth_date
@@ -560,8 +590,20 @@ def main(csv_file, log_level = 'info')
       end
 
 
+      ## Ad hoc actions
+      if req == "AD HOC"
+
+
+      end
+      ##
+
       # Update report
       Rails.logger.info("Processing user '#{login}': Updating report")
+
+      # recover bibliography base urls
+      bibliography_asset_url_recovered = user.profile.bibliography_asset_url.blank? ? "" : user.profile.bibliography_asset_url.gsub(bibliography_base_url, '')
+      bibliography_further_asset_url_recovered = user.profile.bibliography_further_references_asset_url.blank? ? "" : user.profile.bibliography_further_references_asset_url.gsub(bibliography_base_url, '')
+
       subreport.merge!({
         id: user.id,
         login: user.login,
@@ -582,6 +624,8 @@ def main(csv_file, log_level = 'info')
         teacher_at_institution: user.profile.teacher_at_institution,
         societies: user.profile.societies.map(&:name).join(', '),
         cms_public_email_toggle: user.profile.cms_public_email_toggle,
+        bibliography_asset_url: bibliography_asset_url_recovered,
+        bibliography_further_references_asset_url: bibliography_further_asset_url_recovered,
         profile_picture: get_profile_picture(user),
         facebook_profile: user.profile.facebook_profile,
 
@@ -618,7 +662,7 @@ def main(csv_file, log_level = 'info')
         subreport[:_articles_assigned_to_profile_links] = article_links.join(', ')
       end
 
-      if req == "UPDATE" || req == "GET"
+      if req == "UPDATE" || req == "GET" || req == "AD HOC"
         changes = []
         subreport.each do |key, value|
           if old_user[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :update_links_report && key != :_request
