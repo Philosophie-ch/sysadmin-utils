@@ -77,13 +77,16 @@ def main(csv_file, log_level = 'info')
       tag_others: row['tag_others'] || "",  # tag
 
       ref_bib_keys: row['ref_bib_keys'] || "",  # element
+      references_asset_url: row['references_asset_url'] || "",  # element
       _further_refs: row['_further_refs'] || "",
+      further_references_asset_url: row['further_references_asset_url'] || "",  # element
       _depends_on: row['_depends_on'] || "",
 
       _assets: row['_assets'] || "",
       _to_do_on_the_portal: row['_to_do_on_the_portal'] || "",
 
       assigned_authors: row['assigned_authors'] || "",  # box
+      _what_is_this: row['_what_is_this'] || "",  # box
 
       intro_block_image: row['intro_block_image'] || "",  # element
       _audio_block_assets: row['_audio_block_assets'] || "",
@@ -115,7 +118,7 @@ def main(csv_file, log_level = 'info')
 
       # Control
       Rails.logger.info("Processing page: Control")
-      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'DLTC-WEB', 'DL-RN']
+      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'DLTC-WEB', 'DL-RN', 'AD HOC', 'REFS URLS']
       req = subreport[:_request].strip
 
       if req.blank?
@@ -152,7 +155,7 @@ def main(csv_file, log_level = 'info')
         end
       end
 
-      if req == 'UPDATE' || req == 'GET' || req == 'DELETE' || req == 'GET RAW FILENAMES' || req == 'DLTC-WEB' || req == 'DL-RN'
+      if req == 'UPDATE' || req == 'GET' || req == 'DELETE' || req == 'GET RAW FILENAMES' || req == 'DLTC-WEB' || req == 'DL-RN' || req == 'AD HOC' || req == 'REFS URLS'
         if id.blank? && (language_code.blank? || urlname.blank?)
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
@@ -188,6 +191,27 @@ def main(csv_file, log_level = 'info')
       tag_references = subreport[:tag_references].strip
       tag_footnotes = subreport[:tag_footnotes].strip
       tag_others = subreport[:tag_others].strip
+
+
+      # References urls
+      references_base_url = "https://assets.philosophie.ch/references/articles/"
+      references_asset_url = subreport[:references_asset_url].strip
+
+      if references_asset_url.blank?
+        references_asset_full_url = ""
+        further_references_asset_full_url = ""
+      else
+        references_asset_full_url = references_base_url + references_asset_url
+
+        further_references_asset_url = subreport[:further_references_asset_url].strip
+
+        if further_references_asset_url.blank?
+          further_references_asset_full_url = ""
+        else
+          further_references_asset_full_url = references_base_url + further_references_asset_url
+        end
+      end
+
 
       assigned_authors = subreport[:assigned_authors].strip
 
@@ -247,7 +271,7 @@ def main(csv_file, log_level = 'info')
           end
         end
 
-      elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'|| req == 'GET RAW FILENAMES' || req == 'DLTC-WEB' || req == 'DL-RN'
+      elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'|| req == 'GET RAW FILENAMES' || req == 'DLTC-WEB' || req == 'DL-RN' || req == 'AD HOC' || req == 'REFS URLS'
         unless id.blank?
           page = Alchemy::Page.find(id)
         else
@@ -307,7 +331,7 @@ def main(csv_file, log_level = 'info')
         end
       end
 
-      if req == 'UPDATE' || req == 'GET' || req == 'GET RAW FILENAMES'
+      if req == 'UPDATE' || req == 'GET' || req == 'GET RAW FILENAMES' || req == 'AD HOC' || req == 'REFS URLS'
         old_page_tag_names = page.tag_names
         old_page_tag_columns = tag_array_to_columns(old_page_tag_names)
         old_page_assigned_authors = get_assigned_authors(page)
@@ -319,6 +343,11 @@ def main(csv_file, log_level = 'info')
         else
           retrieved_intro_block_image = get_intro_block_image(page)
         end
+
+
+        all_references_urls = get_references_urls(page)
+        old_references_asset_url = all_references_urls[:references_url] ? all_references_urls[:references_url].gsub(references_base_url, '') : ''
+        old_further_references_asset_url = all_references_urls[:further_references_url] ? all_references_urls[:further_references_url].gsub(references_base_url, '') : ''
 
         old_page = {
           _sort: subreport[:_sort],
@@ -351,7 +380,9 @@ def main(csv_file, log_level = 'info')
           tag_others: old_page_tag_columns[:tag_others] || '',
 
           ref_bib_keys: get_references_bib_keys(page),
+          references_asset_url: old_references_asset_url,
           _further_refs: subreport[:_further_refs],
+          further_references_asset_url: old_further_references_asset_url,
           _depends_on: subreport[:_depends_on],
 
           _assets: subreport[:_assets],
@@ -520,6 +551,30 @@ def main(csv_file, log_level = 'info')
         end
       end
 
+      #######
+      # REFS URLS
+      #######
+
+      if req == 'REFS URLS'
+
+        # References urls
+        set_references_block(page, references_asset_full_url, further_references_asset_full_url)
+        new_references_urls = get_references_urls(page)
+
+        subreport[:references_asset_url] = new_references_urls[:references_url] ? new_references_urls[:references_url].gsub(references_base_url, '') : ''
+        subreport[:further_references_asset_url] = new_references_urls[:further_references_url] ? new_references_urls[:further_references_url].gsub(references_base_url, '') : ''
+
+      end
+
+      #######
+      # AD HOC
+      # Special request not to be commited
+      #######
+
+      if req == 'AD HOC'
+
+      end
+
 
       ############
       # REPORT
@@ -607,7 +662,7 @@ def main(csv_file, log_level = 'info')
         subreport[:intro_block_image] = get_intro_block_image(page)
 
 
-        # References
+        # References bibkeys
         update_references_report = set_references_bib_keys(page, subreport[:ref_bib_keys])
 
         if update_references_report[:status] != 'success'
@@ -637,7 +692,6 @@ def main(csv_file, log_level = 'info')
         subreport[:themetags_focus] = new_themetags_hashmap[:focus]
         subreport[:themetags_structural] = new_themetags_hashmap[:structural]
 
-
         # Saving
         page.save!
         page.publish!
@@ -645,7 +699,7 @@ def main(csv_file, log_level = 'info')
       end
 
 
-      if req == "UPDATE" || req == "GET" || req == "GET RAW FILENAMES"
+      if req == "UPDATE" || req == "GET" || req == "GET RAW FILENAMES" || req == 'AD HOC' || req == 'REFS URLS'
         changes = []
         subreport.each do |key, value|
           if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :_request

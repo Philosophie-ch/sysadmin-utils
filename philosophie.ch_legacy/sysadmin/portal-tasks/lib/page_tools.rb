@@ -619,3 +619,56 @@ def dltc_set_embed_block(page, content)
   page.publish!
 
 end
+
+
+def get_references_blocks(page)
+  page.elements.map { |element| element if element.name == "references" }.compact
+end
+
+def set_references_block(page, references_url, further_references_url)
+  # Same as with the embed block, we delete all references blocks and create a new one
+
+  references_blocks = get_references_blocks(page)
+
+  unless references_blocks.blank? || references_blocks.size == 0
+    references_blocks.each do |references_block|
+      references_block.destroy!
+    end
+  end
+
+  # WARNING! page reloads! any uncommited changes are flushed
+  # Better to execute this function independently of the others
+  page.reload
+
+  page.elements.create(name: "references")
+
+  references_block = get_references_blocks(page).first
+
+  references_block.content_by_name("references_asset_url").essence.update({link: references_url})
+
+  references_block.content_by_name("further_references_asset_url").essence.update({link: further_references_url})
+
+  page.save!
+  page.publish!
+
+end
+
+def get_references_urls(page)
+  urls = {
+    references_url: "",
+    further_references_url: ""
+  }
+  references_blocks = get_references_blocks(page)
+
+  unless references_blocks.blank? || references_blocks.size == 0
+    references_block = references_blocks.first
+    references_url = references_block.content_by_name("references_asset_url").essence.link
+    further_references_url = references_block.content_by_name("further_references_asset_url").essence.link
+
+    urls[:references_url] = references_url
+    urls[:further_references_url] = further_references_url
+  end
+
+  return urls
+
+end

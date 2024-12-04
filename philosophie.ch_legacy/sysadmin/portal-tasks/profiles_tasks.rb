@@ -216,6 +216,7 @@ def main(csv_file, log_level = 'info')
       bibliography_asset_url = subreport[:bibliography_asset_url].strip  # profile
       if bibliography_asset_url.blank?
         bibliography_asset_full_url = nil
+        bibliography_further_references_asset_full_url = nil
       else
         bibliography_asset_full_url = bibliography_base_url + bibliography_asset_url
 
