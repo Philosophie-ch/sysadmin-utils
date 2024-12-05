@@ -384,8 +384,8 @@ def main(csv_file, log_level = 'info')
         else
           old_doi = get_doi(article_metadata_element)
           old_how_to_cite = get_how_to_cite(article_metadata_element)
-          old_pure_html_asset = get_pure_html_asset(article_metadata_element)
-          old_pure_pdf_asset = get_pure_pdf_asset(article_metadata_element)
+          old_pure_html_asset = get_pure_html_asset(article_metadata_element, pure_links_base_url)
+          old_pure_pdf_asset = get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
         end
 
         old_page = {
@@ -615,6 +615,31 @@ def main(csv_file, log_level = 'info')
 
       if req == 'AD HOC'
 
+        orcids = get_authors_orcids(page)
+
+        if !how_to_cite.blank? || !pure_html_asset_full_url.blank? || !pure_pdf_asset_full_url.blank? || !doi.blank? || !orcids.blank?
+
+          set_article_metadata_report = set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, orcids)
+
+          if set_article_metadata_report[:status] != 'success'
+            subreport[:_request] += " PARTIAL"
+            subreport[:status] = 'partial success'
+            subreport[:error_message] = set_article_metadata_report[:error_message]
+            subreport[:error_trace] = set_article_metadata_report[:error_trace]
+          end
+
+          new_metadata_element = get_article_metadata_element(page)
+          new_how_to_cite = get_how_to_cite(new_metadata_element)
+          new_pure_html_asset = get_pure_html_asset(new_metadata_element, pure_links_base_url)
+          new_pure_pdf_asset = get_pure_pdf_asset(new_metadata_element, pure_links_base_url)
+          new_doi = get_doi(new_metadata_element)
+
+          subreport[:how_to_cite] = new_how_to_cite
+          subreport[:pure_html_asset] = new_pure_html_asset
+          subreport[:pure_pdf_asset] = new_pure_pdf_asset
+          subreport[:doi] = new_doi
+        end
+
       end
 
 
@@ -736,9 +761,10 @@ def main(csv_file, log_level = 'info')
 
 
         # Article metadata
-        # Only if doi or how_to_cite are not blank, or if there are orcids
         orcids = get_authors_orcids(page)
+
         if !how_to_cite.blank? || !pure_html_asset_full_url.blank? || !pure_pdf_asset_full_url.blank? || !doi.blank? || !orcids.blank?
+
           set_article_metadata_report = set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, orcids)
 
           if set_article_metadata_report[:status] != 'success'
@@ -749,10 +775,12 @@ def main(csv_file, log_level = 'info')
             subreport[:error_trace] += set_article_metadata_report[:error_trace] + "\n"
           end
 
-          new_how_to_cite = get_how_to_cite(get_article_metadata_element(page))
-          new_pure_html_asset = get_pure_html_asset(get_article_metadata_element(page))
-          new_pure_pdf_asset = get_pure_pdf_asset(get_article_metadata_element(page))
-          new_doi = get_doi(get_article_metadata_element(page))
+          new_metadata_element = get_article_metadata_element(page)
+          new_how_to_cite = get_how_to_cite(new_metadata_element)
+          new_pure_html_asset = get_pure_html_asset(new_metadata_element, pure_links_base_url)
+          new_pure_pdf_asset = get_pure_pdf_asset(new_metadata_element, pure_links_base_url)
+          new_doi = get_doi(new_metadata_element)
+
           subreport[:how_to_cite] = new_how_to_cite
           subreport[:pure_html_asset] = new_pure_html_asset
           subreport[:pure_pdf_asset] = new_pure_pdf_asset
