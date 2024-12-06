@@ -39,6 +39,9 @@ def main(csv_file, log_level = 'info')
   total_lines = csv_data.size
 
 
+  all_attachments_with_pages = get_all_attachments_with_pages()
+
+
   ############
   # MAIN
   ############
@@ -439,7 +442,7 @@ def main(csv_file, log_level = 'info')
           picture_block_files: get_picture_blocks_file_names(page),
 
           has_picture_with_text: page.elements.any? { |element| element.name == 'text_and_picture' } ? "yes" : "",
-          attachment_links: get_attachment_links(page),
+          attachment_links: get_attachment_links(page, all_attachments_with_pages),
           _other_assets: subreport[:_other_assets],
           has_html_header_tags: has_html_header_tags(page),
 
@@ -685,7 +688,7 @@ def main(csv_file, log_level = 'info')
         _picture_block_assets: subreport[:_picture_block_assets],
         picture_block_files: get_picture_blocks_file_names(page),
         has_picture_with_text: page.elements.any? { |element| element.name == 'text_and_picture' } ? "yes" : "",
-        attachment_links: get_attachment_links(page),
+        attachment_links: get_attachment_links(page, all_attachments_with_pages),
         has_html_header_tags: has_html_header_tags(page),
         themetags_discipline: themetags_hashmap[:discipline],
         themetags_focus: themetags_hashmap[:focus],

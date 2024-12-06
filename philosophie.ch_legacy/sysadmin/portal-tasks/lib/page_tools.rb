@@ -507,7 +507,12 @@ def set_references_bib_keys(page, bibkeys)
 end
 
 
-def get_attachment_links(page)
+def get_all_attachments_with_pages()
+  return Alchemy::Attachment.all.filter { |attachment| attachment.pages != [] }
+end
+
+
+def get_attachment_links(page, all_attachments_with_pages)
   result = []
 
   # 1. Look in the Richtext essences
@@ -559,6 +564,11 @@ def get_attachment_links(page)
 
     result << file_name
   end
+
+  # 3. Look for all attachments, and return those whose 'pages' include the current page
+  page_attachments = all_attachments_with_pages.filter { |attachment| attachment.pages.map(&:id).include?(page.id) }.map(&:file_name)
+
+  result << page_attachments
 
 
   return result.join(", ")
