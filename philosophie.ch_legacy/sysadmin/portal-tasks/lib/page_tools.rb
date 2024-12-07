@@ -520,15 +520,15 @@ def get_attachment_links(page, all_attachments_with_pages)
     element.contents.flat_map do |content|
       next [] unless content.essence.is_a?(Alchemy::EssenceRichtext) && content.essence.body
 
-      content.essence.body.scan(/href="([^"]*attachments[^"]*)"/).flatten
+      content.essence.body.scan(/href="([^"]*attachment[^"]*)"/).flatten
     end
   end
 
   attachment_links.each do |link|
-    # Remove everything from the link except the number after 'attachments/'
+    # Remove everything from the link except the number after 'attachment/'
     # This is the attachment ID
-    # Example: href="/attachments/1234/show" -> 1234
-    # Example 2: href="/attachments/1234/download" -> 1234
+    # Example: href="/attachment/1234/show" -> 1234
+    # Example 2: href="/attachment/1234/download" -> 1234
     id = link.match(/\/attachment\/(\d+)\//)&.captures&.first
 
     file_name = Alchemy::Attachment.find_by(id: id)&.file_name
@@ -545,15 +545,15 @@ def get_attachment_links(page, all_attachments_with_pages)
     element.contents.flat_map do |content|
       next [] unless content.essence.is_a?(Alchemy::EssenceHtml) && content.essence.source
 
-      content.essence.source.scan(/src="([^"]*attachments[^"]*)"/).flatten
+      content.essence.source.scan(/src="([^"]*attachment[^"]*)"/).flatten
     end
   end
 
   html_embed_elements.each do |link|
-    # Remove everything from the link except the number after 'attachments/'
+    # Remove everything from the link except the number after 'attachment/'
     # This is the attachment ID
-    # Example: src="/attachments/1234/show" -> 1234
-    # Example 2: src="/attachments/1234/download" -> 1234
+    # Example: src="/attachment/1234/show" -> 1234
+    # Example 2: src="/attachment/1234/download" -> 1234
     id = link.match(/\/attachment\/(\d+)\//)&.captures&.first
 
     file_name = Alchemy::Attachment.find_by(id: id)&.file_name
@@ -565,13 +565,13 @@ def get_attachment_links(page, all_attachments_with_pages)
     result << file_name
   end
 
-  # 3. Look for all attachments, and return those whose 'pages' include the current page
+  # 3. Look for all ttachments, and return those whose 'pages' include the current page
   page_attachments = all_attachments_with_pages.filter { |attachment| attachment.pages.map(&:id).include?(page.id) }.map(&:file_name)
 
   result << page_attachments
 
 
-  return result.join(", ")
+  return result.flatten.reject { |element| element.nil? || element.strip.empty? }.uniq.join(", ")
 
 end
 
@@ -673,11 +673,11 @@ def get_references_urls(page)
 
   unless references_blocks.blank? || references_blocks.size == 0
     references_block = references_blocks.first
-    references_url = references_block.content_by_name("references_asset_url").essence.link
-    further_references_url = references_block.content_by_name("further_references_asset_url").essence.link
+    references_url = references_block.content_by_name("references_asset_url")&.essence&.link
+    further_references_url = references_block.content_by_name("further_references_asset_url")&.essence&.link
 
-    urls[:references_url] = references_url
-    urls[:further_references_url] = further_references_url
+    urls[:references_url] = references_url.blank? ? "" : references_url
+    urls[:further_references_url] = further_references_url.blank? ? "" : further_references_url
   end
 
   return urls
