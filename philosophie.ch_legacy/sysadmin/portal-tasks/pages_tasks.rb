@@ -790,6 +790,82 @@ def main(csv_file, log_level = 'info')
           subreport[:doi] = new_doi
         end
 
+
+        # Handle asset tasks
+        if req == "UPDATE"
+
+          # Audio blocks
+          audio_processed_urls = process_asset_urls(audio_block_files)
+          audio_urls_check = check_asset_urls_resolve(audio_processed_urls)
+
+          if audio_urls_check[:status] != 'success'
+            subreport[:_request] = "#{req} PARTIAL"
+            subreport[:status] = 'partial success'
+            subreport[:error_message] += " --- Audio blocks: {{ #{audio_urls_check[:error_message]} }}"
+          else
+            audio_set_report = set_audio_blocks(page, audio_processed_urls)
+            if audio_set_report[:status] != 'success'
+              subreport[:_request] = "#{req} PARTIAL"
+              subreport[:status] = 'partial success'
+              subreport[:error_message] += " --- Audio blocks: {{ #{audio_set_report[:error_message]} }}"
+            end
+          end
+
+          # Video blocks
+          video_processed_urls = process_asset_urls(video_block_files)
+          video_urls_check = check_asset_urls_resolve(video_processed_urls)
+
+          if video_urls_check[:status] != 'success'
+            subreport[:_request] = "#{req} PARTIAL"
+            subreport[:status] = 'partial success'
+            subreport[:error_message] += " --- Video blocks: {{ #{video_urls_check[:error_message]} }}"
+          else
+            video_set_report = set_video_blocks(page, video_processed_urls)
+            if video_set_report[:status] != 'success'
+              subreport[:_request] = "#{req} PARTIAL"
+              subreport[:status] = 'partial success'
+              subreport[:error_message] += " --- Video blocks: {{ #{video_set_report[:error_message]} }}"
+            end
+          end
+
+          # PDF blocks
+          pdf_processed_urls = process_asset_urls(pdf_block_files)
+          pdf_urls_check = check_asset_urls_resolve(pdf_processed_urls)
+
+          if pdf_urls_check[:status] != 'success'
+            subreport[:_request] = "#{req} PARTIAL"
+            subreport[:status] = 'partial success'
+            subreport[:error_message] += " --- PDF blocks: {{ #{pdf_urls_check[:error_message]} }}"
+          else
+            pdf_set_report = set_pdf_blocks(page, pdf_processed_urls)
+            if pdf_set_report[:status] != 'success'
+              subreport[:_request] = "#{req} PARTIAL"
+              subreport[:status] = 'partial success'
+              subreport[:error_message] += " --- PDF blocks: {{ #{pdf_set_report[:error_message]} }}"
+            end
+          end
+
+          # Picture blocks
+          picture_processed_urls = process_asset_urls(picture_block_files)
+          picture_urls_check = check_asset_urls_resolve(picture_processed_urls)
+
+          if picture_urls_check[:status] != 'success'
+            subreport[:_request] = "#{req} PARTIAL"
+            subreport[:status] = 'partial success'
+            subreport[:error_message] += " --- Picture blocks: {{ #{picture_urls_check[:error_message]} }}"
+          else
+            picture_set_report = set_picture_blocks(page, picture_processed_urls)
+            if picture_set_report[:status] != 'success'
+              subreport[:_request] = "#{req} PARTIAL"
+              subreport[:status] = 'partial success'
+              subreport[:error_message] += " --- Picture blocks: {{ #{picture_set_report[:error_message]} }}"
+            end
+          end
+
+          # Picture with text
+          # TODO
+        end
+
         # Saving
         page.save!
         page.publish!
