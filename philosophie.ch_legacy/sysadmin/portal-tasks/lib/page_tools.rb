@@ -79,6 +79,8 @@ def process_asset_urls(asset_urls)
   result = split.map do |url|
     if url.start_with?('http://', 'https://')
       url
+    elsif url == 'empty'
+      ""
     else
       "https://assets.philosophie.ch/#{url}"
     end
@@ -136,7 +138,7 @@ def check_asset_urls_resolve(processed_urls)
   rescue => e
     report[:status] = 'unhandled error'
     report[:error_message] = "#{e.class} :: #{e.message}"
-    report[:error_trace] = e.backtrace.join("\n")
+    report[:error_trace] = e.backtrace.join(" --- ")
     return report
   end
 end
@@ -159,6 +161,133 @@ def get_intro_block_image(page)
   ""
 end
 
+ELEMENT_NAME_AND_URL_FIELD_MAP = {
+  "audio_block": "audio_asset_url",
+  "video_block": "video_asset_url",
+  "pdf_block": "pdf_asset_url",
+  "picture_block": "picture_asset_url",
+  "text_and_picture": "picture_asset_url",
+}
+
+class ElementNameNotRegistered < StandardError; end
+class ElementNameUrlFieldCombinationError < StandardError; end
+
+def validate_element_name_and_url_field_combination(element_name, url_field)
+
+  unless ELEMENT_NAME_AND_URL_FIELD_MAP.keys.include?(element_name.to_sym)
+    raise ElementNameNotRegistered, "Element name '#{element_name}' is not registered"
+  end
+
+  unless ELEMENT_NAME_AND_URL_FIELD_MAP[element_name.to_sym] == url_field
+    raise ElementNameUrlFieldCombinationError, "'#{url_field}' is not the registered URL field for element '#{element_name}'"
+  end
+
+end
+
+def get_asset_names(page, element_name, url_field_name)
+
+  validate_element_name_and_url_field_combination(element_name, url_field_name)
+
+  asset_block = page&.elements&.filter { |element| element.name == "#{element_name}" }
+  asset_asset_urls = asset_block&.flat_map do |asset_block|
+    essence = asset_block&.contents&.filter { |content| content.name == "#{url_field_name}" }&.first&.essence
+
+    if essence
+      if essence.body.nil?
+        Rails.logger.warn("Essence body is nil for #{element_name} block with ID #{asset_block.id}")
+        "empty"
+      else
+        essence.body
+      end
+    else
+      "empty"
+    end
+  end
+
+  unprocessed_urls = unprocess_asset_urls(asset_asset_urls)
+
+  return unprocessed_urls
+
+end
+
+
+class AssetBlocksAndUrlsMismatch < StandardError; end
+
+def _set_asset_blocks(page, asset_urls, element_name, url_field_name)
+
+    asset_blocks = page&.elements&.filter { |element| element.name == "#{element_name}" }
+
+    if asset_urls.length != asset_blocks.length
+      raise AssetBlocksAndUrlsMismatch, "Number of #{element_name}s and number of URLs do not match"
+    end
+
+    if asset_blocks == []
+      return 'success'
+    end
+
+    asset_blocks.zip(asset_urls).each do |asset_block, asset_url|
+      essence = asset_block&.contents&.filter { |content| content.name == "#{url_field_name}" }&.first&.essence
+      if essence
+        essence.update(body: asset_url)
+
+      else
+        Rails.logger.warn("#{element_name} block: '#{url_field_name}' field not found for #{element_name} block with ID #{asset_block.id}")
+      end
+    end
+
+    page.save!
+    page.publish!
+
+    return 'success'
+end
+
+
+def set_asset_blocks(page, unprocessed_asset_urls, element_name, url_field_name)
+  report = {
+    status: 'not started',
+    error_message: '',
+    error_trace: '',
+  }
+  begin
+
+    validate_element_name_and_url_field_combination(element_name, url_field_name)
+
+    asset_processed_urls = process_asset_urls(unprocessed_asset_urls)
+    asset_urls_check = check_asset_urls_resolve(asset_processed_urls)
+
+    if asset_urls_check[:status] != 'success'
+      report[:status] = 'url error'
+      report[:error_message] = asset_urls_check[:error_message]
+      report[:error_trace] = asset_urls_check[:error_trace]
+      return report
+    end
+
+    set_asset_blocks_response = _set_asset_blocks(page, asset_processed_urls, element_name, url_field_name)
+
+    if set_asset_blocks_response == 'success'
+      report[:status] = 'success'
+      return report
+    else
+      report[:status] = 'error'
+      report[:error_message] = "Unknown error while setting asset blocks. Check logs for more details."
+      report[:error_trace] = "pages_tasks.rb::set_asset_blocks"
+      return report
+    end
+
+  rescue => e
+    report[:status] = 'unhandled error'
+    report[:error_message] = "#{e.class} :: #{e.message}"
+    report[:error_trace] = e.backtrace.join(" --- ")
+    return report
+  end
+
+end
+
+
+
+############
+# Intro pictures
+############
 
 def get_intro_block_image_raw_filename(page)
   intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
@@ -236,6 +365,7 @@ def update_intro_block_image(page, image_file_name)
 end
 
 
+# Deprecated
 def get_audio_blocks_file_names(page)
   audio_blocks = page&.elements&.filter { |element| element.name == 'audio_block' }
 
@@ -247,73 +377,6 @@ def get_audio_blocks_file_names(page)
   end
 
   return audio_files&.compact&.blank? ? "" : audio_files.compact.join(', ')
-end
-
-
-def get_audio_blocks_urls(page)
-
-  audio_blocks = page&.elements&.filter { |element| element.name == 'audio_block' }
-  audio_asset_urls = audio_blocks&.flat_map do |audio_block|
-    essence = audio_block&.contents&.filter { |content| content.name == "audio_asset_url" }&.first&.essence
-    if essence
-      essence.body.nil? ? "" : essence.body
-    else
-      Rails.logger.warn("Audio block 'audio_asset_url' field not found for audio block with ID #{audio_block.id}")
-      ""
-    end
-  end
-
-  unprocessed_urls = unprocess_asset_urls(audio_asset_urls)
-
-  return unprocessed_urls
-
-end
-
-def set_audio_blocks(page, audio_asset_urls)
-  report = {
-    status: 'not started',
-    error_message: '',
-    error_trace: '',
-  }
-  begin
-    audio_blocks = page&.elements&.filter { |element| element.name == 'audio_block' }
-
-    if audio_asset_urls.length != audio_blocks.length
-      report[:status] = 'error'
-      report[:error_message] = "Number of audio blocks and audio asset URLs do not match"
-      report[:error_trace] = "pages_tasks.rb::set_audio_blocks"
-      return report
-    end
-
-    if audio_blocks == []
-      report[:status] = 'success'
-      return report
-    end
-
-    audio_blocks.zip(audio_asset_urls).each do |audio_block, asset_url|
-      essence = audio_block&.contents&.filter { |content| content.name == "audio_asset_url" }&.first&.essence
-      if essence
-        essence.update(body: asset_url)
-
-      else
-        report[:status] = 'partial error'
-        report[:error_message] += " --- Audio block 'audio_asset_url' field not found for audio block with ID #{audio_block.id}."
-      end
-    end
-
-    page.save!
-    page.publish!
-
-    report[:status] = 'success'
-
-    return report
-
-  rescue => e
-    report[:status] = 'unhandled error'
-    report[:error_message] = "#{e.class} :: #{e.message}"
-    report[:error_trace] = e.backtrace.join("\n")
-    return report
-  end
 end
 
 
@@ -331,73 +394,6 @@ def get_video_blocks_file_names(page)
 end
 
 
-def get_video_blocks_urls(page)
-
-    video_blocks = page&.elements&.filter { |element| element.name == 'video_block' }
-    video_asset_urls = video_blocks&.flat_map do |video_block|
-      essence = video_block&.contents&.filter { |content| content.name == "video_asset_url" }&.first&.essence
-      if essence
-        essence.body.nil? ? "" : essence.body
-      else
-        Rails.logger.warn("Video block 'video_asset_url' field not found for video block with ID #{video_block.id}")
-        ""
-      end
-    end
-
-    unprocessed_urls = unprocess_asset_urls(video_asset_urls)
-
-    return unprocessed_urls
-end
-
-def set_video_blocks(page, video_asset_urls)
-  report = {
-    status: 'not started',
-    error_message: '',
-    error_trace: '',
-  }
-
-  begin
-    video_blocks = page&.elements&.filter { |element| element.name == 'video_block' }
-
-    if video_asset_urls.length != video_blocks.length
-      report[:status] = 'error'
-      report[:error_message] = "Number of video blocks and video asset URLs do not match"
-      report[:error_trace] = "pages_tasks.rb::set_video_blocks"
-      return report
-    end
-
-    if video_blocks == []
-      report[:status] = 'success'
-      return report
-    end
-
-    video_blocks.zip(video_asset_urls).each do |video_block, asset_url|
-      essence = video_block&.contents&.filter { |content| content.name == "video_asset_url" }&.first&.essence
-      if essence
-        essence.update(body: asset_url)
-
-      else
-        report[:status] = 'partial error'
-        report[:error_message] += " --- Video block 'video_asset_url' field not found for video block with ID #{video_block.id}."
-      end
-    end
-
-    page.save!
-    page.publish!
-
-    report[:status] = 'success'
-
-    return report
-
-  rescue => e
-    report[:status] = 'unhandled error'
-    report[:error_message] = "#{e.class} :: #{e.message}"
-    report[:error_trace] = e.backtrace.join("\n")
-    return report
-  end
-end
-
-
 def get_pdf_blocks_file_names(page)
   pdf_blocks = page&.elements&.filter { |element| element.name == 'pdf_block' }
 
@@ -409,71 +405,6 @@ def get_pdf_blocks_file_names(page)
   end
 
   return pdf_files&.compact&.blank? ? "" : pdf_files.compact.join(', ')
-end
-
-def get_pdf_blocks_urls(page)
-    pdf_blocks = page&.elements&.filter { |element| element.name == 'pdf_block' }
-    pdf_asset_urls = pdf_blocks&.flat_map do |pdf_block|
-      essence = pdf_block&.contents&.filter { |content| content.name == "pdf_asset_url" }&.first&.essence
-      if essence
-        essence.body.nil? ? "" : essence.body
-      else
-        Rails.logger.warn("PDF block 'pdf_asset_url' field not found for PDF block with ID #{pdf_block.id}")
-        ""
-      end
-    end
-
-    unprocessed_urls = unprocess_asset_urls(pdf_asset_urls)
-
-    return unprocessed_urls
-end
-
-def set_pdf_blocks(page, pdf_asset_urls)
-  report = {
-    status: 'not started',
-    error_message: '',
-    error_trace: '',
-  }
-
-  begin
-    pdf_blocks = page&.elements&.filter { |element| element.name == 'pdf_block' }
-
-    if pdf_asset_urls.length != pdf_blocks.length
-      report[:status] = 'error'
-      report[:error_message] = "Number of PDF blocks and PDF asset URLs do not match"
-      report[:error_trace] = "pages_tasks.rb::set_pdf_blocks"
-      return report
-    end
-
-    if pdf_blocks == []
-      report[:status] = 'success'
-      return report
-    end
-
-    pdf_blocks.zip(pdf_asset_urls).each do |pdf_block, asset_url|
-      essence = pdf_block&.contents&.filter { |content| content.name == "pdf_asset_url" }&.first&.essence
-      if essence
-        essence.update(body: asset_url)
-
-      else
-        report[:status] = 'partial error'
-        report[:error_message] += " --- PDF block 'pdf_asset_url' field not found for PDF block with ID #{pdf_block.id}."
-      end
-    end
-
-    page.save!
-    page.publish!
-
-    report[:status] = 'success'
-
-    return report
-
-  rescue => e
-    report[:status] = 'unhandled error'
-    report[:error_message] = "#{e.class} :: #{e.message}"
-    report[:error_trace] = e.backtrace.join("\n")
-    return report
-  end
 end
 
 
@@ -488,137 +419,6 @@ def get_picture_blocks_file_names(page)
   end
 
   return picture_files&.compact&.blank? ? "" : picture_files.compact.join(', ')
-end
-
-def get_picture_blocks_urls(page)
-    picture_blocks = page&.elements&.filter { |element| element.name == 'picture_block' }
-    picture_asset_urls = picture_blocks&.flat_map do |picture_block|
-      essence = picture_block&.contents&.filter { |content| content.name == "picture_asset_url" }&.first&.essence
-      if essence
-        essence.body.nil? ? "" : essence.body
-      else
-        Rails.logger.warn("Picture block 'picture_asset_url' field not found for picture block with ID #{picture_block.id}")
-        ""
-      end
-    end
-
-    unprocessed_urls = unprocess_asset_urls(picture_asset_urls)
-
-    return unprocessed_urls
-end
-
-def set_picture_blocks(page, picture_asset_urls)
-  report = {
-    status: 'not started',
-    error_message: '',
-    error_trace: '',
-  }
-
-  begin
-    picture_blocks = page&.elements&.filter { |element| element.name == 'picture_block' }
-
-    if picture_asset_urls.length != picture_blocks.length
-      report[:status] = 'error'
-      report[:error_message] = "Number of picture blocks and picture asset URLs do not match"
-      report[:error_trace] = "pages_tasks.rb::set_picture_blocks"
-      return report
-    end
-
-    if picture_blocks == []
-      report[:status] = 'success'
-      return report
-    end
-
-    picture_blocks.zip(picture_asset_urls).each do |picture_block, asset_url|
-      essence = picture_block&.contents&.filter { |content| content.name == "picture_asset_url" }&.first&.essence
-      if essence
-        essence.update(body: asset_url)
-
-      else
-        report[:status] = 'partial error'
-        report[:error_message] += " --- Picture block 'picture_asset_url' field not found for picture block with ID #{picture_block.id}."
-      end
-    end
-
-    page.save!
-    page.publish!
-
-    report[:status] = 'success'
-
-    return report
-
-  rescue => e
-    report[:status] = 'unhandled error'
-    report[:error_message] = "#{e.class} :: #{e.message}"
-    report[:error_trace] = e.backtrace.join("\n")
-    return report
-  end
-end
-
-
-def get_text_and_picture_urls(page)
-  text_and_picture_elements = page&.elements&.filter { |element| element.name == 'text_and_picture' }
-  text_and_picture_asset_urls = text_and_picture_elements&.flat_map do |text_and_picture|
-    essence = text_and_picture&.contents&.filter { |content| content.name == "picture_asset_url" }&.first&.essence
-    if essence
-      essence.body.nil? ? "" : essence.body
-    else
-      Rails.logger.warn("Text and picture block 'picture_asset_url' field not found for text and picture block with ID #{text_and_picture.id}")
-      ""
-    end
-  end
-
-  unprocessed_urls = unprocess_asset_urls(text_and_picture_asset_urls)
-
-  return unprocessed_urls
-end
-
-def set_text_and_picture_urls(page, text_and_picture_asset_urls)
-  report = {
-    status: 'not started',
-    error_message: '',
-    error_trace: '',
-  }
-
-  begin
-    text_and_picture_elements = page&.elements&.filter { |element| element.name == 'text_and_picture' }
-
-    if text_and_picture_asset_urls.length != text_and_picture_elements.length
-      report[:status] = 'error'
-      report[:error_message] = "Number of text and picture blocks and text and picture asset URLs do not match"
-      report[:error_trace] = "pages_tasks.rb::set_text_and_picture_urls"
-      return report
-    end
-
-    if text_and_picture_elements == []
-      report[:status] = 'success'
-      return report
-    end
-
-    text_and_picture_elements.zip(text_and_picture_asset_urls).each do |text_and_picture, asset_url|
-      essence = text_and_picture&.contents&.filter { |content| content.name == "picture_asset_url" }&.first&.essence
-      if essence
-        essence.update(body: asset_url)
-
-      else
-        report[:status] = 'partial error'
-        report[:error_message] += " --- Text and picture block 'picture_asset_url' field not found for text and picture block with ID #{text_and_picture.id}."
-      end
-    end
-
-    page.save!
-    page.publish!
-
-    report[:status] = 'success'
-
-    return report
-
-  rescue => e
-    report[:status] = 'unhandled error'
-    report[:error_message] = "#{e.class} :: #{e.message}"
-    report[:error_trace] = e.backtrace.join("\n")
-    return report
-  end
 end
 
 

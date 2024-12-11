@@ -103,7 +103,7 @@ def main(csv_file, log_level = 'info')
       _picture_block_assets: row['_picture_block_assets'] || "",
       picture_block_files: row['picture_block_files'] || "",  # element
 
-      has_picture_with_text: row['has_picture_with_text'] || "",  # element
+      _text_and_picture_assets: row['_text_and_picture_assets'] || "",  # element
       attachment_links: row['attachment_links'] || "",  # element
       _other_assets: row['_other_assets'] || "",
       has_html_header_tags: row['has_html_header_tags'] || "",  # element
@@ -246,12 +246,19 @@ def main(csv_file, log_level = 'info')
 
       intro_block_image = subreport[:intro_block_image].strip
 
+      # old asset system
       audio_block_files = subreport[:audio_block_files].strip
       video_block_files = subreport[:video_block_files].strip
       pdf_block_files = subreport[:pdf_block_files].strip
       picture_block_files = subreport[:picture_block_files].strip
 
-      has_picture_with_text = subreport[:has_picture_with_text].strip
+      # new asset system
+      audio_block_assets = subreport[:_audio_block_assets].strip
+      video_block_assets = subreport[:_video_block_assets].strip
+      pdf_block_assets = subreport[:_pdf_block_assets].strip
+      picture_block_assets = subreport[:_picture_block_assets].strip
+      text_and_picture_assets = subreport[:_text_and_picture_assets].strip
+
       has_html_header_tags = subreport[:has_html_header_tags].strip
 
       themetags_discipline = subreport[:themetags_discipline].strip
@@ -436,12 +443,16 @@ def main(csv_file, log_level = 'info')
           assigned_authors: old_page_assigned_authors,
 
           intro_block_image: retrieved_intro_block_image,
+          _audio_block_assets: get_asset_names(page, "audio_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"audio_block"]),
           audio_block_files: get_audio_blocks_file_names(page),
+          _video_block_assets: get_asset_names(page, "video_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"video_block"]),
           video_block_files: get_video_blocks_file_names(page),
+          _pdf_block_assets: get_asset_names(page, "pdf_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"pdf_block"]),
           pdf_block_files: get_pdf_blocks_file_names(page),
+          _picture_block_assets: get_asset_names(page, "picture_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"picture_block"]),
           picture_block_files: get_picture_blocks_file_names(page),
+          _text_and_picture_assets: get_asset_names(page, "text_and_picture", ELEMENT_NAME_AND_URL_FIELD_MAP[:"text_and_picture"]),
 
-          has_picture_with_text: page.elements.any? { |element| element.name == 'text_and_picture' } ? "yes" : "",
           attachment_links: get_attachment_links(page, all_attachments_with_pages),
           _other_assets: subreport[:_other_assets],
           has_html_header_tags: has_html_header_tags(page),
@@ -618,30 +629,6 @@ def main(csv_file, log_level = 'info')
 
       if req == 'AD HOC'
 
-        orcids = get_authors_orcids(page)
-
-        if !how_to_cite.blank? || !pure_html_asset_full_url.blank? || !pure_pdf_asset_full_url.blank? || !doi.blank? || !orcids.blank?
-
-          set_article_metadata_report = set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, orcids)
-
-          if set_article_metadata_report[:status] != 'success'
-            subreport[:_request] += " PARTIAL"
-            subreport[:status] = 'partial success'
-            subreport[:error_message] = set_article_metadata_report[:error_message]
-            subreport[:error_trace] = set_article_metadata_report[:error_trace]
-          end
-
-          new_metadata_element = get_article_metadata_element(page)
-          new_how_to_cite = get_how_to_cite(new_metadata_element)
-          new_pure_html_asset = get_pure_html_asset(new_metadata_element, pure_links_base_url)
-          new_pure_pdf_asset = get_pure_pdf_asset(new_metadata_element, pure_links_base_url)
-          new_doi = get_doi(new_metadata_element)
-
-          subreport[:how_to_cite] = new_how_to_cite
-          subreport[:pure_html_asset] = new_pure_html_asset
-          subreport[:pure_pdf_asset] = new_pure_pdf_asset
-          subreport[:doi] = new_doi
-        end
 
       end
 
@@ -679,15 +666,15 @@ def main(csv_file, log_level = 'info')
         ref_bib_keys: get_references_bib_keys(page),
         assigned_authors: get_assigned_authors(page),
         intro_block_image: retrieved_intro_block_image,
-        _audio_block_assets: subreport[:_audio_block_assets],
+        _audio_block_assets: get_asset_names(page, "audio_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"audio_block"]),
         audio_block_files: get_audio_blocks_file_names(page),
-        _video_block_assets: subreport[:_video_block_assets],
+        _video_block_assets: get_asset_names(page, "video_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"video_block"]),
         video_block_files: get_video_blocks_file_names(page),
-        _pdf_block_assets: subreport[:_pdf_block_assets],
+        _pdf_block_assets: get_asset_names(page, "pdf_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"pdf_block"]),
         pdf_block_files: get_pdf_blocks_file_names(page),
-        _picture_block_assets: subreport[:_picture_block_assets],
+        _picture_block_assets: get_asset_names(page, "picture_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"picture_block"]),
         picture_block_files: get_picture_blocks_file_names(page),
-        has_picture_with_text: page.elements.any? { |element| element.name == 'text_and_picture' } ? "yes" : "",
+        _text_and_picture_assets: get_asset_names(page, "text_and_picture", ELEMENT_NAME_AND_URL_FIELD_MAP[:"text_and_picture"]),
         attachment_links: get_attachment_links(page, all_attachments_with_pages),
         has_html_header_tags: has_html_header_tags(page),
         themetags_discipline: themetags_hashmap[:discipline],
@@ -794,76 +781,31 @@ def main(csv_file, log_level = 'info')
         # Handle asset tasks
         if req == "UPDATE"
 
-          # Audio blocks
-          audio_processed_urls = process_asset_urls(audio_block_files)
-          audio_urls_check = check_asset_urls_resolve(audio_processed_urls)
+          unprocessed_asset_urls = {
+            "audio_block": audio_block_assets,
+            "video_block": video_block_assets,
+            "pdf_block": pdf_block_assets,
+            "picture_block": picture_block_assets,
+            "text_and_picture": text_and_picture_assets
+          }
 
-          if audio_urls_check[:status] != 'success'
-            subreport[:_request] = "#{req} PARTIAL"
-            subreport[:status] = 'partial success'
-            subreport[:error_message] += " --- Audio blocks: {{ #{audio_urls_check[:error_message]} }}"
-          else
-            audio_set_report = set_audio_blocks(page, audio_processed_urls)
-            if audio_set_report[:status] != 'success'
-              subreport[:_request] = "#{req} PARTIAL"
+          ELEMENT_NAME_AND_URL_FIELD_MAP.each do |element_name, url_field_name|
+            set_asset_result = set_asset_blocks(page, unprocessed_asset_urls[element_name], element_name, url_field_name)
+
+            if set_asset_result[:status] != 'success'
+              subreport[:_request] += " PARTIAL"
               subreport[:status] = 'partial success'
-              subreport[:error_message] += " --- Audio blocks: {{ #{audio_set_report[:error_message]} }}"
+              subreport[:error_message] += " --- #{element_name}: {{ #{set_asset_result[:error_message]} }}"
             end
           end
 
-          # Video blocks
-          video_processed_urls = process_asset_urls(video_block_files)
-          video_urls_check = check_asset_urls_resolve(video_processed_urls)
+          subreport[:_audio_block_assets] = get_asset_names(page, 'audio_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'audio_block'])
+          subreport[:_video_block_assets] = get_asset_names(page, 'video_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'video_block'])
+          subreport[:_pdf_block_assets] = get_asset_names(page, 'pdf_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'pdf_block'])
+          subreport[:_picture_block_assets] = get_asset_names(page, 'picture_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'picture_block'])
+          subreport[:_text_and_picture_assets] = get_asset_names(page, 'text_and_picture', ELEMENT_NAME_AND_URL_FIELD_MAP[:'text_and_picture_block'])
 
-          if video_urls_check[:status] != 'success'
-            subreport[:_request] = "#{req} PARTIAL"
-            subreport[:status] = 'partial success'
-            subreport[:error_message] += " --- Video blocks: {{ #{video_urls_check[:error_message]} }}"
-          else
-            video_set_report = set_video_blocks(page, video_processed_urls)
-            if video_set_report[:status] != 'success'
-              subreport[:_request] = "#{req} PARTIAL"
-              subreport[:status] = 'partial success'
-              subreport[:error_message] += " --- Video blocks: {{ #{video_set_report[:error_message]} }}"
-            end
-          end
 
-          # PDF blocks
-          pdf_processed_urls = process_asset_urls(pdf_block_files)
-          pdf_urls_check = check_asset_urls_resolve(pdf_processed_urls)
-
-          if pdf_urls_check[:status] != 'success'
-            subreport[:_request] = "#{req} PARTIAL"
-            subreport[:status] = 'partial success'
-            subreport[:error_message] += " --- PDF blocks: {{ #{pdf_urls_check[:error_message]} }}"
-          else
-            pdf_set_report = set_pdf_blocks(page, pdf_processed_urls)
-            if pdf_set_report[:status] != 'success'
-              subreport[:_request] = "#{req} PARTIAL"
-              subreport[:status] = 'partial success'
-              subreport[:error_message] += " --- PDF blocks: {{ #{pdf_set_report[:error_message]} }}"
-            end
-          end
-
-          # Picture blocks
-          picture_processed_urls = process_asset_urls(picture_block_files)
-          picture_urls_check = check_asset_urls_resolve(picture_processed_urls)
-
-          if picture_urls_check[:status] != 'success'
-            subreport[:_request] = "#{req} PARTIAL"
-            subreport[:status] = 'partial success'
-            subreport[:error_message] += " --- Picture blocks: {{ #{picture_urls_check[:error_message]} }}"
-          else
-            picture_set_report = set_picture_blocks(page, picture_processed_urls)
-            if picture_set_report[:status] != 'success'
-              subreport[:_request] = "#{req} PARTIAL"
-              subreport[:status] = 'partial success'
-              subreport[:error_message] += " --- Picture blocks: {{ #{picture_set_report[:error_message]} }}"
-            end
-          end
-
-          # Picture with text
-          # TODO
         end
 
         # Saving
