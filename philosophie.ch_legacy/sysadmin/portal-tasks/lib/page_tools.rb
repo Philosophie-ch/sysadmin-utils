@@ -906,26 +906,11 @@ def get_article_metadata_element(page)
   return nil
 end
 
-def get_authors_orcids(page)
-    # Find the authors
-    authors = page.elements.find_by(name: "intro")&.content_by_name(:creator)&.essence&.alchemy_users&.uniq&.compact || []
 
-    if authors.blank? || authors.size == 0
-      orcids_string = ""
-    else
-      # Extract the ORCIDs from the users
-      orcids_list = authors.map { |user| user.profile.other_personal_information }.compact.map(&:strip).reject(&:empty?)
-      orcids_string = orcids_list.join(", ")
-    end
-
-    return orcids_string
-end
-
-def set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, orcids)
+def set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi)
   # pure_html_asset_full_url and pure_pdf_asset_full_url are meant to be full URLs
   # doi is EssenceText
   # how_to_cite is EssenceRichtext
-  # orcids is EssenceText, meant to be comma-separated, coming from the authors of the page, which we need to extract
 
   report = {
     status: 'not started',
@@ -959,8 +944,6 @@ def set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_a
     article_metadata.contents.find_by(name: "pure_html_url").essence.update({body: pure_html_asset_full_url})
 
     article_metadata.contents.find_by(name: "pure_pdf_url").essence.update({body: pure_pdf_asset_full_url})
-
-    article_metadata.contents.find_by(name: "orcids").essence.update({body: orcids})
 
     page.reload
     page.save!

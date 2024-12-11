@@ -751,11 +751,9 @@ def main(csv_file, log_level = 'info')
 
 
         # Article metadata
-        orcids = get_authors_orcids(page)
+        if !how_to_cite.blank? || !pure_html_asset_full_url.blank? || !pure_pdf_asset_full_url.blank? || !doi.blank?
 
-        if !how_to_cite.blank? || !pure_html_asset_full_url.blank? || !pure_pdf_asset_full_url.blank? || !doi.blank? || !orcids.blank?
-
-          set_article_metadata_report = set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, orcids)
+          set_article_metadata_report = set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi)
 
           if set_article_metadata_report[:status] != 'success'
             subreport[:_request] += " PARTIAL"
