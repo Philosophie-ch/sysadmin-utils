@@ -775,7 +775,7 @@ def main(csv_file, log_level = 'info')
         subreport[:video_assets] = get_asset_names(page, 'video_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'video_block'])
         subreport[:pdf_assets] = get_asset_names(page, 'pdf_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'pdf_block'])
         subreport[:picture_assets] = get_asset_names(page, 'picture_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'picture_block'])
-        subreport[:text_and_picture_assets] = get_asset_names(page, 'text_and_picture', ELEMENT_NAME_AND_URL_FIELD_MAP[:'text_and_picture_block'])
+        subreport[:text_and_picture_assets] = get_asset_names(page, 'text_and_picture', ELEMENT_NAME_AND_URL_FIELD_MAP[:'text_and_picture'])
         subreport[:box_assets] = get_asset_names(page, 'box', ELEMENT_NAME_AND_URL_FIELD_MAP[:'box'])
 
 
