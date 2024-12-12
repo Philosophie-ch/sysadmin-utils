@@ -182,8 +182,6 @@ def main(csv_file, log_level = 'info')
       title = subreport[:title].strip
       lead_text = subreport[:lead_text].strip
       html_basename = subreport[:_html_basename].strip
-      slug = subreport[:slug].strip
-      link = subreport[:link].strip
 
 
       # Metadata block
@@ -245,23 +243,14 @@ def main(csv_file, log_level = 'info')
 
       assigned_authors = subreport[:assigned_authors].strip
 
-      intro_image_asset = subreport[:intro_image_asset].strip
-      intro_image_portal = subreport[:intro_image_portal].strip
-
-      # old asset system
-      audios_portal = subreport[:audios_portal].strip
-      videos_portal = subreport[:videos_portal].strip
-      pdfs_portal = subreport[:pdfs_portal].strip
-      pictures_portal = subreport[:pictures_portal].strip
-
       # new asset system
+      intro_image_asset = subreport[:intro_image_asset].strip
       audio_block_assets = subreport[:audio_assets].strip
       video_block_assets = subreport[:video_assets].strip
       pdf_block_assets = subreport[:pdf_assets].strip
       picture_block_assets = subreport[:picture_assets].strip
       text_and_picture_assets = subreport[:text_and_picture_assets].strip
-
-      has_html_header_tags = subreport[:has_html_header_tags].strip
+      box_assets = subreport[:box_assets].strip
 
       themetags_discipline = subreport[:themetags_discipline].strip
       themetags_focus = subreport[:themetags_focus].strip
@@ -418,8 +407,8 @@ def main(csv_file, log_level = 'info')
           pure_html_asset: old_pure_html_asset,
           pure_pdf_asset: old_pure_pdf_asset,
           doi: old_doi,
-          created_at: get_created_at(page),
-          page_layout: page.page_layout,
+          created_at: subreport[:created_at],
+          page_layout: subreport[:page_layout],
 
           tag_page_type: old_page_tag_columns[:tag_page_type],
           tag_media_1: old_page_tag_columns[:tag_media_1],
@@ -432,7 +421,7 @@ def main(csv_file, log_level = 'info')
           tag_references: old_page_tag_columns[:tag_references],
           tag_footnotes: old_page_tag_columns[:tag_footnotes],
 
-          ref_bib_keys: get_references_bib_keys(page),
+          ref_bib_keys: subreport[:ref_bib_keys],
           references_asset_url: old_references_asset_url,
           _further_refs: subreport[:_further_refs],
           further_references_asset_url: old_further_references_asset_url,
@@ -442,6 +431,7 @@ def main(csv_file, log_level = 'info')
 
           assigned_authors: old_page_assigned_authors,
 
+          intro_image_asset: get_asset_names(page, "intro", ELEMENT_NAME_AND_URL_FIELD_MAP[:"intro"]),
           intro_image_portal: retrieved_intro_image_portal,
           audio_assets: get_asset_names(page, "audio_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"audio_block"]),
           audios_portal: get_audio_blocks_file_names(page),
@@ -452,6 +442,8 @@ def main(csv_file, log_level = 'info')
           picture_assets: get_asset_names(page, "picture_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"picture_block"]),
           pictures_portal: get_picture_blocks_file_names(page),
           text_and_picture_assets: get_asset_names(page, "text_and_picture", ELEMENT_NAME_AND_URL_FIELD_MAP[:"text_and_picture"]),
+          text_and_pictures_portal: get_text_and_picture_blocks_file_names(page),
+          box_assets: get_asset_names(page, "box", ELEMENT_NAME_AND_URL_FIELD_MAP[:"box"]),
 
           attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
           external_links: subreport[:external_links],
@@ -663,6 +655,8 @@ def main(csv_file, log_level = 'info')
         tag_footnotes: tags_to_cols[:tag_footnotes],
         ref_bib_keys: get_references_bib_keys(page),
         assigned_authors: get_assigned_authors(page),
+
+        intro_image_asset: get_asset_names(page, "intro", ELEMENT_NAME_AND_URL_FIELD_MAP[:"intro"]),
         intro_image_portal: retrieved_intro_image_portal,
         audio_assets: get_asset_names(page, "audio_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"audio_block"]),
         audios_portal: get_audio_blocks_file_names(page),
@@ -673,6 +667,9 @@ def main(csv_file, log_level = 'info')
         picture_assets: get_asset_names(page, "picture_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"picture_block"]),
         pictures_portal: get_picture_blocks_file_names(page),
         text_and_picture_assets: get_asset_names(page, "text_and_picture", ELEMENT_NAME_AND_URL_FIELD_MAP[:"text_and_picture"]),
+        text_and_pictures_portal: get_text_and_picture_blocks_file_names(page),
+        box_assets: get_asset_names(page, "box", ELEMENT_NAME_AND_URL_FIELD_MAP[:"box"]),
+
         attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
         has_html_header_tags: has_html_header_tags(page),
         themetags_discipline: themetags_hashmap[:discipline],
@@ -702,19 +699,6 @@ def main(csv_file, log_level = 'info')
           next
         end
         subreport[:assigned_authors] = get_assigned_authors(page)
-
-
-        # Intro block image
-        update_intro_image_portal_report = update_intro_image_portal(page, intro_image_portal)
-        if update_intro_image_portal_report[:status] != 'success'
-          subreport[:_request] += " PARTIAL"
-          subreport[:status] = 'error'
-          subreport[:error_message] = update_intro_image_portal_report[:error_message]
-          subreport[:error_message] += ". Page saved, but update_intro_image_portal failed! Stopping...\n"
-          subreport[:error_trace] = update_intro_image_portal_report[:error_trace] + "\n"
-          next
-        end
-        subreport[:intro_image_portal] = get_intro_image_portal(page)
 
 
         # References bibkeys
@@ -775,34 +759,34 @@ def main(csv_file, log_level = 'info')
 
 
         # Handle asset tasks
-        if req == "UPDATE" || req == "POST"
+        unprocessed_asset_urls = {
+          "intro": intro_image_asset,
+          "audio_block": audio_block_assets,
+          "video_block": video_block_assets,
+          "pdf_block": pdf_block_assets,
+          "picture_block": picture_block_assets,
+          "text_and_picture": text_and_picture_assets,
+          "box": box_assets,
+        }
 
-          unprocessed_asset_urls = {
-            "audio_block": audio_block_assets,
-            "video_block": video_block_assets,
-            "pdf_block": pdf_block_assets,
-            "picture_block": picture_block_assets,
-            "text_and_picture": text_and_picture_assets
-          }
+        ELEMENT_NAME_AND_URL_FIELD_MAP.each do |element_name, url_field_name|
+          set_asset_result = set_asset_blocks(page, unprocessed_asset_urls[element_name], element_name, url_field_name)
 
-          ELEMENT_NAME_AND_URL_FIELD_MAP.each do |element_name, url_field_name|
-            set_asset_result = set_asset_blocks(page, unprocessed_asset_urls[element_name], element_name, url_field_name)
-
-            if set_asset_result[:status] != 'success'
-              subreport[:_request] += " PARTIAL"
-              subreport[:status] = 'partial success'
-              subreport[:error_message] += " --- #{element_name}: {{ #{set_asset_result[:error_message]} }}"
-            end
+          if set_asset_result[:status] != 'success'
+            subreport[:_request] += " PARTIAL"
+            subreport[:status] = 'partial success'
+            subreport[:error_message] += " --- #{element_name}: {{ #{set_asset_result[:error_message]} }}"
           end
-
-          subreport[:audio_assets] = get_asset_names(page, 'audio_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'audio_block'])
-          subreport[:video_assets] = get_asset_names(page, 'video_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'video_block'])
-          subreport[:pdf_assets] = get_asset_names(page, 'pdf_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'pdf_block'])
-          subreport[:picture_assets] = get_asset_names(page, 'picture_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'picture_block'])
-          subreport[:text_and_picture_assets] = get_asset_names(page, 'text_and_picture', ELEMENT_NAME_AND_URL_FIELD_MAP[:'text_and_picture_block'])
-
-
         end
+
+        subreport[:intro_image_asset] = get_asset_names(page, 'intro', ELEMENT_NAME_AND_URL_FIELD_MAP[:'intro'])
+        subreport[:audio_assets] = get_asset_names(page, 'audio_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'audio_block'])
+        subreport[:video_assets] = get_asset_names(page, 'video_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'video_block'])
+        subreport[:pdf_assets] = get_asset_names(page, 'pdf_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'pdf_block'])
+        subreport[:picture_assets] = get_asset_names(page, 'picture_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'picture_block'])
+        subreport[:text_and_picture_assets] = get_asset_names(page, 'text_and_picture', ELEMENT_NAME_AND_URL_FIELD_MAP[:'text_and_picture_block'])
+        subreport[:box_assets] = get_asset_names(page, 'box', ELEMENT_NAME_AND_URL_FIELD_MAP[:'box'])
+
 
         # Saving
         page.save!

@@ -353,6 +353,7 @@ def get_intro_image_portal_raw_filename(page)
   ""
 end
 
+# deprecated
 def update_intro_image_portal(page, image_file_name)
   result = {
     status: 'not started',
@@ -469,6 +470,19 @@ def get_picture_blocks_file_names(page)
   end
 
   return picture_files&.compact&.blank? ? "" : picture_files.compact.join(', ')
+end
+
+def get_text_and_picture_blocks_file_names(page)
+  text_and_picture_block_elements = page&.elements&.filter { |element| element.name == 'text_and_picture' }
+
+  text_and_picture_files = text_and_picture_block_elements&.flat_map do |text_and_picture_block|
+    text_and_picture_block.contents&.map do |content|
+      essence = content.essence
+      essence.respond_to?(:picture) ? essence.picture&.image_file_name : nil
+    end
+  end
+
+  return text_and_picture_files&.compact&.blank? ? "" : text_and_picture_files.compact.join(', ')
 end
 
 
