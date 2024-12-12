@@ -11,7 +11,7 @@ pages.each do |page|
     intro_essences_dump: [],
     intro_image_essences_dump: [],
     intro_image_id: nil,
-    intro_image_file_name: nil,
+    intro_image_portal_name: nil,
     intro_image_name: nil,
     general_report: []
   }
@@ -66,7 +66,7 @@ pages.each do |page|
         case essence
         when Alchemy::EssencePicture
           page_report[:intro_image_id] = essence.id
-          page_report[:intro_image_file_name] = essence.picture.image_file_name
+          page_report[:intro_image_portal_name] = essence.picture.image_file_name
           page_report[:intro_image_name] = essence.picture.name
         end
       end
@@ -86,7 +86,7 @@ end
 
 require 'csv'
 
-headers = ['id', 'slug', 'intro_essences_dump', 'intro_image_essences_dump', 'intro_image_id', 'intro_image_file_name', 'intro_image_name', 'general_report']
+headers = ['id', 'slug', 'intro_essences_dump', 'intro_image_essences_dump', 'intro_image_id', 'intro_image_portal_name', 'intro_image_name', 'general_report']
 
 CSV.open("200724_intro_images_analysis.csv", "wb", col_sep: ',', force_quotes: true) do |csv|
   csv << headers
@@ -98,7 +98,7 @@ CSV.open("200724_intro_images_analysis.csv", "wb", col_sep: ',', force_quotes: t
       page[:intro_essences_dump].map(&:to_s).join('; '),
       page[:intro_image_essences_dump].map(&:to_s).join('; '),
       page[:intro_image_id],
-      page[:intro_image_file_name],
+      page[:intro_image_portal_name],
       page[:intro_image_name],
       page[:general_report].join('; ')
     ]

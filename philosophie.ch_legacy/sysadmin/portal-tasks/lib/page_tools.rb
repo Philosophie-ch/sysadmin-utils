@@ -144,7 +144,7 @@ def check_asset_urls_resolve(processed_urls)
 end
 
 
-def get_intro_block_image(page)
+def get_intro_image_portal(page)
   intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
 
   page.elements.each do |element|
@@ -289,7 +289,7 @@ end
 # Intro pictures
 ############
 
-def get_intro_block_image_raw_filename(page)
+def get_intro_image_portal_raw_filename(page)
   intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
 
   page.elements.each do |element|
@@ -307,7 +307,7 @@ def get_intro_block_image_raw_filename(page)
 end
 
 
-def update_intro_block_image(page, image_file_name)
+def update_intro_image_portal(page, image_file_name)
   result = {
     status: 'not started',
     error_message: '',
@@ -331,7 +331,7 @@ def update_intro_block_image(page, image_file_name)
       Rails.logger.error("Picture with image_file_name '#{image_file_name}' not found. Skipping...")
       result[:status] = 'error'
       result[:error_message] = "Picture with image_file_name '#{image_file_name}' not found"
-      result[:error_trace] = "pages_tasks.rb::update_intro_block_image"
+      result[:error_trace] = "pages_tasks.rb::update_intro_image_portal"
       return result
     end
 
@@ -353,7 +353,7 @@ def update_intro_block_image(page, image_file_name)
 
     result[:status] = 'error'
     result[:error_message] = "No intro picture found"
-    result[:error_trace] = "pages_tasks.rb::update_intro_block_image"
+    result[:error_trace] = "pages_tasks.rb::update_intro_image_portal"
     return result
 
   rescue => e
@@ -365,7 +365,11 @@ def update_intro_block_image(page, image_file_name)
 end
 
 
-# Deprecated
+
+############
+# Portal assets
+############
+
 def get_audio_blocks_file_names(page)
   audio_blocks = page&.elements&.filter { |element| element.name == 'audio_block' }
 
@@ -720,11 +724,11 @@ def get_all_attachments_with_pages()
 end
 
 
-def get_attachment_links(page, all_attachments_with_pages)
+def get_attachment_links_portal(page, all_attachments_with_pages)
   result = []
 
   # 1. Look in the Richtext essences
-  attachment_links = page.elements.flat_map do |element|
+  attachment_links_portal = page.elements.flat_map do |element|
     element.contents.flat_map do |content|
       next [] unless content.essence.is_a?(Alchemy::EssenceRichtext) && content.essence.body
 
@@ -732,7 +736,7 @@ def get_attachment_links(page, all_attachments_with_pages)
     end
   end
 
-  attachment_links.each do |link|
+  attachment_links_portal.each do |link|
     # Remove everything from the link except the number after 'attachment/'
     # This is the attachment ID
     # Example: href="/attachment/1234/show" -> 1234
