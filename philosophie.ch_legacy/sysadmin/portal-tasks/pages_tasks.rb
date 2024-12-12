@@ -775,7 +775,7 @@ def main(csv_file, log_level = 'info')
 
 
         # Handle asset tasks
-        if req == "UPDATE"
+        if req == "UPDATE" || req == "POST"
 
           unprocessed_asset_urls = {
             "audio_block": audio_block_assets,

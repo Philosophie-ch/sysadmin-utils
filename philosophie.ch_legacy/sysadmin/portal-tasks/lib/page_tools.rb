@@ -73,8 +73,8 @@ end
 # Assets related functions
 ############
 
-def process_asset_urls(asset_urls)
-  split = asset_urls.split(',').map(&:strip).filter(&:present?)
+def process_asset_urls(unprocess_asset_urls)
+  split = unprocess_asset_urls.split(',').map(&:strip).filter(&:present?)
 
   result = split.map do |url|
     if url.start_with?('http://', 'https://')
@@ -144,30 +144,18 @@ def check_asset_urls_resolve(processed_urls)
 end
 
 
-def get_intro_image_portal(page)
-  intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
-
-  page.elements.each do |element|
-    next unless intro_elements.include?(element.name)
-
-    has_intro_picture = element.contents&.any? { |content| content.essence.is_a?(Alchemy::EssencePicture) }
-
-    if has_intro_picture
-      picture = element.contents&.find { |content| content.essence.is_a?(Alchemy::EssencePicture) }&.essence&.picture&.image_file_name
-      return picture.blank? ? '' : picture
-    end
-  end
-
-  ""
-end
 
 ELEMENT_NAME_AND_URL_FIELD_MAP = {
+  "intro": "picture_asset_url",
   "audio_block": "audio_asset_url",
   "video_block": "video_asset_url",
   "pdf_block": "pdf_asset_url",
   "picture_block": "picture_asset_url",
   "text_and_picture": "picture_asset_url",
+  "box": "picture_asset_url",
 }
+
+ELEMENTS_NOT_IN_ASIDE_COLUMN = ['intro']
 
 class ElementNameNotRegistered < StandardError; end
 class ElementNameUrlFieldCombinationError < StandardError; end
@@ -184,12 +172,48 @@ def validate_element_name_and_url_field_combination(element_name, url_field)
 
 end
 
+
+def _get_asset_blocks(page, element_name, url_field_name)
+    asset_blocks_main_body = []
+    asset_blocks_aside_column = []
+
+    if element_name != 'box'
+
+      asset_blocks_main_body = page&.elements&.filter { |element| element.name == "#{element_name}" }
+
+      unless ELEMENTS_NOT_IN_ASIDE_COLUMN.include?(element_name)
+        aside_column = Alchemy::Element.where(parent_element_id: nil, page_id: page.id, name: "aside_column").first
+
+        unless aside_column.blank?
+          asset_blocks_aside_column = aside_column.nested_elements&.filter { |element| element.name == "#{element_name}" }
+        end
+      end
+
+    else
+      # There's a 'boxes' element which has nested 'box', 'large_box', and 'xlarge_box' elements
+      # Fortunately, we cannot have boxes in the aside column
+
+      boxes_element = page&.elements&.find { |element| element.name == 'boxes' }
+
+      unless boxes_element.blank?
+        asset_blocks_main_body = boxes_element.nested_elements&.filter { |element| element.name == "box" || element.name == "large_box" || element.name == "xlarge_box" }
+      end
+
+    end
+
+    asset_blocks = asset_blocks_main_body + asset_blocks_aside_column
+
+    return asset_blocks
+end
+
+
 def get_asset_names(page, element_name, url_field_name)
 
   validate_element_name_and_url_field_combination(element_name, url_field_name)
 
-  asset_block = page&.elements&.filter { |element| element.name == "#{element_name}" }
-  asset_asset_urls = asset_block&.flat_map do |asset_block|
+  asset_blocks = _get_asset_blocks(page, element_name, url_field_name)
+
+  asset_asset_urls = asset_blocks&.flat_map do |asset_block|
     essence = asset_block&.contents&.filter { |content| content.name == "#{url_field_name}" }&.first&.essence
 
     if essence
@@ -211,11 +235,11 @@ def get_asset_names(page, element_name, url_field_name)
 end
 
 
-class AssetBlocksAndUrlsMismatch < StandardError; end
 
 def _set_asset_blocks(page, asset_urls, element_name, url_field_name)
-
-    asset_blocks = page&.elements&.filter { |element| element.name == "#{element_name}" }
+    # Checks both in the main body and in the aside column, in order
+    # Main body's elements first, top to bottom, then aside column's elements, top to bottom
+    asset_blocks = _get_asset_blocks(page, element_name, url_field_name)
 
     if asset_urls.length != asset_blocks.length
       raise AssetBlocksAndUrlsMismatch, "Number of #{element_name}s and number of URLs do not match"
@@ -231,7 +255,13 @@ def _set_asset_blocks(page, asset_urls, element_name, url_field_name)
         essence.update(body: asset_url)
 
       else
-        Rails.logger.warn("#{element_name} block: '#{url_field_name}' field not found for #{element_name} block with ID #{asset_block.id}")
+        Rails.logger.warn("#{element_name} block: '#{url_field_name}' field not found for #{element_name} block with ID #{asset_block.id}. Creating...")
+        new_essence_text = Alchemy::EssenceText.create(body: asset_url)
+        asset_block.contents.create(
+          name: url_field_name,
+          essence: new_essence_text
+        )
+        asset_block.save!
       end
     end
 
@@ -289,6 +319,23 @@ end
 # Intro pictures
 ############
 
+def get_intro_image_portal(page)
+  intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
+
+  page.elements.each do |element|
+    next unless intro_elements.include?(element.name)
+
+    has_intro_picture = element.contents&.any? { |content| content.essence.is_a?(Alchemy::EssencePicture) }
+
+    if has_intro_picture
+      picture = element.contents&.find { |content| content.essence.is_a?(Alchemy::EssencePicture) }&.essence&.picture&.image_file_name
+      return picture.blank? ? '' : picture
+    end
+  end
+
+  ""
+end
+
 def get_intro_image_portal_raw_filename(page)
   intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
 
@@ -305,7 +352,6 @@ def get_intro_image_portal_raw_filename(page)
 
   ""
 end
-
 
 def update_intro_image_portal(page, image_file_name)
   result = {
