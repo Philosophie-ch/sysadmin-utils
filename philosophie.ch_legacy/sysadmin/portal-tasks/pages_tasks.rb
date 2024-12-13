@@ -52,11 +52,12 @@ def main(csv_file, log_level = 'info')
     subreport = {
       _sort: row['_sort'] || "",
       id: row['id'] || "",  # page
+      published: row['published'] || "",  # page
       name: row['name'] || "",  # page
       pre_headline: row['pre_headline'] || "",  # intro element
       title: row['title'] || "",  # page
       lead_text: row['lead_text'] || "",  # intro element
-      _html_basename: row['_html_basename'] || "",  # page
+      embedded_html_base_name: row['embedded_html_base_name'] || "",  # page
       language_code: row['language_code'] || "",  # page
       urlname: row['urlname'] || "",  # page
       slug: row['slug'] || "", # page
@@ -125,7 +126,7 @@ def main(csv_file, log_level = 'info')
 
       # Control
       Rails.logger.info("Processing page: Control")
-      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'DLTC-WEB', 'DL-RN', 'AD HOC', 'REFS URLS']
+      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS']
       req = subreport[:_request].strip
 
       if req.blank?
@@ -162,7 +163,7 @@ def main(csv_file, log_level = 'info')
         end
       end
 
-      if req == 'UPDATE' || req == 'GET' || req == 'DELETE' || req == 'GET RAW FILENAMES' || req == 'DLTC-WEB' || req == 'DL-RN' || req == 'AD HOC' || req == 'REFS URLS'
+      if req == 'UPDATE' || req == 'GET' || req == 'DELETE' || req == 'GET RAW FILENAMES' || req == 'EMBED-HTML' || req == 'DL-RN' || req == 'AD HOC' || req == 'REFS URLS'
         if id.blank? && (language_code.blank? || urlname.blank?)
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
@@ -181,7 +182,7 @@ def main(csv_file, log_level = 'info')
       pre_headline = subreport[:pre_headline].strip
       title = subreport[:title].strip
       lead_text = subreport[:lead_text].strip
-      html_basename = subreport[:_html_basename].strip
+      html_basename = subreport[:embedded_html_base_name].strip
 
 
       # Metadata block
@@ -298,7 +299,7 @@ def main(csv_file, log_level = 'info')
           end
         end
 
-      elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'|| req == 'GET RAW FILENAMES' || req == 'DLTC-WEB' || req == 'DL-RN' || req == 'AD HOC' || req == 'REFS URLS'
+      elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'|| req == 'GET RAW FILENAMES' || req == 'EMBED-HTML' || req == 'DL-RN' || req == 'AD HOC' || req == 'REFS URLS'
         unless id.blank?
           page = Alchemy::Page.find(id)
         else
@@ -387,7 +388,7 @@ def main(csv_file, log_level = 'info')
           pre_headline: get_pre_headline(page),
           title: page.title,
           lead_text: get_lead_text(page),
-          _html_basename: subreport[:_html_basename],
+          embedded_html_base_name: subreport[:embedded_html_base_name],
           language_code: page.language_code,
           urlname: page.urlname,
           slug: subreport[:slug],
@@ -503,12 +504,12 @@ def main(csv_file, log_level = 'info')
 
 
       ############
-      # DLTC-WEB
+      # EMBED-HTML
       ############
 
-      if req == 'DLTC-WEB'
+      if req == 'EMBED-HTML'
 
-        Rails.logger.info("\t...DLTC-WEB: '#{page_identifier}': Setting embed block")
+        Rails.logger.info("\t...EMBED-HTML: '#{page_identifier}': Setting embed block")
 
         html_file = "dltc-web/#{html_basename}"
 
@@ -517,7 +518,7 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "HTML file '#{html_file}' not found. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::DLTC-WEB"
+          subreport[:error_trace] = "pages_tasks.rb::main::EMBED-HTML"
           next
         end
 
@@ -528,13 +529,13 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "HTML file '#{html_file}' is empty. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::DLTC-WEB"
+          subreport[:error_trace] = "pages_tasks.rb::main::EMBED-HTML"
           next
         end
 
         dltc_set_embed_block(page, html_content)
 
-        Rails.logger.info("\t...DLTC-WEB: '#{page_identifier}': Embed block set!")
+        Rails.logger.info("\t...EMBED-HTML: '#{page_identifier}': Embed block set!")
       end
 
       ############

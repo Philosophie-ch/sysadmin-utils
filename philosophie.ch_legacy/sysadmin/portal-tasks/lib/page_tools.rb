@@ -1044,3 +1044,8 @@ def get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
   full_url = article_metadata_element.contents.find_by(name: "pure_pdf_url").essence.body
   return full_url.gsub(pure_links_base_url, "") if full_url.start_with?(pure_links_base_url)
 end
+
+def unpublish_page(page)
+  page.update(public_on: nil, public_until: nil, published_at: nil)
+  page.save!
+end
