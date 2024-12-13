@@ -1046,6 +1046,23 @@ def get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
 end
 
 def unpublish_page(page)
-  page.update(public_on: nil, public_until: nil, published_at: nil)
-  page.save!
+  report = {
+    status: 'not started',
+    error_message: '',
+    error_trace: '',
+  }
+
+  begin
+    page.update(public_on: nil, public_until: nil, published_at: nil)
+    page.save!
+    report[:status] = 'success'
+    return report
+
+  rescue => e
+    report[:status] = 'error'
+    report[:error_message] = "#{e.class} :: #{e.message}"
+    report[:error_trace] = e.backtrace.join(" ::: ")
+    return report
+  end
+
 end

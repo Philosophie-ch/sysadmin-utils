@@ -126,11 +126,13 @@ def main(csv_file, log_level = 'info')
 
       # Control
       Rails.logger.info("Processing page: Control")
-      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS']
+      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH']
+
       req = subreport[:_request].strip
 
       if req.blank?
         subreport[:status] = ""
+        next
       else
         unless supported_requests.include?(req)
           subreport[:_request] += " ERROR"
@@ -163,7 +165,7 @@ def main(csv_file, log_level = 'info')
         end
       end
 
-      if req == 'UPDATE' || req == 'GET' || req == 'DELETE' || req == 'GET RAW FILENAMES' || req == 'EMBED-HTML' || req == 'DL-RN' || req == 'AD HOC' || req == 'REFS URLS'
+      if ['UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH'].include?(req)
         if id.blank? && (language_code.blank? || urlname.blank?)
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
@@ -299,7 +301,7 @@ def main(csv_file, log_level = 'info')
           end
         end
 
-      elsif req == 'UPDATE' || req == 'GET' || req == 'DELETE'|| req == 'GET RAW FILENAMES' || req == 'EMBED-HTML' || req == 'DL-RN' || req == 'AD HOC' || req == 'REFS URLS'
+      elsif ['UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH'].include?(req)
         unless id.blank?
           page = Alchemy::Page.find(id)
         else
@@ -359,7 +361,26 @@ def main(csv_file, log_level = 'info')
         end
       end
 
-      if req == 'UPDATE' || req == 'GET' || req == 'GET RAW FILENAMES' || req == 'AD HOC' || req == 'REFS URLS'
+      if req == 'PUBLISH'
+        page.publish!
+        subreport[:status] = "success"
+        subreport[:changes_made] = "PAGE WAS PUBLISHED"
+        next
+      elsif req == 'UNPUBLISH'
+        unpublish_report = unpublish_page(page)
+        if unpublish_report[:status] != 'success'
+          subreport[:_request] = "#{req} ERROR"
+          subreport[:status] = "error"
+          subreport[:error_message] = unpublish_report[:error_message]
+          subreport[:error_trace] = unpublish_report[:error_trace]
+        else
+          subreport[:status] = "success"
+          subreport[:changes_made] = "PAGE WAS UNPUBLISHED"
+        end
+        next
+      end
+
+      if ['UPDATE', 'GET', 'GET RAW FILENAMES', 'AD HOC', 'REFS URLS'].include?(req)
         old_page_tag_names = page.tag_names
         old_page_tag_columns = tag_array_to_columns(old_page_tag_names)
         old_page_assigned_authors = get_assigned_authors(page)
