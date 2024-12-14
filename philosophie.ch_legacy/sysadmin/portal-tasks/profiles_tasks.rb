@@ -678,6 +678,7 @@ def main(csv_file, log_level = 'info')
       end
 
       subreport[:status] = "success"
+      subreport[:_request] = "#{req} SUCCESS"
       Rails.logger.info("Processing user '#{login}': Done")
 
 
