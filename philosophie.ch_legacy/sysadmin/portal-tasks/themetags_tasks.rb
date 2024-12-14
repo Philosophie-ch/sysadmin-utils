@@ -53,7 +53,8 @@ def main(csv_file, log_level = 'info')
       name: row['name'] || '',
       group: row['group'] || '',
       interest_type: row['interest_type'] || '',
-      _slug: row['_slug'] || '',
+      page_language_code: row['page_language_code'] || '',
+      page_urlname: row['page_urlname'] || '',
       url: row['url'] || '',
 
       status: '',
@@ -121,8 +122,10 @@ def main(csv_file, log_level = 'info')
 
       # Parsing
       Rails.logger.info("Processing themetag '#{themetag_identifier}': Parsing")
+      page_language_code = subreport[:page_language_code].strip
+      page_urlname = subreport[:page_urlname].strip
+      page = Alchemy::Page.find_by(urlname: page_urlname, language_code: page_language_code)  # this combination is unique
       url = subreport[:url].strip
-
 
       # Setup
       Rails.logger.info("Processing themetag '#{themetag_identifier}': Setup")
@@ -191,11 +194,17 @@ def main(csv_file, log_level = 'info')
       end
 
       if req == "POST"
+
         themetag = Topic.new(
           name: name,
           group: group,
           interest_type: interest_type,
         )
+
+        if page.present?
+          themetag.page_id = page.id
+        end
+
         themetag.save!
       end
 
@@ -206,7 +215,8 @@ def main(csv_file, log_level = 'info')
           name: name,
           group: group,
           interest_type: interest_type,
-          _slug: subreport[:_slug],
+          page_language_code: page_language_code,
+          page_urlname: page_urlname,
           url: url,
 
           status: '',
@@ -220,6 +230,11 @@ def main(csv_file, log_level = 'info')
         themetag.name = name
         themetag.group = group
         themetag.interest_type = interest_type
+
+        if page.present?
+          themetag.page_id = page.id
+        end
+
         themetag.save!
       end
 
@@ -240,6 +255,15 @@ def main(csv_file, log_level = 'info')
       ############
       # REPORT
       ############
+      queried_page = Alchemy::Page.find_by(id: themetag.page_id)
+
+      if queried_page.present?
+        queried_page_language_code = queried_page.language_code
+        queried_page_urlname = queried_page.urlname
+      else
+        queried_page_language_code = ""
+        queried_page_urlname = ""
+      end
 
       url = get_themetag_url(themetag)
 
@@ -248,6 +272,8 @@ def main(csv_file, log_level = 'info')
         name: themetag.name,
         group: themetag.group,
         interest_type: themetag.interest_type,
+        page_language_code: queried_page_language_code,
+        page_urlname: queried_page_urlname,
         url: url,
       })
 
@@ -288,6 +314,7 @@ def main(csv_file, log_level = 'info')
       end
 
       Rails.logger.info("Processing themetag '#{subreport[:urlname]}': Success!")
+      subreport[:request] = "#{req} SUCCESS"
 
 
     rescue => e
