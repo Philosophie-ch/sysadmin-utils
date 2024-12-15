@@ -3,26 +3,26 @@ def tag_columns_to_array(row)
   col_tag_page_type = row.fetch(:tag_page_type, '')
   tag_page_type = col_tag_page_type.empty? ? [] : ["page type: #{col_tag_page_type}"]
 
-  col_tag_media_1 = row.fetch(:tag_media_1, '')
-  tag_media_1 = col_tag_media_1.empty? ? [] : ["media 1: #{col_tag_media_1}"]
+  col_tag_media = row.fetch(:tag_media, '')
+  tag_media = col_tag_media.empty? ? [] : ["media: #{col_tag_media}"]
 
-  col_tag_media_2 = row.fetch(:tag_media_2, '')
-  tag_media_2 = col_tag_media_2.empty? ? [] : ["media 2: #{col_tag_media_2}"]
+  col_tag_content_type = row.fetch(:tag_content_type, '')
+  tag_content_type = col_tag_content_type.empty? ? [] : ["content type: #{col_tag_content_type}"]
 
   col_tag_language = row.fetch(:tag_language, '')
   tag_language = col_tag_language.empty? ? [] : ["language: #{col_tag_language}"]
 
-  col_tag_university = row.fetch(:tag_university, '')
-  tag_university = col_tag_university.empty? ? [] : ["university: #{col_tag_university}"]
+  col_tag_institution = row.fetch(:tag_institution, '')
+  tag_institution = col_tag_institution.empty? ? [] : ["institution: #{col_tag_institution}"]
 
   col_tag_canton = row.fetch(:tag_canton, '')
   tag_canton = col_tag_canton.empty? ? [] : ["canton: #{col_tag_canton}"]
 
-  col_tag_special_content_1 = row.fetch(:tag_special_content_1, '')
-  tag_special_content_1 = col_tag_special_content_1.empty? ? [] : ["special content 1: #{col_tag_special_content_1}"]
+  col_tag_project = row.fetch(:tag_project, '')
+  tag_project = col_tag_project.empty? ? [] : ["project: #{col_tag_project}"]
 
-  col_tag_special_content_2 = row.fetch(:tag_special_content_2, '')
-  tag_special_content_2 = col_tag_special_content_2.empty? ? [] : ["special content 2: #{col_tag_special_content_2}"]
+  col_tag_public = row.fetch(:tag_public, '')
+  tag_public = col_tag_public.empty? ? [] : ["public: #{col_tag_public}"]
 
   col_tag_references = row.fetch(:tag_references, '')
   tag_references = col_tag_references.empty? ? [] : ["references?: #{col_tag_references}"]
@@ -33,34 +33,34 @@ def tag_columns_to_array(row)
   col_tag_others = row.fetch(:tag_others, '')
   tag_others = col_tag_others.empty? ? [] : col_tag_others.split(',').map(&:strip)
 
-  return tag_page_type + tag_media_1 + tag_media_2 + tag_language + tag_university + tag_canton + tag_special_content_1 + tag_special_content_2 + tag_references + tag_footnotes + tag_others
+  return tag_page_type + tag_media + tag_content_type + tag_language + tag_institution + tag_canton + tag_project + tag_public + tag_references + tag_footnotes + tag_others
 end
 
 
 def tag_array_to_columns(tag_names)
   tag_page_type = tag_names.find { |tag| tag.start_with?('page type: ') }&.gsub('page type: ', '') || ''
-  tag_media_1 = tag_names.find { |tag| tag.start_with?('media 1: ') }&.gsub('media 1: ', '') || ''
-  tag_media_2 = tag_names.find { |tag| tag.start_with?('media 2: ') }&.gsub('media 2: ', '') || ''
+  tag_media = tag_names.find { |tag| tag.start_with?('media: ') }&.gsub('media: ', '') || ''
+  tag_content_type = tag_names.find { |tag| tag.start_with?('content type: ') }&.gsub('content type: ', '') || ''
   tag_language = tag_names.find { |tag| tag.start_with?('language: ') }&.gsub('language: ', '') || ''
-  tag_university = tag_names.find { |tag| tag.start_with?('university: ') }&.gsub('university: ', '') || ''
+  tag_institution = tag_names.find { |tag| tag.start_with?('institution: ') }&.gsub('institution: ', '') || ''
   tag_canton = tag_names.find { |tag| tag.start_with?('canton: ') }&.gsub('canton: ', '') || ''
-  tag_special_content_1 = tag_names.find { |tag| tag.start_with?('special content 1: ') }&.gsub('special content 1: ', '') || ''
-  tag_special_content_2 = tag_names.find { |tag| tag.start_with?('special content 2: ') }&.gsub('special content 2: ', '') || ''
+  tag_project = tag_names.find { |tag| tag.start_with?('project: ') }&.gsub('project: ', '') || ''
+  tag_public = tag_names.find { |tag| tag.start_with?('public: ') }&.gsub('public: ', '') || ''
   tag_references = tag_names.find { |tag| tag.start_with?('references?: ') }&.gsub('references? ', '') || ''
   tag_footnotes = tag_names.find { |tag| tag.start_with?('footnotes?:') }&.gsub('footnotes? ', '') || ''
-  tag_others_arr = tag_names.select { |tag| !tag.start_with?('page type: ', 'media 1: ', 'media 2: ', 'language: ', 'university: ', 'canton: ', 'special content 1: ', 'special content 2: ', 'references? ', 'footnotes? ') }
+  tag_others_arr = tag_names.select { |tag| !tag.start_with?('page type: ', 'media: ', 'content type: ', 'language: ', 'institution: ', 'canton: ', 'project: ', 'public: ', 'references? ', 'footnotes? ') }
   tag_others = tag_others_arr.blank? ? '' : tag_others_arr.join(', ')
 
 
   return {
     tag_page_type: tag_page_type,
-    tag_media_1: tag_media_1,
-    tag_media_2: tag_media_2,
+    tag_media: tag_media,
+    tag_content_type: tag_content_type,
     tag_language: tag_language,
-    tag_university: tag_university,
+    tag_institution: tag_institution,
     tag_canton: tag_canton,
-    tag_special_content_1: tag_special_content_1,
-    tag_special_content_2: tag_special_content_2,
+    tag_project: tag_project,
+    tag_public: tag_public,
     tag_references: tag_references,
     tag_footnotes: tag_footnotes,
     tag_others: tag_others

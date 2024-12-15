@@ -72,13 +72,13 @@ def main(csv_file, log_level = 'info')
       page_layout: row['page_layout'] || "",  # page
 
       tag_page_type: row['tag_page_type'] || "",  # tag
-      tag_media_1: row['tag_media_1'] || "",  # tag
-      tag_media_2: row['tag_media_2'] || "",  # tag
+      tag_media: row['tag_media'] || "",  # tag
+      tag_content_type: row['tag_content_type'] || "",  # tag
       tag_language: row['tag_language'] || "",  # tag
-      tag_university: row['tag_university'] || "",  # tag
+      tag_institution: row['tag_institution'] || "",  # tag
       tag_canton: row['tag_canton'] || "",  # tag
-      tag_special_content_1: row['tag_special_content_1'] || "",  # tag
-      tag_special_content_2: row['tag_special_content_2'] || "",  # tag
+      tag_project: row['tag_project'] || "",  # tag
+      tag_public: row['tag_public'] || "",  # tag
       tag_references: row['tag_references'] || "",  # tag
       tag_footnotes: row['tag_footnotes'] || "",  # tag
 
@@ -213,13 +213,13 @@ def main(csv_file, log_level = 'info')
       page_layout = subreport[:page_layout].strip
 
       tag_page_type = subreport[:tag_page_type].strip
-      tag_media_1 = subreport[:tag_media_1].strip
-      tag_media_2 = subreport[:tag_media_2].strip
+      tag_media = subreport[:tag_media].strip
+      tag_content_type = subreport[:tag_content_type].strip
       tag_language = subreport[:tag_language].strip
-      tag_university = subreport[:tag_university].strip
+      tag_institution = subreport[:tag_institution].strip
       tag_canton = subreport[:tag_canton].strip
-      tag_special_content_1 = subreport[:tag_special_content_1].strip
-      tag_special_content_2 = subreport[:tag_special_content_2].strip
+      tag_project = subreport[:tag_project].strip
+      tag_public = subreport[:tag_public].strip
       tag_references = subreport[:tag_references].strip
       tag_footnotes = subreport[:tag_footnotes].strip
 
@@ -424,13 +424,13 @@ def main(csv_file, log_level = 'info')
           page_layout: subreport[:page_layout],
 
           tag_page_type: old_page_tag_columns[:tag_page_type],
-          tag_media_1: old_page_tag_columns[:tag_media_1],
-          tag_media_2: old_page_tag_columns[:tag_media_2],
+          tag_media: old_page_tag_columns[:tag_media],
+          tag_content_type: old_page_tag_columns[:tag_content_type],
           tag_language: old_page_tag_columns[:tag_language],
-          tag_university: old_page_tag_columns[:tag_university],
+          tag_institution: old_page_tag_columns[:tag_institution],
           tag_canton: old_page_tag_columns[:tag_canton],
-          tag_special_content_1: old_page_tag_columns[:tag_special_content_1],
-          tag_special_content_2: old_page_tag_columns[:tag_special_content_2],
+          tag_project: old_page_tag_columns[:tag_project],
+          tag_public: old_page_tag_columns[:tag_public],
           tag_references: old_page_tag_columns[:tag_references],
           tag_footnotes: old_page_tag_columns[:tag_footnotes],
 
@@ -487,13 +487,13 @@ def main(csv_file, log_level = 'info')
 
         tag_columns = {
           tag_page_type: tag_page_type,
-          tag_media_1: tag_media_1,
-          tag_media_2: tag_media_2,
+          tag_media: tag_media,
+          tag_content_type: tag_content_type,
           tag_language: tag_language,
-          tag_university: tag_university,
+          tag_institution: tag_institution,
           tag_canton: tag_canton,
-          tag_special_content_1: tag_special_content_1,
-          tag_special_content_2: tag_special_content_2,
+          tag_project: tag_project,
+          tag_public: tag_public,
           tag_references: tag_references,
           tag_footnotes: tag_footnotes,
         }
@@ -657,13 +657,13 @@ def main(csv_file, log_level = 'info')
         created_at: get_created_at(page),
         page_layout: page.page_layout,
         tag_page_type: tags_to_cols[:tag_page_type],
-        tag_media_1: tags_to_cols[:tag_media_1],
-        tag_media_2: tags_to_cols[:tag_media_2],
+        tag_media: tags_to_cols[:tag_media],
+        tag_content_type: tags_to_cols[:tag_content_type],
         tag_language: tags_to_cols[:tag_language],
-        tag_university: tags_to_cols[:tag_university],
+        tag_institution: tags_to_cols[:tag_institution],
         tag_canton: tags_to_cols[:tag_canton],
-        tag_special_content_1: tags_to_cols[:tag_special_content_1],
-        tag_special_content_2: tags_to_cols[:tag_special_content_2],
+        tag_project: tags_to_cols[:tag_project],
+        tag_public: tags_to_cols[:tag_public],
         tag_references: tags_to_cols[:tag_references],
         tag_footnotes: tags_to_cols[:tag_footnotes],
         ref_bib_keys: get_references_bib_keys(page),
