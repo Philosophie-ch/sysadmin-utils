@@ -138,7 +138,7 @@ def check_asset_urls_resolve(processed_urls)
   rescue => e
     report[:status] = 'unhandled error'
     report[:error_message] = "#{e.class} :: #{e.message}"
-    report[:error_trace] = e.backtrace.join(" --- ")
+    report[:error_trace] = e.backtrace.join(" ::: ")
     return report
   end
 end
@@ -307,7 +307,7 @@ def set_asset_blocks(page, unprocessed_asset_urls, element_name, url_field_name)
   rescue => e
     report[:status] = 'unhandled error'
     report[:error_message] = "#{e.class} :: #{e.message}"
-    report[:error_trace] = e.backtrace.join(" --- ")
+    report[:error_trace] = e.backtrace.join(" ::: ")
     return report
   end
 
@@ -406,7 +406,7 @@ def update_intro_image_portal(page, image_file_name)
   rescue => e
     result[:status] = 'unhandled error'
     result[:error_message] = "#{e.class} :: #{e.message}"
-    result[:error_trace] = e.backtrace.join("\n")
+    result[:error_trace] = e.backtrace.join(" ::: ")
     return result
   end
 end
@@ -582,7 +582,7 @@ def update_assigned_authors(page, authors_str)
     Rails.logger.error("\tError while updating assigned authors: #{e.message}")
     result[:status] = 'unhandled error'
     result[:error_message] = "#{e.class} :: #{e.message}"
-    result[:error_trace] = e.backtrace.join("\n")
+    result[:error_trace] = e.backtrace.join(" ::: ")
     return result
   end
 end
@@ -702,7 +702,7 @@ def set_themetags(page, themetag_names)
   rescue => e
     report[:status] = 'error'
     report[:error_message] = "#{e.class} :: #{e.message}"
-    report[:error_trace] = e.backtrace.join("\n")
+    report[:error_trace] = e.backtrace.join(" ::: ")
 
   ensure
     return report
@@ -773,7 +773,7 @@ def set_references_bib_keys(page, bibkeys)
   rescue => e
     result[:status] = 'unhandled error'
     result[:error_message] = "#{e.class} :: #{e.message}"
-    result[:error_trace] = e.backtrace.join("\n")
+    result[:error_trace] = e.backtrace.join(" ::: ")
     return result
   end
 end
@@ -956,18 +956,32 @@ def get_references_urls(page)
 
 end
 
+def get_aside_column(page)
+  aside_columns = Alchemy::Element.where(parent_element_id: nil, page_id: page.id, name: "aside_column")
 
-def get_article_metadata_element(page)
+  amount = aside_columns.length
+  if amount > 1
+    # destroy all but the first one
+    aside_columns[1..-1].each do |aside_column|
+      aside_column.destroy!
+    end
+  end
+
+  return aside_columns.first
+end
+
+def get_article_metadata_element(aside_column)
   # This is a nested element inside the aside_column element
-  aside_column = Alchemy::Element.where(parent_element_id: nil, page_id: page.id, name: "aside_column").first
-
-  unless aside_column.blank?
-    article_metadata = aside_column.nested_elements.filter { |nested_element| nested_element.name == "article_metadata" }.first; nil
-    unless article_metadata.blank?
+  if aside_column.blank?
+    return nil
+  else
+    article_metadata = aside_column.nested_elements.filter { |nested_element| nested_element.name == "article_metadata" }.first
+    if article_metadata.blank?
+      return nil
+    else
       return article_metadata
     end
   end
-  return nil
 end
 
 
@@ -983,33 +997,65 @@ def set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_a
   }
 
   begin
-    try_article_metadata = get_article_metadata_element(page)
+    aside_column = get_aside_column(page)
+
+    if aside_column.blank?
+      # create it
+      page.elements.create!(name: "aside_column", page_id: page.id, parent_element_id: nil, public: true)
+      aside_column = get_aside_column(page)
+
+      if aside_column.blank?
+        raise "Aside column could not be created"
+      end
+
+    end
+
+    try_article_metadata = get_article_metadata_element(aside_column)
 
     if try_article_metadata.blank?
       # create it
-      aside_column = Alchemy::Element.where(parent_element_id: nil, page_id: page.id, name: "aside_column").first
-
-      unless aside_column.blank?
-        aside_column.nested_elements.create(name: "article_metadata", page_id: page.id)
-      else
-        # return error
-        report[:status] = 'error'
-        report[:error_message] = "Aside column element not found"
-        report[:error_trace] = "pages_tasks.rb::set_article_metadata"
-      end
+      aside_column.nested_elements.create!(name: "article_metadata", page_id: page.id, parent_element_id: aside_column.id, public: true)
+      aside_column.save!
+    else
+      # destroy it and create a new one
+      try_article_metadata.destroy!
+      aside_column.nested_elements.create!(name: "article_metadata", page_id: page.id, parent_element_id: aside_column.id, public: true)
+      aside_column.save!
     end
 
-    article_metadata = get_article_metadata_element(page)
-
-    article_metadata.contents.find_by(name: "doi").essence.update({body: doi})
-
-    article_metadata.contents.find_by(name: "how_to_cite").essence.update({body: how_to_cite})
-
-    article_metadata.contents.find_by(name: "pure_html_url").essence.update({body: pure_html_asset_full_url})
-
-    article_metadata.contents.find_by(name: "pure_pdf_url").essence.update({body: pure_pdf_asset_full_url})
-
     page.reload
+    aside_column = get_aside_column(page)
+
+    if aside_column.blank?
+      raise "Aside column could not be created"
+    end
+
+    aside_column.update!(public: true)
+
+    article_metadata = get_article_metadata_element(aside_column)
+
+    if article_metadata.blank?
+      raise "Article metadata could not be created"
+    end
+
+    article_metadata.update!(public: true)
+
+    article_metadata.contents.find_by(name: "doi").essence.update!({body: doi})
+
+    article_metadata.contents.find_by(name: "how_to_cite").essence.update!({body: how_to_cite})
+
+    article_metadata.contents.find_by(name: "pure_html_url").essence.update!({body: pure_html_asset_full_url})
+
+    article_metadata.contents.find_by(name: "pure_pdf_url").essence.update!({body: pure_pdf_asset_full_url})
+
+    # Put the article metadata at the top of the aside column
+    article_metadata.update!(position: 1)
+
+    article_metadata.save!
+    aside_column.nested_elements = aside_column.nested_elements.reorder('position ASC')
+    aside_column.save!
+
+    # Save everything
     page.save!
     page.publish!
 
@@ -1037,12 +1083,12 @@ end
 
 def get_pure_html_asset(article_metadata_element, pure_links_base_url)
   full_url = article_metadata_element.contents.find_by(name: "pure_html_url").essence.body
-  return full_url.gsub(pure_links_base_url, "") if full_url.start_with?(pure_links_base_url)
+  return  full_url&.start_with?(pure_links_base_url) ? full_url.gsub(pure_links_base_url, "") : full_url
 end
 
 def get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
   full_url = article_metadata_element.contents.find_by(name: "pure_pdf_url").essence.body
-  return full_url.gsub(pure_links_base_url, "") if full_url.start_with?(pure_links_base_url)
+  return  full_url&.start_with?(pure_links_base_url) ? full_url.gsub(pure_links_base_url, "") : full_url
 end
 
 def unpublish_page(page)

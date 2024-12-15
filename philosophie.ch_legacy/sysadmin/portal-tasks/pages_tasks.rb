@@ -389,7 +389,8 @@ def main(csv_file, log_level = 'info')
         old_references_asset_url = all_references_urls[:references_url] ? all_references_urls[:references_url].gsub(references_base_url, '') : ''
         old_further_references_asset_url = all_references_urls[:further_references_url] ? all_references_urls[:further_references_url].gsub(references_base_url, '') : ''
 
-        article_metadata_element = get_article_metadata_element(page)
+        aside_column = get_aside_column(page)
+        article_metadata_element = get_article_metadata_element(aside_column)
         if article_metadata_element.nil?
           old_doi = ''
           old_how_to_cite = ''
@@ -758,7 +759,8 @@ def main(csv_file, log_level = 'info')
             subreport[:error_trace] += set_article_metadata_report[:error_trace] + "\n"
           end
 
-          new_metadata_element = get_article_metadata_element(page)
+          new_aside_column = get_aside_column(page)
+          new_metadata_element = get_article_metadata_element(new_aside_column)
           new_how_to_cite = get_how_to_cite(new_metadata_element)
           new_pure_html_asset = get_pure_html_asset(new_metadata_element, pure_links_base_url)
           new_pure_pdf_asset = get_pure_pdf_asset(new_metadata_element, pure_links_base_url)
@@ -829,7 +831,7 @@ def main(csv_file, log_level = 'info')
       Rails.logger.error("Error while processing page '#{subreport[:urlname].blank? ? subreport[:id] : subreport[:urlname]}': #{e.message}")
       subreport[:status] = 'unhandled error'
       subreport[:error_message] = "#{e.class} :: #{e.message}"
-      subreport[:error_trace] = e.backtrace.join("\n")
+      subreport[:error_trace] = e.backtrace.join(" ::: ")
 
     ensure
       report << subreport

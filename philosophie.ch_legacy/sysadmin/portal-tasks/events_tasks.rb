@@ -295,7 +295,7 @@ CSV.foreach("portal-tasks/events_tasks.csv", col_sep: ',', headers: true) do |ro
   rescue StandardError => e
     subreport[:status] = 'unhandled error'
     subreport[:error_message] = e.message
-    subreport[:error_trace] = e.backtrace.join("\n")
+    subreport[:error_trace] = e.backtrace.join(" ::: ")
 
   ensure
     report << subreport

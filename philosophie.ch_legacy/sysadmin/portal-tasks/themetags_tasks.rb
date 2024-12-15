@@ -323,7 +323,7 @@ def main(csv_file, log_level = 'info')
       subreport[:request] += " ERROR"
       subreport[:status] = 'unhandled error'
       subreport[:error_message] = error_message
-      subreport[:error_trace] = e.backtrace.join(" --- ")
+      subreport[:error_trace] = e.backtrace.join(" ::: ")
 
     ensure
       report << subreport
