@@ -97,6 +97,33 @@ def unprocess_asset_urls(processed_urls)
   return unprocessed.join(', ')
 end
 
+class UrlResolutionError < StandardError; end
+
+def fetch_with_redirect(url, limit = 20)
+  raise UrlResolutionError, 'too many HTTP redirects' if limit == 0
+
+  uri = URI(url)
+  response = Net::HTTP.get_response(uri)
+
+  case response
+  when Net::HTTPSuccess then
+    response
+  when Net::HTTPRedirection then
+    location = response['location']
+    new_uri = URI(location)
+
+    unless new_uri.host
+      new_uri = uri + location
+    end
+
+    Rails.logger.warn("URL '#{url}' redirected to '#{new_uri}'. Iteration: #{limit}")
+    fetch_with_redirect(new_uri, limit - 1)
+  else
+    response.value
+  end
+end
+
+
 def check_asset_urls_resolve(processed_urls)
   report = {
     status: 'not started',
@@ -111,7 +138,7 @@ def check_asset_urls_resolve(processed_urls)
 
     processed_urls.each do |url|
       begin
-        response = Net::HTTP.get_response(URI(url))
+        response = fetch_with_redirect(url)
 
         unless response.is_a?(Net::HTTPSuccess)
           error_urls << url
@@ -234,7 +261,7 @@ def get_asset_names(page, element_name, url_field_name)
 
 end
 
-
+class AssetBlocksAndUrlsMismatch < StandardError; end
 
 def _set_asset_blocks(page, asset_urls, element_name, url_field_name)
     # Checks both in the main body and in the aside column, in order
@@ -242,7 +269,7 @@ def _set_asset_blocks(page, asset_urls, element_name, url_field_name)
     asset_blocks = _get_asset_blocks(page, element_name, url_field_name)
 
     if asset_urls.length != asset_blocks.length
-      raise AssetBlocksAndUrlsMismatch, "Number of #{element_name}s and number of URLs do not match"
+      raise AssetBlocksAndUrlsMismatch, "Number of #{element_name}s and number of URLs do not match. Found #{asset_blocks.length} f#{element_name}s and #{asset_urls.length} URLs/asset names."
     end
 
     if asset_blocks == []
@@ -644,6 +671,10 @@ def get_themetags(page)
     structural: "",
   }
 
+  if page.page_layout != 'article'
+    return themetags_hashmap
+  end
+
   intro_element = page.elements.find { |element| element.name.include?('intro') }
   if intro_element
     topic_content = intro_element.contents.find { |content| content.name == 'topics' }
@@ -684,6 +715,12 @@ def set_themetags(page, themetag_names)
   }
 
   begin
+
+    if page.page_layout != 'article'
+      report[:status] = 'success'
+      return report
+    end
+
     intro_element = page.elements.find { |element| element.name.include?('intro') }
     if intro_element
       topic_content = intro_element.contents.find { |content| content.name == 'topics' }
