@@ -578,7 +578,7 @@ def main(csv_file, log_level = 'info')
       end
 
       # Complex actions
-      if req == "UPDATE"
+      if req == "UPDATE" || req == "POST"
 
         # Set profile picture asset link
         set_profile_picture_url_report = set_profile_picture_asset(user, profile_picture_asset)
