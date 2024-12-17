@@ -94,6 +94,7 @@ def main(csv_file, log_level = 'info')
       societies: row["societies"] || "",
       cms_public_email_toggle: row["cms_public_email_toggle"] || "",
       profile_picture: row["profile_picture"] || "",
+      profile_picture_asset: row["profile_picture_asset"] || "",
       facebook_profile: row["facebook_profile"] || "",
 
       # report
@@ -207,7 +208,7 @@ def main(csv_file, log_level = 'info')
       societies = subreport[:societies].strip # profile
       cms_public_email_toggle_s = "#{row['cms_public_email_toggle']}" || "false"
       cms_public_email_toggle = cms_public_email_toggle_s.downcase() == 'true' ? true : false  # profile
-      profile_picture = subreport[:profile_picture].strip # profile
+      profile_picture_asset = subreport[:profile_picture_asset].strip # profile
       facebook_profile = subreport[:facebook_profile].strip # profile
 
       # bibliography
@@ -385,7 +386,7 @@ def main(csv_file, log_level = 'info')
           teacher_at_institution: user.profile.teacher_at_institution,
           societies: user.profile.societies.map(&:name).join(', '),
           cms_public_email_toggle: user.profile.cms_public_email_toggle,
-          profile_picture: get_profile_picture(user),
+          profile_picture: get_profile_picture_file_name(user),
           facebook_profile: user.profile.facebook_profile,
 
           status: '',
@@ -579,13 +580,12 @@ def main(csv_file, log_level = 'info')
       # Complex actions
       if req == "UPDATE"
 
-        # Set profile picture
-        if profile_picture.present?
-          set_profile_picture_report = set_profile_picture(user, profile_picture)
-          if set_profile_picture_report[:status] != "success"
-            subreport[:error_message] = set_profile_picture_report[:error_message]
-            subreport[:error_trace] = set_profile_picture_report[:error_trace]
-          end
+        # Set profile picture asset link
+        set_profile_picture_url_report = set_profile_picture_asset(user, profile_picture_asset)
+
+        if set_profile_picture_url_report[:status] != "success"
+          subreport[:error_message] += " --- #{set_profile_picture_url_report[:error_message]}"
+          subreport[:error_trace] += " --- #{set_profile_picture_url_report[:error_trace]}"
         end
 
       end
@@ -627,7 +627,8 @@ def main(csv_file, log_level = 'info')
         cms_public_email_toggle: user.profile.cms_public_email_toggle,
         bibliography_asset_url: bibliography_asset_url_recovered,
         bibliography_further_references_asset_url: bibliography_further_asset_url_recovered,
-        profile_picture: get_profile_picture(user),
+        profile_picture: get_profile_picture_file_name(user),
+        profile_picture_asset: get_profile_picture_asset_name(user),
         facebook_profile: user.profile.facebook_profile,
 
         birth_date: user.profile.birth_date,
@@ -702,7 +703,7 @@ def main(csv_file, log_level = 'info')
   # REPORT
   ############
 
-  Utils.generate_csv_report(report, "profiles")
+  generate_csv_report(report, "profiles")
 
 end
 

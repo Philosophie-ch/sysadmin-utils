@@ -1,3 +1,4 @@
+require_relative 'utils'
 
 def tag_columns_to_array(row)
   col_tag_page_type = row.fetch(:tag_page_type, '')
@@ -72,105 +73,6 @@ end
 ############
 # Assets related functions
 ############
-
-def process_asset_urls(unprocess_asset_urls)
-  split = unprocess_asset_urls.split(',').map(&:strip).filter(&:present?)
-
-  result = split.map do |url|
-    if url.start_with?('http://', 'https://')
-      url
-    elsif url == 'empty'
-      ""
-    else
-      "https://assets.philosophie.ch/#{url}"
-    end
-  end
-
-  return result
-end
-
-def unprocess_asset_urls(processed_urls)
-  unprocessed = processed_urls.map do |url|
-    url.gsub('https://assets.philosophie.ch/', '')
-  end
-
-  return unprocessed.join(', ')
-end
-
-class UrlResolutionError < StandardError; end
-
-def fetch_with_redirect(url, limit = 20)
-  raise UrlResolutionError, 'too many HTTP redirects' if limit == 0
-
-  uri = URI(url)
-  response = Net::HTTP.get_response(uri)
-
-  case response
-  when Net::HTTPSuccess then
-    response
-  when Net::HTTPRedirection then
-    location = response['location']
-    new_uri = URI(location)
-
-    unless new_uri.host
-      new_uri = uri + location
-    end
-
-    Rails.logger.warn("URL '#{url}' redirected to '#{new_uri}'. Iteration: #{limit}")
-    fetch_with_redirect(new_uri, limit - 1)
-  else
-    response.value
-  end
-end
-
-
-def check_asset_urls_resolve(processed_urls)
-  report = {
-    status: 'not started',
-    error_message: '',
-    error_urls: "",
-    error_trace: '',
-  }
-
-  error_urls = []
-
-  begin
-
-    processed_urls.each do |url|
-      begin
-        response = fetch_with_redirect(url)
-
-        unless response.is_a?(Net::HTTPSuccess)
-          error_urls << url
-        end
-
-      rescue => e
-        error_urls << url
-        report[:error_message] += " --- #{e.class} :: #{e.message}"
-      end
-    end
-
-    if error_urls.blank?
-
-      report[:status] = 'success'
-      return report
-
-    else
-      report[:status] = 'url error'
-      report[:error_message] = "The following URLs could not be resolved: #{error_urls.join(', ')}"
-      report[:error_urls] = error_urls.join(', ')
-      return report
-    end
-
-  rescue => e
-    report[:status] = 'unhandled error'
-    report[:error_message] = "#{e.class} :: #{e.message}"
-    report[:error_trace] = e.backtrace.join(" ::: ")
-    return report
-  end
-end
-
-
 
 ELEMENT_NAME_AND_URL_FIELD_MAP = {
   "intro": "picture_asset_url",

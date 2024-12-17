@@ -1,4 +1,6 @@
 require 'securerandom'
+require_relative 'utils'
+
 
 def generate_randomized_password
   SecureRandom.uuid.gsub('-', '')[0, 16]
@@ -167,12 +169,75 @@ def update_links(new_login, old_login)
 end
 
 
-def get_profile_picture(user)
+# Server asset
+def get_profile_picture_asset_name(user)
+  url = user&.profile&.profile_picture_url
+
+  if url.nil?
+    return ''
+  end
+
+  unprocessed_url = unprocess_asset_urls([url])
+
+  return unprocessed_url
+
+end
+
+def set_profile_picture_asset(user, new_asset_name)
+  report = {
+    status: 'not started',
+    error_message: '',
+    error_trace: ''
+  }
+
+  begin
+    processed_url_array = process_asset_urls(new_asset_name)
+
+    if processed_url_array.empty? || processed_url_array.first == ''
+      user.profile.profile_picture_url = ''
+      user.profile.save!
+      user.save!
+      report[:status] = 'success'
+      return report
+    end
+
+    asset_url_check = check_asset_urls_resolve(processed_url_array)
+
+    if asset_url_check[:status] != 'success'
+      report[:status] = 'error'
+      report[:error_message] = asset_url_check[:error_message]
+      report[:error_trace] = asset_url_check[:error_trace]
+      return report
+    end
+
+    user.profile.profile_picture_url = processed_url_array.first
+    user.profile.save!
+    user.save!
+
+    report[:status] = 'success'
+    return report
+
+  rescue => e
+    error_message = "Error setting profile picture for '#{user.login}': #{e.class} :: #{e.message}"
+    Rails.logger.error(error_message)
+    report[:status] = 'error'
+    report[:error_message] = error_message
+    report[:error_trace] = e.backtrace.join(" ::: ")
+    return report
+  end
+
+end
+
+
+# Portal asset
+def get_profile_picture_file_name(user)
   profile_picture = user.profile&.avatar&.attached? ? user&.profile&.avatar&.filename.to_s : ''
   return profile_picture
 end
 
-def set_profile_picture(user, new_filename)
+
+# Deprecated
+def _set_profile_picture(user, new_filename)
 
   set_profile_picture_report = {
     new_filename: new_filename,
@@ -189,7 +254,7 @@ def set_profile_picture(user, new_filename)
       return set_profile_picture_report
     end
 
-    old_filename = get_profile_picture(user)
+    old_filename = get_profile_picture_file_name(user)
 
     if old_filename == new_filename
       Rails.logger.info("\tnew filename is the same as the old one. Skipping...")
@@ -217,8 +282,8 @@ def set_profile_picture(user, new_filename)
     user.profile.avatar.save!
     user.profile.save!
     user.save!
-    return set_profile_picture_report
     Rails.logger.info("\t...success!")
+    return set_profile_picture_report
 
   rescue => e
     set_profile_picture_report[:status] = "unhandled error"

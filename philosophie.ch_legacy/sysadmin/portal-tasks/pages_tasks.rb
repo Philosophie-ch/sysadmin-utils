@@ -587,7 +587,7 @@ def main(csv_file, log_level = 'info')
             sanitized_urlname = page.urlname.gsub('/', '-')
             filename = "#{sanitized_urlname}-pic#{n}.#{picture_extension}"
 
-            download_report = Utils.download_asset(base_dir, filename, picture_path, "picture_block")
+            download_report = download_asset(base_dir, filename, picture_path, "picture_block")
 
             if !download_report[:status] == "success"
               Rails.logger.error("\t...DL-RN: '#{page_identifier}': Error downloading picture '#{picture_path}': #{download_report[:status]} --- #{download_report[:error_message]}")
@@ -846,7 +846,7 @@ def main(csv_file, log_level = 'info')
   # REPORT
   ############
 
-  Utils.generate_csv_report(report, "pages")
+  generate_csv_report(report, "pages")
 
 end
 

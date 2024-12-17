@@ -366,7 +366,7 @@ def main(csv_file, log_level = 'info')
   # REPORT
   ############
 
-  Utils.generate_csv_report(report, "themetags")
+  generate_csv_report(report, "themetags")
 
 end
 
