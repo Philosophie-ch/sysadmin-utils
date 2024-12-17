@@ -122,9 +122,29 @@ def main(csv_file, log_level = 'info')
 
       # Parsing
       Rails.logger.info("Processing themetag '#{themetag_identifier}': Parsing")
+
       page_language_code = subreport[:page_language_code].strip
+
+      unless SUPPORTED_LANGUAGE_CODES.include?(page_language_code)
+        subreport[:request] += " ERROR"
+        subreport[:status] = "error"
+        subreport[:error_message] = "Unsupported language code '#{page_language_code}'. Skipping. Supported language codes are: #{SUPPORTED_LANGUAGE_CODES.join(', ')}"
+        subreport[:error_trace] = "themetags_tasks.rb::main::Parsing"
+        next
+      end
+
       page_urlname = subreport[:page_urlname].strip
+
       page = Alchemy::Page.find_by(urlname: page_urlname, language_code: page_language_code)  # this combination is unique
+
+      if not page_language_code.blank? and not page_urlname.blank? and page.nil?
+        subreport[:request] += " ERROR"
+        subreport[:status] = "error"
+        subreport[:error_message] = "Page with URL name '#{page_urlname}' and language code '#{page_language_code}' not found. Skipping"
+        subreport[:error_trace] = "themetags_tasks.rb::main::Parsing"
+        next
+      end
+
       url = subreport[:url].strip
 
       # Setup
@@ -233,6 +253,13 @@ def main(csv_file, log_level = 'info')
 
         if page.present?
           themetag.page_id = page.id
+          new_page = Alchemy::Page.find_by(id: themetag.page_id)
+          subreport[:page_language_code] = new_page.language_code
+          subreport[:page_urlname] = new_page.urlname
+        else
+          themetag.page_id = nil
+          subreport[:page_language_code] = ""
+          subreport[:page_urlname] = ""
         end
 
         themetag.save!
@@ -255,6 +282,7 @@ def main(csv_file, log_level = 'info')
       ############
       # REPORT
       ############
+      updated_themetag = Topic.find_by(id: themetag.id)
       queried_page = Alchemy::Page.find_by(id: themetag.page_id)
 
       if queried_page.present?
@@ -265,16 +293,16 @@ def main(csv_file, log_level = 'info')
         queried_page_urlname = ""
       end
 
-      url = get_themetag_url(themetag)
+      new_url = get_themetag_url(updated_themetag)
 
       subreport.merge!({
-        id: themetag.id,
-        name: themetag.name,
-        group: themetag.group,
-        interest_type: themetag.interest_type,
+        id: "#{updated_themetag.id}".strip,
+        name: updated_themetag.name,
+        group: updated_themetag.group,
+        interest_type: updated_themetag.interest_type,
         page_language_code: queried_page_language_code,
         page_urlname: queried_page_urlname,
-        url: url,
+        url: new_url,
       })
 
       subreport[:status] = 'success'
