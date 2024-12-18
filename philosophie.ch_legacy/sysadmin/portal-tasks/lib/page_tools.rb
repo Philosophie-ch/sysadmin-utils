@@ -625,7 +625,7 @@ def set_themetags(page, themetag_names)
 
   begin
 
-    if page.page_layout != 'article'
+    if page.page_layout == ''
       report[:status] = 'success'
       return report
     end
