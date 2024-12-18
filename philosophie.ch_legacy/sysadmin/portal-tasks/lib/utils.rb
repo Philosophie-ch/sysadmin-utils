@@ -141,6 +141,11 @@ def check_asset_urls_resolve(processed_urls)
 
     processed_urls.each do |url|
       begin
+
+        if url.blank?
+          next
+        end
+
         response = fetch_with_redirect(url)
 
         unless response.is_a?(Net::HTTPSuccess)

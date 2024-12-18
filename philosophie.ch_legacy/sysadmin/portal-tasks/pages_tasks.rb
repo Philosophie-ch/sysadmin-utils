@@ -785,9 +785,11 @@ def main(csv_file, log_level = 'info')
         }
 
         ELEMENT_NAME_AND_URL_FIELD_MAP.each do |element_name, url_field_name|
-          set_asset_result = set_asset_blocks(page, unprocessed_asset_urls[element_name], element_name, url_field_name)
+          set_asset_result = set_asset_blocks(page, unprocessed_asset_urls[element_name], "#{element_name}", url_field_name)
 
           if set_asset_result[:status] != 'success'
+            Rails.logger.error("Error while processing page '#{page_identifier}': #{set_asset_result[:error_message]}")
+            Rails.logger.error("Unprocessed asset urls for '#{element_name}' were: #{unprocessed_asset_urls[element_name]}")
             subreport[:_request] += " PARTIAL"
             subreport[:status] = 'partial success'
             subreport[:error_message] += " --- #{element_name}: {{ #{set_asset_result[:error_message]} }}"

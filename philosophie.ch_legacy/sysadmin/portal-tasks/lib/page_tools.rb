@@ -86,6 +86,8 @@ ELEMENT_NAME_AND_URL_FIELD_MAP = {
 
 ELEMENTS_NOT_IN_ASIDE_COLUMN = ['intro']
 
+UNIQUE_ELEMENTS = ['intro']
+
 class ElementNameNotRegistered < StandardError; end
 class ElementNameUrlFieldCombinationError < StandardError; end
 
@@ -146,7 +148,7 @@ def get_asset_names(page, element_name, url_field_name)
     essence = asset_block&.contents&.filter { |content| content.name == "#{url_field_name}" }&.first&.essence
 
     if essence
-      if essence.body.nil?
+      if essence.body.blank?
         Rails.logger.warn("Essence body is nil for #{element_name} block with ID #{asset_block.id}")
         "empty"
       else
@@ -171,7 +173,7 @@ def _set_asset_blocks(page, asset_urls, element_name, url_field_name)
     asset_blocks = _get_asset_blocks(page, element_name, url_field_name)
 
     if asset_urls.length != asset_blocks.length
-      raise AssetBlocksAndUrlsMismatch, "Number of #{element_name}s and number of URLs do not match. Found #{asset_blocks.length} f#{element_name}s and #{asset_urls.length} URLs/asset names."
+      raise AssetBlocksAndUrlsMismatch, "Number of #{element_name}s and number of URLs do not match. Found #{asset_blocks.length} #{element_name} blocks but #{asset_urls.length} URLs/asset names."
     end
 
     if asset_blocks == []
@@ -211,7 +213,12 @@ def set_asset_blocks(page, unprocessed_asset_urls, element_name, url_field_name)
 
     validate_element_name_and_url_field_combination(element_name, url_field_name)
 
-    asset_processed_urls = process_asset_urls(unprocessed_asset_urls)
+    if UNIQUE_ELEMENTS.include?(element_name) && ["", nil].include?(unprocessed_asset_urls)
+      asset_processed_urls = [""]
+    else
+      asset_processed_urls = process_asset_urls(unprocessed_asset_urls)
+    end
+
     asset_urls_check = check_asset_urls_resolve(asset_processed_urls)
 
     if asset_urls_check[:status] != 'success'
@@ -573,7 +580,7 @@ def get_themetags(page)
     structural: "",
   }
 
-  if page.page_layout != 'article'
+  if page.page_layout == ''
     return themetags_hashmap
   end
 
