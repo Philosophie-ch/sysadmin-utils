@@ -80,7 +80,7 @@ def main(csv_file, log_level = 'info')
           subreport[:request] = "ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Unsupported request '#{req}'. Skipping"
-          subreport[:error_trace] = "themetags_tasks.rb::main::Control::Main"
+          subreport[:error_trace] = "themetags.rb::main::Control::Main"
         end
       end
 
@@ -94,7 +94,7 @@ def main(csv_file, log_level = 'info')
           subreport[:request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Need name, group, and interest_type for POST. Skipping"
-          subreport[:error_trace] = "themetags_tasks.rb::main::Control::POST"
+          subreport[:error_trace] = "themetags.rb::main::Control::POST"
           next
         end
         retreived_themetags = Topic.where(name: name, group: group, interest_type: interest_type)
@@ -103,7 +103,7 @@ def main(csv_file, log_level = 'info')
           subreport[:request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Themetag with name '#{name}', group '#{group}', and interest_type '#{interest_type}' already exists. Skipping"
-          subreport[:error_trace] = "themetags_tasks.rb::main::Control::POST"
+          subreport[:error_trace] = "themetags.rb::main::Control::POST"
           next
         end
       end
@@ -113,7 +113,7 @@ def main(csv_file, log_level = 'info')
           subreport[:request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Need ID for '#{req}'. Skipping"
-          subreport[:error_trace] = "themetags_tasks.rb::main::Control::UPDATE-GET-DELETE"
+          subreport[:error_trace] = "themetags.rb::main::Control::UPDATE-GET-DELETE"
           next
         end
       end
@@ -129,7 +129,7 @@ def main(csv_file, log_level = 'info')
         subreport[:request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "Unsupported language code '#{page_language_code}'. Skipping. Supported language codes are: #{SUPPORTED_LANGUAGE_CODES.join(', ')}"
-        subreport[:error_trace] = "themetags_tasks.rb::main::Parsing"
+        subreport[:error_trace] = "themetags.rb::main::Parsing"
         next
       end
 
@@ -141,7 +141,7 @@ def main(csv_file, log_level = 'info')
         subreport[:request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "Page with URL name '#{page_urlname}' and language code '#{page_language_code}' not found. Skipping"
-        subreport[:error_trace] = "themetags_tasks.rb::main::Parsing"
+        subreport[:error_trace] = "themetags.rb::main::Parsing"
         next
       end
 
@@ -169,7 +169,7 @@ def main(csv_file, log_level = 'info')
           subreport[:request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Validation failed: #{validation_error_message}. Skipping"
-          subreport[:error_trace] = "themetags_tasks.rb::main::Execution::POST"
+          subreport[:error_trace] = "themetags.rb::main::Execution::POST"
           next
         end
 
@@ -183,7 +183,7 @@ def main(csv_file, log_level = 'info')
           subreport[:request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Themetag with ID '#{id}' not found. Skipping"
-          subreport[:error_trace] = "themetags_tasks.rb::main::Setup::UPDATE-GET-DELETE"
+          subreport[:error_trace] = "themetags.rb::main::Setup::UPDATE-GET-DELETE"
           next
         end
       end
@@ -201,7 +201,7 @@ def main(csv_file, log_level = 'info')
           subreport[:request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Themetag with ID '#{id}' was not deleted for an unknown reason. Skipping"
-          subreport[:error_trace] = "themetags_tasks.rb::main::Execution::DELETE"
+          subreport[:error_trace] = "themetags.rb::main::Execution::DELETE"
           next
         else
           subreport[:id] = ''
@@ -379,4 +379,4 @@ else
   log_level = ARGV[0]
 end
 
-main("portal-tasks/themetags_tasks.csv", log_level)
+main("portal-tasks/themetags.csv", log_level)

@@ -88,6 +88,8 @@ ELEMENTS_NOT_IN_ASIDE_COLUMN = ['intro']
 
 UNIQUE_ELEMENTS = ['intro']
 
+ELEMENTS_TO_SKIP_ON_SET = ['box']
+
 class ElementNameNotRegistered < StandardError; end
 class ElementNameUrlFieldCombinationError < StandardError; end
 

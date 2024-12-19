@@ -268,7 +268,7 @@ def _set_profile_picture(user, new_filename)
       Rails.logger.error("Picture with image_file_name '#{new_filename}' not found. Skipping...")
       set_profile_picture_report[:status] = 'error'
       set_profile_picture_report[:error_message] = "Picture with image_file_name '#{new_filename}' not found"
-      set_profile_picture_report[:error_trace] = "profiles_tasks.rb::set_profile_picture"
+      set_profile_picture_report[:error_trace] = "profiles.rb::set_profile_picture"
       return set_profile_picture_report
     end
 

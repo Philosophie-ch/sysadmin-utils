@@ -714,4 +714,4 @@ else
   log_level = ARGV[0]
 end
 
-main('portal-tasks/profiles_tasks.csv', log_level)
+main('portal-tasks/profiles.csv', log_level)

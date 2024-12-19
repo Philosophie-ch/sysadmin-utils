@@ -37,7 +37,7 @@ def generate_csv_report(report)
   base_folder = 'portal-tasks-reports'
   FileUtils.mkdir_p(base_folder) unless Dir.exist?(base_folder)
 
-  file_name = "#{base_folder}/#{Time.now.strftime('%y%m%d')}_events_tasks_report.csv"
+  file_name = "#{base_folder}/#{Time.now.strftime('%y%m%d')}_events_report.csv"
 
   begin
     File.write(file_name, csv_string)
@@ -59,7 +59,7 @@ end
 ############
 
 report = []
-CSV.foreach("portal-tasks/events_tasks.csv", col_sep: ',', headers: true) do |row|
+CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
 
   subreport = {
     _request: row["_request"] || '',

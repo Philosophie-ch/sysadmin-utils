@@ -109,7 +109,6 @@ def main(csv_file, log_level = 'info')
       _attachment_links_assets: row['_attachment_links_assets'] || "",  # element
       attachment_links_portal: row['attachment_links_portal'] || "",  # element
       has_html_header_tags: row['has_html_header_tags'] || "",  # element
-      external_links: row['external_links'] || "",
 
       themetags_discipline: row['themetags_discipline'] || "",  # themetags
       themetags_focus: row['themetags_focus'] || "",  # themetags
@@ -138,7 +137,7 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Unsupported request '#{req}'. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::Control::Main"
+          subreport[:error_trace] = "pages.rb::main::Control::Main"
         end
       end
 
@@ -151,7 +150,7 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Need urlname and language code for 'POST'. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::Control::POST"
+          subreport[:error_trace] = "pages.rb::main::Control::POST"
           next
         end
         retreived_pages = Alchemy::Page.where(urlname: urlname)
@@ -160,7 +159,7 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Page already exists. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::Control::POST"
+          subreport[:error_trace] = "pages.rb::main::Control::POST"
           next
         end
       end
@@ -170,7 +169,7 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Need ID, or urlname + language code for '#{req}'. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::Control::UPDATE/GET/DELETE"
+          subreport[:error_trace] = "pages.rb::main::Control::UPDATE/GET/DELETE"
           next
         end
       end
@@ -281,7 +280,7 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::Setup::POST"
+          subreport[:error_trace] = "pages.rb::main::Setup::POST"
           next
 
         else
@@ -292,7 +291,7 @@ def main(csv_file, log_level = 'info')
             subreport[:_request] += " ERROR"
             subreport[:status] = "error"
             subreport[:error_message] = "Root page for language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping"
-            subreport[:error_trace] = "pages_tasks.rb::main::Setup::POST"
+            subreport[:error_trace] = "pages.rb::main::Setup::POST"
             next
           else
             page.parent_id = root_page.id
@@ -312,7 +311,7 @@ def main(csv_file, log_level = 'info')
             subreport[:_request] += " ERROR"
             subreport[:status] = "error"
             subreport[:error_message] = "Need ID, or urlname + language code for '#{req}'. Skipping"
-            subreport[:error_trace] = "pages_tasks.rb::main::Setup::UPDATE-GET-DELETE"
+            subreport[:error_trace] = "pages.rb::main::Setup::UPDATE-GET-DELETE"
             next
           end
         end
@@ -322,7 +321,7 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Page with ID '#{id}' or urlname '#{urlname}' and language code '#{language_code}' not found, but needed for #{req}. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::Setup::UPDATE-GET-DELETE"
+          subreport[:error_trace] = "pages.rb::main::Setup::UPDATE-GET-DELETE"
           next
         end
 
@@ -331,7 +330,7 @@ def main(csv_file, log_level = 'info')
         subreport[:_request] += " ERROR"
         subreport[:status] = "error"
         subreport[:error_message] = "How did we get here? Unsupported request '#{req}'. Skipping"
-        subreport[:error_trace] = "pages_tasks.rb::main::Setup::Main"
+        subreport[:error_trace] = "pages.rb::main::Setup::Main"
         next
       end
 
@@ -349,7 +348,7 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "Page not deleted by an unknown reason!. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::Setup::DELETE"
+          subreport[:error_trace] = "pages.rb::main::Setup::DELETE"
           next
         else
           subreport[:id] = ''
@@ -460,7 +459,6 @@ def main(csv_file, log_level = 'info')
           box_assets: subreport[:box_assets],
 
           attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
-          external_links: subreport[:external_links],
           has_html_header_tags: has_html_header_tags(page),
 
           themetags_discipline: subreport[:themetags_discipline],
@@ -540,7 +538,7 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "HTML file '#{html_file}' not found. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::EMBED-HTML"
+          subreport[:error_trace] = "pages.rb::main::EMBED-HTML"
           next
         end
 
@@ -551,7 +549,7 @@ def main(csv_file, log_level = 'info')
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
           subreport[:error_message] = "HTML file '#{html_file}' is empty. Skipping"
-          subreport[:error_trace] = "pages_tasks.rb::main::EMBED-HTML"
+          subreport[:error_trace] = "pages.rb::main::EMBED-HTML"
           next
         end
 
@@ -785,6 +783,11 @@ def main(csv_file, log_level = 'info')
         }
 
         ELEMENT_NAME_AND_URL_FIELD_MAP.each do |element_name, url_field_name|
+
+          if ELEMENTS_TO_SKIP_ON_SET.include?(element_name)
+            next
+          end
+
           set_asset_result = set_asset_blocks(page, unprocessed_asset_urls[element_name], "#{element_name}", url_field_name)
 
           if set_asset_result[:status] != 'success'
@@ -861,4 +864,4 @@ else
   log_level = ARGV[0]
 end
 
-main("portal-tasks/pages_tasks.csv", log_level)
+main("portal-tasks/pages.csv", log_level)
