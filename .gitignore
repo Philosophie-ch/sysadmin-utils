@@ -1,6 +1,5 @@
 **.env
-**_tasks.csv
-**_report.csv
+**/*.csv
 **.~lock*
 **-report*
 **dltc-web
