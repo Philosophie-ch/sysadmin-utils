@@ -123,27 +123,31 @@ def main(csv_file, log_level = 'info')
       # Parsing
       Rails.logger.info("Processing themetag '#{themetag_identifier}': Parsing")
 
-      page_language_code = subreport[:page_language_code].strip
+      if ['UPDATE', 'POST', 'AD HOC'].include?(req)
 
-      unless SUPPORTED_LANGUAGE_CODES.include?(page_language_code)
-        subreport[:request] += " ERROR"
-        subreport[:status] = "error"
-        subreport[:error_message] = "Unsupported language code '#{page_language_code}'. Skipping. Supported language codes are: #{SUPPORTED_LANGUAGE_CODES.join(', ')}"
-        subreport[:error_trace] = "themetags.rb::main::Parsing"
-        next
+        page_language_code = subreport[:page_language_code].strip
+        unless SUPPORTED_LANGUAGE_CODES.include?(page_language_code)
+          subreport[:request] += " ERROR"
+          subreport[:status] = "error"
+          subreport[:error_message] = "Unsupported language code '#{page_language_code}'. Skipping. Supported language codes are: #{SUPPORTED_LANGUAGE_CODES.join(', ')}"
+          subreport[:error_trace] = "themetags.rb::main::Parsing"
+          next
+        end
+
+        page_urlname = subreport[:page_urlname].strip
+
+        page = Alchemy::Page.find_by(urlname: page_urlname, language_code: page_language_code)  # this combination is unique
+
+        if not page_language_code.blank? and not page_urlname.blank? and page.nil?
+          subreport[:request] += " ERROR"
+          subreport[:status] = "error"
+          subreport[:error_message] = "Page with URL name '#{page_urlname}' and language code '#{page_language_code}' not found. Skipping"
+          subreport[:error_trace] = "themetags.rb::main::Parsing"
+          next
+        end
+
       end
 
-      page_urlname = subreport[:page_urlname].strip
-
-      page = Alchemy::Page.find_by(urlname: page_urlname, language_code: page_language_code)  # this combination is unique
-
-      if not page_language_code.blank? and not page_urlname.blank? and page.nil?
-        subreport[:request] += " ERROR"
-        subreport[:status] = "error"
-        subreport[:error_message] = "Page with URL name '#{page_urlname}' and language code '#{page_language_code}' not found. Skipping"
-        subreport[:error_trace] = "themetags.rb::main::Parsing"
-        next
-      end
 
       url = subreport[:url].strip
 
