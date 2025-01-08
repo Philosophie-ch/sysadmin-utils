@@ -1039,6 +1039,7 @@ def get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
   return  full_url&.start_with?(pure_links_base_url) ? full_url.gsub(pure_links_base_url, "") : full_url
 end
 
+
 def unpublish_page(page)
   report = {
     status: 'not started',
@@ -1059,4 +1060,30 @@ def unpublish_page(page)
     return report
   end
 
+end
+
+
+def get_published(page)
+  if not page.public_on
+    return "UNPUBLISHED"
+  else
+    return "PUBLISHED"
+  end
+end
+
+def get_creator(page)
+  creator_id = page.creator_id
+  creator = Alchemy::User.find_by(id: creator_id)
+  return creator.blank? ? "" : creator.login
+end
+
+def get_last_updater(page)
+  last_updater_id = page.updater_id
+  last_updater = Alchemy::User.find_by(id: last_updater_id)
+  return last_updater.blank? ? "" : last_updater.login
+end
+
+def get_last_updated_date(page)
+  # In YYYY-MM-DD format
+  return page.updated_at.strftime('%Y-%m-%d')
 end

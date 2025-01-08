@@ -50,6 +50,7 @@ def main(csv_file, log_level = 'info')
     Rails.logger.info("Processing row #{processed_lines + 1} of #{total_lines}")
     # Read data
     subreport = {
+      _incoming: row['_incoming'] || "",
       _sort: row['_sort'] || "",
       id: row['id'] || "",  # page
       published: row['published'] || "",  # page
@@ -70,6 +71,9 @@ def main(csv_file, log_level = 'info')
       doi: row['doi'] || "",  # article
       created_at: row['created_at'] || "",  # page
       page_layout: row['page_layout'] || "",  # page
+      created_by: row['created_by'] || "",  # page
+      last_updated_by: row['last_updated_by'] || "",  # page
+      last_updated_date: row['last_updated_date'] || "",  # page
 
       tag_page_type: row['tag_page_type'] || "",  # tag
       tag_media: row['tag_media'] || "",  # tag
@@ -210,6 +214,10 @@ def main(csv_file, log_level = 'info')
 
       created_at = subreport[:created_at].strip
       page_layout = subreport[:page_layout].strip
+
+      created_by = subreport[:created_by].strip
+      last_updated_by = subreport[:last_updated_by].strip
+      last_updated_date = subreport[:last_updated_date].strip
 
       tag_page_type = subreport[:tag_page_type].strip
       tag_media = subreport[:tag_media].strip
@@ -364,6 +372,7 @@ def main(csv_file, log_level = 'info')
         page.publish!
         subreport[:status] = "success"
         subreport[:changes_made] = "PAGE WAS PUBLISHED"
+        subreport[:published] = "PUBLISHED"
         next
       elsif req == 'UNPUBLISH'
         unpublish_report = unpublish_page(page)
@@ -375,6 +384,7 @@ def main(csv_file, log_level = 'info')
         else
           subreport[:status] = "success"
           subreport[:changes_made] = "PAGE WAS UNPUBLISHED"
+          subreport[:published] = "UNPUBLISHED"
         end
         next
       end
@@ -404,6 +414,7 @@ def main(csv_file, log_level = 'info')
 
         old_page = {
           _sort: subreport[:_sort],
+          published: get_published(page),
           id: page.id,
           name: page.name,
           pre_headline: get_pre_headline(page),
@@ -422,6 +433,9 @@ def main(csv_file, log_level = 'info')
           doi: old_doi,
           created_at: subreport[:created_at],
           page_layout: subreport[:page_layout],
+          created_by: created_by,
+          last_updated_by: last_updated_by,
+          last_updated_date: last_updated_date,
 
           tag_page_type: old_page_tag_columns[:tag_page_type],
           tag_media: old_page_tag_columns[:tag_media],
@@ -645,6 +659,7 @@ def main(csv_file, log_level = 'info')
 
       subreport.merge!({
         id: page.id,
+        published: get_published(page),
         name: page.name,
         pre_headline: get_pre_headline(page),
         title: page.title,
@@ -655,6 +670,10 @@ def main(csv_file, log_level = 'info')
         link: "https://www.philosophie.ch#{retrieved_slug}",
         created_at: get_created_at(page),
         page_layout: page.page_layout,
+        created_by: get_creator(page),
+        last_updated_by: get_last_updater(page),
+        last_updated_date: get_last_updated_date(page),
+
         tag_page_type: tags_to_cols[:tag_page_type],
         tag_media: tags_to_cols[:tag_media],
         tag_content_type: tags_to_cols[:tag_content_type],

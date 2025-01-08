@@ -50,15 +50,9 @@ def main(log_level = 'info')
   page_ids.each_with_index do |page_id, index|
     report << {
       page_id: page_id,
-      in_pages?: "",
       event_id: event_ids[index],
-      in_events?: "",
       profile_id: user_ids[index],
-      in_profiles?: "",
-      in_biblio_profiles?: "",
-      in_any?: "",
       themetag_id: topic_ids[index],
-      in_themetags?: "",
   }
   end
 
