@@ -875,9 +875,9 @@ def set_references_block(page, references_url, further_references_url)
 
   references_block = get_references_blocks(page).first
 
-  references_block.content_by_name("references_asset_url").essence.update({link: references_url})
+  references_block.content_by_name("references_asset_url").essence.update!({body: references_url})
 
-  references_block.content_by_name("further_references_asset_url").essence.update({link: further_references_url})
+  references_block.content_by_name("further_references_asset_url").essence.update!({body: further_references_url})
 
   page.save!
   page.publish!

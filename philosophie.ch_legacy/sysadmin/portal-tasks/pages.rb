@@ -568,6 +568,8 @@ def main(csv_file, log_level = 'info')
         end
 
         dltc_set_embed_block(page, html_content)
+        # Repristine references so they appear at the end of the page
+        set_references_block(page, references_asset_full_url, further_references_asset_full_url)
 
         Rails.logger.info("\t...EMBED-HTML: '#{page_identifier}': Embed block set!")
       end
