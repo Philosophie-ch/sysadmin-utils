@@ -431,8 +431,9 @@ end
 def get_assigned_authors(page)
   page_is_article = page.page_layout == "article" ? true : false
   page_is_event = page.page_layout == "event" ? true : false
+  page_is_info = page.page_layout == "info" ? true : false
 
-  unless page_is_article || page_is_event
+  unless page_is_article || page_is_event || page_is_info
     return ""
   end
 
@@ -454,9 +455,10 @@ def update_assigned_authors(page, authors_str)
   Rails.logger.info("Updating assigned authors...")
   page_is_article = page.page_layout == "article" ? true : false
   page_is_event = page.page_layout == "event" ? true : false
+  page_is_info = page.page_layout == "info" ? true : false
 
-  unless page_is_article || page_is_event
-    Rails.logger.debug("\tPage is not an article or event. Skipping...")
+  unless page_is_article || page_is_event || page_is_info
+    Rails.logger.debug("\tPage is not an article or event or info. Skipping...")
     return {
       status: 'success',
       error_message: '',
@@ -471,7 +473,7 @@ def update_assigned_authors(page, authors_str)
   }
 
   begin
-    Rails.logger.debug("\tPage is an article or event. Proceeding...")
+    Rails.logger.debug("\tPage is an article or event or info. Proceeding...")
 
     intro_element = page.elements.find { |element| element.name.include?('intro') }
     creator_essence = intro_element&.content_by_name(:creator)&.essence
@@ -818,6 +820,10 @@ end
 
 def get_embed_blocks(page)
   page.elements.map { |element| element if element.name == "embed" }.compact
+end
+
+def has_embed_blocks(page)
+  get_embed_blocks(page).any? ? "yes" : ""
 end
 
 

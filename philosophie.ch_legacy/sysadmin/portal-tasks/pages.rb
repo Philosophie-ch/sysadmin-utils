@@ -110,6 +110,7 @@ def main(csv_file, log_level = 'info')
       text_and_pictures_portal: row['text_and_pictures_portal'] || "",  # element
       box_assets: row['box_assets'] || "",  # nested element
 
+      embed_blocks: row['embed_blocks'] || "",  # element
       _attachment_links_assets: row['_attachment_links_assets'] || "",  # element
       attachment_links_portal: row['attachment_links_portal'] || "",  # element
       has_html_header_tags: row['has_html_header_tags'] || "",  # element
@@ -122,6 +123,7 @@ def main(csv_file, log_level = 'info')
       changes_made: '',
       error_message: '',
       error_trace: '',
+      result_order: processed_lines + 1,
     }
 
 
@@ -472,6 +474,7 @@ def main(csv_file, log_level = 'info')
           text_and_pictures_portal: subreport[:text_and_pictures_portal],
           box_assets: subreport[:box_assets],
 
+          embed_blocks: subreport[:embed_blocks],
           attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
           has_html_header_tags: has_html_header_tags(page),
 
@@ -703,6 +706,7 @@ def main(csv_file, log_level = 'info')
         text_and_pictures_portal: get_text_and_picture_blocks_file_names(page),
         box_assets: get_asset_names(page, "box", ELEMENT_NAME_AND_URL_FIELD_MAP[:"box"]),
 
+        embed_blocks: has_embed_blocks(page),
         attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
         has_html_header_tags: has_html_header_tags(page),
         themetags_discipline: themetags_hashmap[:discipline],
@@ -840,7 +844,7 @@ def main(csv_file, log_level = 'info')
       if req == "UPDATE" || req == "GET" || req == "GET RAW FILENAMES" || req == 'AD HOC' || req == 'REFS URLS'
         changes = []
         subreport.each do |key, value|
-          if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :_request
+          if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :_request && key != :result_order
             # Skip if both old and new values are empty
             unless old_page[key].to_s.empty? && value.to_s.empty?
               changes << "#{key}: {{ #{old_page[key]} }} => {{ #{value} }}"
