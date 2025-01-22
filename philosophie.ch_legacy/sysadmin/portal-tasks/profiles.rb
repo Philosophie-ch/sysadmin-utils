@@ -69,6 +69,8 @@ def main(csv_file, log_level = 'info')
       password: row["password"] || "",
       language: row["language"] || "",
       gender: row["gender"] || "",
+      last_updated_by: row["last_updated_by"] || "",
+      last_updated_date: row["last_updated_date"] || "",
 
       _contact_person: row["_contact_person"] || "",
       _contact_person_email: row["_contact_person_email"] || "",
@@ -200,6 +202,9 @@ def main(csv_file, log_level = 'info')
       password = subreport[:password].strip  # user
       language = subreport[:language].strip  # user
       gender = subreport[:gender].strip  # user
+      last_updated_by = subreport[:last_updated_by].strip  # user
+      last_updated_date = subreport[:last_updated_date].strip  # user
+
       country = subreport[:country].strip  # profile
       area = subreport[:area].strip  # profile
       description = subreport[:description].strip # profile
@@ -362,6 +367,8 @@ def main(csv_file, log_level = 'info')
           password: subreport[:password],
           language: user.language,
           gender: user.gender,
+          last_updated_by: last_updated_by,
+          last_updated_date: last_updated_date,
 
           _contact_person: subreport[:_contact_person],
           _contact_person_email: subreport[:_contact_person_email],
@@ -618,6 +625,9 @@ def main(csv_file, log_level = 'info')
         area: user.profile.area,
         alchemy_roles: user.alchemy_roles.join(', '),
         gender: user.gender,
+        last_updated_by: get_last_updater(user),
+        last_updated_date: get_last_updated_date(user),
+
         firstname: user.firstname,
         lastname: user.lastname,
         description: user.profile.description,

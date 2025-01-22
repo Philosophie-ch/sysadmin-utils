@@ -236,6 +236,18 @@ def get_profile_picture_file_name(user)
 end
 
 
+def get_last_updater(user)
+  last_updater_id = user.updater_id
+  last_updater = Alchemy::User.find_by(id: last_updater_id)
+  return last_updater.blank? ? '' : last_updater.login
+end
+
+def get_last_updated_date(user)
+  # In YYYY-MM-DD format
+  return user.updated_at.strftime('%Y-%m-%d')
+end
+
+
 # Deprecated
 def _set_profile_picture(user, new_filename)
 
