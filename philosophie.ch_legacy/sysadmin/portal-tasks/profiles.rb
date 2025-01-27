@@ -106,28 +106,9 @@ def main(csv_file, log_level = 'info')
       error_trace: '',
       update_links_report: '',
 
-      # dump
-      birth_date: row["birth_date"] || "",
       public: row["public"] || "",
-      level: row["level"] || "",
       other_personal_information: row["other_personal_information"] || "",
-      institutional_affiliation: row["institutional_affiliation"] || "",
-      type_of_affiliation: row["type_of_affiliation"] || "",
-      teach_as_well: row["teach_as_well"] || "",
-      receive_leaflets: row["receive_leaflets"] || "",
-      share_material: row["share_material"] || "",
-      interested_in_education: row["interested_in_education"] || "",
-      first_favorites: row["first_favorites"] || "",
-      second_favorites: row["second_favorites"] || "",
-      other_institutional_affiliation: row["other_institutional_affiliation"] || "",
-      activities: row["activities"] || "",
-      number_of_professorships: row["number_of_professorships"] || "",
-      address: row["address"] || "",
-      number_of_postgraduates: row["number_of_postgraduates"] || "",
-      number_of_students: row["number_of_students"] || "",
-      characteristics: row["characteristics"] || "",
-      other_type_of_affiliation: row["other_type_of_affiliation"] || "",
-      filter: row["filter"] || "",
+
     }
 
 
@@ -236,27 +217,8 @@ def main(csv_file, log_level = 'info')
       end
 
       # profile dump
-      birth_date = subreport[:birth_date].strip
       public_field = subreport[:public].strip
-      level = subreport[:level].strip
       other_personal_information = subreport[:other_personal_information].strip
-      institutional_affiliation = subreport[:institutional_affiliation].strip
-      type_of_affiliation = subreport[:type_of_affiliation].strip
-      teach_as_well = subreport[:teach_as_well].strip
-      receive_leaflets = subreport[:receive_leaflets].strip
-      share_material = subreport[:share_material].strip
-      interested_in_education = subreport[:interested_in_education].strip
-      first_favorites = subreport[:first_favorites].strip
-      second_favorites = subreport[:second_favorites].strip
-      other_institutional_affiliation = subreport[:other_institutional_affiliation].strip
-      activities = subreport[:activities].strip
-      number_of_professorships = subreport[:number_of_professorships].strip
-      address = subreport[:address].strip
-      number_of_postgraduates = subreport[:number_of_postgraduates].strip
-      number_of_students = subreport[:number_of_students].strip
-      characteristics = subreport[:characteristics].strip
-      other_type_of_affiliation = subreport[:other_type_of_affiliation].strip
-      filter = subreport[:filter].strip
 
       # emails
       email_addresses = email_addresses_raw.split(',').map(&:strip).join(', ')  # profile
@@ -402,30 +364,11 @@ def main(csv_file, log_level = 'info')
           error_trace: '',
           update_links_report: '',
 
-          birth_date: user.profile.birth_date,
           public: user.profile.public,
-          level: user.profile.level,
           other_personal_information: user.profile.other_personal_information,
-          institutional_affiliation: user.profile.institutional_affiliation,
-          type_of_affiliation: user.profile.type_of_affiliation,
-          teach_as_well: user.profile.teach_as_well,
-          receive_leaflets: user.profile.receive_leaflets,
-          share_material: user.profile.share_material,
-          interested_in_education: user.profile.interested_in_education,
-          first_favorites: user.profile.first_favorites,
-          second_favorites: user.profile.second_favorites,
-          other_institutional_affiliation: user.profile.other_institutional_affiliation,
-          activities: user.profile.activities,
-          number_of_professorships: user.profile.number_of_professorships,
-          address: user.profile.address,
-          number_of_postgraduates: user.profile.number_of_postgraduates,
-          number_of_students: user.profile.number_of_students,
-          characteristics: user.profile.characteristics,
-          other_type_of_affiliation: user.profile.other_type_of_affiliation,
           confirmation_token: user.profile.confirmation_token,
           confirmed_at: user.profile.confirmed_at,
           confirmation_sent_at: user.profile.confirmation_sent_at,
-          filter: user.profile.filter
         }
       end
 
@@ -480,27 +423,8 @@ def main(csv_file, log_level = 'info')
 
           user.profile.facebook_profile = facebook_profile
 
-          user.profile.birth_date = birth_date
           user.profile.public = public_field
-          user.profile.level = level
           user.profile.other_personal_information = other_personal_information
-          user.profile.institutional_affiliation = institutional_affiliation
-          user.profile.type_of_affiliation = type_of_affiliation
-          user.profile.teach_as_well = teach_as_well
-          user.profile.receive_leaflets = receive_leaflets
-          user.profile.share_material = share_material
-          user.profile.interested_in_education = interested_in_education
-          user.profile.first_favorites = first_favorites
-          user.profile.second_favorites = second_favorites
-          user.profile.other_institutional_affiliation = other_institutional_affiliation
-          user.profile.activities = activities
-          user.profile.number_of_professorships = number_of_professorships
-          user.profile.address = address
-          user.profile.number_of_postgraduates = number_of_postgraduates
-          user.profile.number_of_students = number_of_students
-          user.profile.characteristics = characteristics
-          user.profile.other_type_of_affiliation = other_type_of_affiliation
-          user.profile.filter = filter
 
           # Saving
           Rails.logger.info("User '#{login}': MUTATION! Will save now.")
@@ -641,27 +565,8 @@ def main(csv_file, log_level = 'info')
         profile_picture_asset: get_profile_picture_asset_name(user),
         facebook_profile: user.profile.facebook_profile,
 
-        birth_date: user.profile.birth_date,
         public: user.profile.public,
-        level: user.profile.level,
         other_personal_information: user.profile.other_personal_information,
-        institutional_affiliation: user.profile.institutional_affiliation,
-        type_of_affiliation: user.profile.type_of_affiliation,
-        teach_as_well: user.profile.teach_as_well,
-        receive_leaflets: user.profile.receive_leaflets,
-        share_material: user.profile.share_material,
-        interested_in_education: user.profile.interested_in_education,
-        first_favorites: user.profile.first_favorites,
-        second_favorites: user.profile.second_favorites,
-        other_institutional_affiliation: user.profile.other_institutional_affiliation,
-        activities: user.profile.activities,
-        number_of_professorships: user.profile.number_of_professorships,
-        address: user.profile.address,
-        number_of_postgraduates: user.profile.number_of_postgraduates,
-        number_of_students: user.profile.number_of_students,
-        characteristics: user.profile.characteristics,
-        other_type_of_affiliation: user.profile.other_type_of_affiliation,
-        filter: user.profile.filter
 
       })
 
