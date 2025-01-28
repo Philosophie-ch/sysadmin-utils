@@ -1093,3 +1093,10 @@ def get_last_updated_date(page)
   # In YYYY-MM-DD format
   return page.updated_at.strftime('%Y-%m-%d')
 end
+
+
+def generate_asset_filename(page, media_name, extension)
+  sanitized_urlname = page.urlname.gsub('/', '-')
+  filename = "#{sanitized_urlname}-#{media_name}#{n}.#{extension}"
+  return filename
+end

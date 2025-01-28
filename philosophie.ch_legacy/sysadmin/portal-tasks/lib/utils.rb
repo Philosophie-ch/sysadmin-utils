@@ -1,6 +1,6 @@
 require 'csv'
 
-SUPPORTED_ASSET_TYPES = ["audio_block", "video_block", "picture_block", "pdf_block"]
+SUPPORTED_ASSET_TYPES = ["audio_block", "video_block", "picture_block", "pdf_block", "text_and_picture"]
 
 
 def generate_csv_report(report, models_affected)

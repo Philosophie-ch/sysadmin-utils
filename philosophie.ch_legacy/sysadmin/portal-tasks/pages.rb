@@ -582,51 +582,116 @@ def main(csv_file, log_level = 'info')
       ############
 
       if req == 'DL-RN'
+        base_dir = "dl-rn"
 
-        Rails.logger.info("\t...DL-RN: '#{page_identifier}': Downloading and renaming pictures from 'picture_block' elements...")
+        picture_block_assets = ['picture_block', 'text_and_picture']
 
-        pictures = page.elements.where(name: "picture_block").map(&:contents).flatten.filter { |content| content.name == "picture" }.map(&:essence).map(&:picture)
+        picture_block_assets.each do |element_name|
+          short_media_name = {
+            'picture_block' => 'pic',
+            'text_and_picture' => 'textpic'
+          }
 
-        if !pictures.empty?
-          base_dir = "dl-rn"
-          n = 1
-          asset_names = []
+          Rails.logger.info("\t...DL-RN: '#{page_identifier}': Downloading and renaming pictures from '#{element_name}' elements...")
 
-          pictures.each do |picture|
-            if picture.nil?
-              Rails.logger.error("\t...DL-RN: '#{page_identifier}': Picture #{n} is nil. Skipping")
-              subreport[:error_message] += " --- DL-RN: Picture object n. #{n} is nil. Skipping --- "
-              next
+          pictures = page.elements.where(name: element_name).map(&:contents).flatten.filter { |content| content.name == "picture" }.map(&:essence).map(&:picture)
+
+          if !pictures.empty?
+            n = 1
+            asset_names = []
+
+            pictures.each do |picture|
+              if picture.nil?
+                Rails.logger.error("\t...DL-RN: '#{page_identifier}': Picture #{n} for '#{element_name}' is nil. Skipping")
+                subreport[:error_message] += " --- DL-RN: Picture object n for '#{element_name}'. #{n} is nil. Skipping --- "
+                next
+              end
+              picture_path = picture.image_file.path
+              picture_extension = picture.image_file_format
+              filename = generate_asset_filename(page, short_media_name[element_name], picture_extension)
+              # replace slashes with dashes
+              sanitized_urlname = page.urlname.gsub('/', '-')
+              filename = "#{sanitized_urlname}-pic#{n}.#{picture_extension}"
+
+              download_report = download_asset(base_dir, filename, picture_path, element_name)
+
+              if !download_report[:status] == "success"
+                Rails.logger.error("\t...DL-RN: '#{page_identifier}': Error downloading picture '#{picture_path}': #{download_report[:status]} --- #{download_report[:error_message]}")
+                subreport[:_request] += " PARTIAL"
+                subreport[:status] = 'partial success'
+                subreport[:error_message] = download_report[:error_message]
+                subreport[:error_trace] = download_report[:error_trace]
+                asset_names << "ERROR"
+
+              else
+                asset_names << filename
+              end
+              n += 1
             end
-            picture_path = picture.image_file.path
-            picture_extension = picture.image_file_format
-            # replace slashes with dashes
-            sanitized_urlname = page.urlname.gsub('/', '-')
-            filename = "#{sanitized_urlname}-pic#{n}.#{picture_extension}"
 
-            download_report = download_asset(base_dir, filename, picture_path, "picture_block")
+            subreport[:picture_assets] = asset_names.join(', ')
 
-            if !download_report[:status] == "success"
-              Rails.logger.error("\t...DL-RN: '#{page_identifier}': Error downloading picture '#{picture_path}': #{download_report[:status]} --- #{download_report[:error_message]}")
-              subreport[:_request] += " PARTIAL"
-              subreport[:status] = 'partial success'
-              subreport[:error_message] = download_report[:error_message]
-              subreport[:error_trace] = download_report[:error_trace]
-              asset_names << "ERROR"
+            Rails.logger.info("\t...DL-RN: '#{page_identifier}': Pictures downloaded and renamed!")
 
-            else
-              asset_names << filename
-            end
-            n += 1
+          else
+            Rails.logger.info("\t...DL-RN: '#{page_identifier}': No pictures found")
           end
 
-          subreport[:picture_assets] = asset_names.join(', ')
-
-          Rails.logger.info("\t...DL-RN: '#{page_identifier}': Pictures downloaded and renamed!")
-
-        else
-          Rails.logger.info("\t...DL-RN: '#{page_identifier}': No pictures found")
         end
+
+        media_assets = ["audio", "video", "pdf"]
+
+        media_assets.each do |media_name|
+          element_name = "#{media_name}_block"
+          file_attribute_name = "#{media_name}_file"
+
+          Rails.logger.info("\t...DL-RN: '#{page_identifier}': Downloading and renaming media from '#{element_name}' elements...")
+
+          media = page.elements.where(name: element_name).map(&:contents).flatten.filter { |content| content.name == file_attribute_name }.map(&:essence).map{ |essence| essence.send(file_attribute_name) }
+
+          if !media.empty?
+            n = 1
+            asset_names = []
+
+            media.each do |medium|
+              if media.nil?
+                Rails.logger.error("\t...DL-RN: '#{page_identifier}': Medium #{n} for '#{element_name}' is nil. Skipping")
+                subreport[:error_message] += " --- DL-RN: Medium object n for '#{element_name}'. #{n} is nil. Skipping --- "
+                next
+              end
+
+              medium_path = medium.file.path
+              medium_extension = medium.file_format
+
+              filename = generate_asset_filename(page, media_name, medium_extension)
+
+              download_report = download_asset(base_dir, filename, medium_path, element_name)
+
+              if !download_report[:status] == "success"
+                Rails.logger.error("\t...DL-RN: '#{page_identifier}': Error downloading medium '#{medium_path}': #{download_report[:status]} --- #{download_report[:error_message]}")
+                subreport[:_request] += " PARTIAL"
+                subreport[:status] = 'partial success'
+                subreport[:error_message] = download_report[:error_message]
+                subreport[:error_trace] = download_report[:error_trace]
+                asset_names << "ERROR"
+
+              else
+                asset_names << filename
+              end
+              n += 1
+            end
+
+            subreport["#{media_name}_assets"] = asset_names.join(', ')
+
+            Rails.logger.info("\t...DL-RN: '#{page_identifier}': Media downloaded and renamed!")
+
+          else
+            Rails.logger.info("\t...DL-RN: '#{page_identifier}': No media found")
+
+          end
+
+        end
+
       end
 
       #######
