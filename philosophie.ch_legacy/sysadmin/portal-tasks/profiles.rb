@@ -83,6 +83,7 @@ def main(csv_file, log_level = 'info')
       biblio_dependencies_keys: row["biblio_dependencies_keys"] || "",
       _comments: row["_comments"] || "",
       _employment: row["_employment"] || "",
+      institutional_affiliation: row["institutional_affiliation"] || "",
       _title: row["_title"] || "",
       _function_title: row["_function_title"] || "",
       _function_standardised: row["_function_standardised"] || "",
@@ -219,6 +220,7 @@ def main(csv_file, log_level = 'info')
       # profile dump
       public_field = subreport[:public].strip
       other_personal_information = subreport[:other_personal_information].strip
+      institutional_affiliation = subreport[:institutional_affiliation].strip
 
       # emails
       email_addresses = email_addresses_raw.split(',').map(&:strip).join(', ')  # profile
@@ -341,6 +343,7 @@ def main(csv_file, log_level = 'info')
           biblio_keys_further_references: subreport[:biblio_keys_further_references],
           bibliography_further_references_asset_url: old_biblio_further_asset_url,
           biblio_dependencies_keys: subreport[:biblio_dependencies_keys],
+          institutional_affiliation: user.profile.institutional_affiliation,
           _comments: subreport[:_comments],
           _employment: subreport[:_employment],
           _title: subreport[:_title],
@@ -422,6 +425,7 @@ def main(csv_file, log_level = 'info')
           user.profile.bibliography_further_references_asset_url = bibliography_further_references_asset_full_url
 
           user.profile.facebook_profile = facebook_profile
+          user.profile.institutional_affiliation = institutional_affiliation
 
           user.profile.public = public_field
           user.profile.other_personal_information = other_personal_information
@@ -567,7 +571,7 @@ def main(csv_file, log_level = 'info')
 
         public: user.profile.public,
         other_personal_information: user.profile.other_personal_information,
-
+        institutional_affiliation: user.profile.institutional_affiliation,
       })
 
       if req == "GET"
