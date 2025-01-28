@@ -411,14 +411,15 @@ def main(csv_file, log_level = 'info')
           user.profile.teacher_at_institution = teacher_at_institution
 
           societies_names = societies.split(',').map(&:strip)
+          societies_for_user = []
           societies_names.map do |name|
             society = Society.find_by(name: name)
             if society.nil?
               raise "Society '#{name}' not found in the database. Skipping."
             end
-            user.profile.societies << society
+            societies_for_user << society
           end
-
+          user.profile.societies = societies_for_user
           user.profile.cms_public_email_toggle = cms_public_email_toggle
 
           user.profile.bibliography_asset_url = bibliography_asset_full_url
