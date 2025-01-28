@@ -304,3 +304,51 @@ def _set_profile_picture(user, new_filename)
     return set_profile_picture_report
   end
 end
+
+
+# Institutional affiliation tools
+
+INSTITUTIONAL_AFFILIATION_MAP = {
+  "UniBS" => "UniBS",
+  "UniBE" => "UniBE",
+  "UniFR" => "UniFR",
+  "UniGE" => "UniGE",
+  "UniL" => "UniL",
+  "EPFL" => "EPFL",
+  "USI" => "USI",
+  "UniLU" => "UniLU",
+  "UniNE" => "UniNE",
+  "UniSG" => "UniSG",
+  "UZH" => "UZH",
+  "ETHZ" => "ETHZ",
+  "FHNW" => "FHNW",
+  "HEP_Fribourg" => "HEP Fribourg / PH Freiburg",
+  "HEP_Valais" => "HEP Valais / PH Wallis",
+  "HEP_Vaud" => "HEP Vaud",
+  "HEP_BeJuNe" => "HEP BeJuNe",
+  "PH_Bern" => "PH Bern",
+  "PH_Luzern" => "PH Luzern",
+  "PH_Schaffhausen" => "PH Schaffhausen",
+  "PH_St_Gallen" => "PH St. Gallen",
+  "PH_Thurgau" => "PH Thurgau",
+  "PH_Zug" => "PH Zug",
+  "PH_Zuerich" => "PH Zürich",
+}
+
+class InstitutionalAffiliationNotFoundError < StandardError; end
+
+def institutional_affiliation_to_string(institutional_affiliation)
+
+  unless INSTITUTIONAL_AFFILIATION_MAP.key.include?(institutional_affiliation)
+    raise InstitutionalAffiliationNotFoundError, "Institutional affiliation '#{institutional_affiliation}' not found."
+  end
+
+  INSTITUTIONAL_AFFILIATION_MAP[institutional_affiliation]
+end
+
+def string_to_institutional_affiliation(string)
+  unless INSTITUTIONAL_AFFILIATION_MAP.value.include?(string)
+    raise InstitutionalAffiliationNotFoundError, "Institutional affiliation '#{string}' not found."
+  end
+  INSTITUTIONAL_AFFILIATION_MAP.key(string)
+end

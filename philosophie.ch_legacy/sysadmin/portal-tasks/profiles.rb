@@ -426,7 +426,7 @@ def main(csv_file, log_level = 'info')
           user.profile.bibliography_further_references_asset_url = bibliography_further_references_asset_full_url
 
           user.profile.facebook_profile = facebook_profile
-          user.profile.institutional_affiliation = institutional_affiliation
+          user.profile.institutional_affiliation = string_to_institutional_affiliation(institutional_affiliation)
 
           user.profile.public = public_field
           user.profile.other_personal_information = other_personal_information
