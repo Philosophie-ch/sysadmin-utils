@@ -352,3 +352,69 @@ def string_to_institutional_affiliation(string)
   end
   INSTITUTIONAL_AFFILIATION_MAP.key(string)
 end
+
+
+# Types of affiliation tools
+
+TYPES_OF_AFFILIATION_MAP = {
+  "full_professor" => "professor (full professor)",
+  "associate_professor" => "professor (associate)",
+  "assistant_professor" => "professor (assistant)",
+  "SNSF" => "professor (SNSF)",
+  "collaborator_post_doc_uni" => "collaborator post-doc, paid by the university",
+  "collaborator_post_doc_snsf" => "collaborator post-doc, paid by the SNSF",
+  "doctoral_collaborator_uni" => "PhD collaborator, paid by the university",
+  "doctoral_collaborator_snsf" => "PhD collaborator, paid by the SNSF",
+  "currently_abroad" => "currently abroad, paid by the SNSF",
+  "institutional_staff" => "institutional staff",
+  "other" => "other"
+}
+
+class TypeOfAffiliationNotFoundError < StandardError; end
+
+def type_of_affiliation_to_string(type_of_affiliation)
+  unless TYPES_OF_AFFILIATION_MAP.key.include?(type_of_affiliation)
+    raise TypeOfAffiliationNotFoundError, "Type of affiliation '#{type_of_affiliation}' not found."
+  end
+
+  TYPES_OF_AFFILIATION_MAP[type_of_affiliation]
+end
+
+def string_to_type_of_affiliation(string)
+  unless TYPES_OF_AFFILIATION_MAP.value.include?(string)
+    raise TypeOfAffiliationNotFoundError, "Type of affiliation '#{string}' not found."
+  end
+  TYPES_OF_AFFILIATION_MAP.key(string)
+end
+
+
+# Comment tools
+def get_user_comments(user)
+  Comment.find_comments_by_user(user)
+end
+
+def get_commented_pages_urlnames(user)
+  comments = get_user_comments(user)
+  page_ids = comments.filter { |comment| comment.commentable_type == "Alchemy::Page" }.map(&:commentable_id)
+  page_urlnames = Alchemy::Page.where(id: page_ids).pluck(:urlname)
+
+  return page_urlnames.join(", ")
+end
+
+
+# Mentioned tools
+def get_user_profile_slug(user)
+  return "profil/#{user.profile.slug}"
+end
+
+def get_mentioned_pages_urlnames(user)
+  profile_slug = get_user_profile_slug(user)
+
+  richtext_element_ids = Alchemy::EssenceRichtext.where("body LIKE ?", "%#{profile_slug}%").map { |essence| essence.content&.element_id }.compact.uniq
+
+  page_ids = Alchemy::Element.where(id: richtext_element_ids).pluck(:page_id).compact.uniq
+
+  page_urlnames = Alchemy::Page.where(id: page_ids).pluck(:urlname)
+
+  return page_urlnames.join(", ")
+end

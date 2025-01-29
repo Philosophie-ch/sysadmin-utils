@@ -51,6 +51,7 @@ def main(csv_file, log_level = 'info')
       alchemy_roles: row["alchemy_roles"] || "",
       _member_subcategory: row["_member_subcategory"] || "",
       _status_wrt_association: row["_status_wrt_association"] || "",
+      membership_wanted: row["membership_wanted"] || "",
       id: row["id"] || "",
       _role_wrt_portal: row["_role_wrt_portal"] || "",
       _biblio_name: row["_biblio_name"] || "",
@@ -81,10 +82,16 @@ def main(csv_file, log_level = 'info')
       biblio_keys_further_references: row["biblio_keys_further_references"] || "",
       bibliography_further_references_asset_url: row["bibliography_further_references_asset_url"] || "",
       biblio_dependencies_keys: row["biblio_dependencies_keys"] || "",
-      _comments: row["_comments"] || "",
-      _employment: row["_employment"] || "",
+      pages_commented: row["pages_commented"] || "",
+      mentioned_on: row["mentioned_on"] || "",
+
+      _comments_on_contacts: row["_comments_on_contacts"] || "",
       institutional_affiliation: row["institutional_affiliation"] || "",
+      _comments_on_employment: row["_comments_on_employment"] || "",
+      _form_of_address: row["_form_of_address"] || "",
       _title: row["_title"] || "",
+      type_of_affiliation: row["type_of_affiliation"] || "",
+      other_type_of_affiliation: row["other_type_of_affiliation"] || "",
       _function_title: row["_function_title"] || "",
       _function_standardised: row["_function_standardised"] || "",
 
@@ -94,6 +101,7 @@ def main(csv_file, log_level = 'info')
       description: row["description"] || "",
       website: row["website"] || "",
       teacher_at_institution: row["teacher_at_institution"] || "",
+      teacher_at_other_institution: row["teacher_at_other_institution"] || "",
       societies: row["societies"] || "",
       cms_public_email_toggle: row["cms_public_email_toggle"] || "",
       profile_picture: row["profile_picture"] || "",
@@ -175,6 +183,7 @@ def main(csv_file, log_level = 'info')
 
       alchemy_roles_str = subreport[:alchemy_roles].strip  # user
       id = subreport[:id].strip  # user
+      membership_wanted = subreport[:membership_wanted].strip  # profile
       profile_name = subreport[:profile_name].strip  # profile
       firstname = subreport[:firstname].strip # user
       lastname = subreport[:lastname].strip # user
@@ -192,6 +201,7 @@ def main(csv_file, log_level = 'info')
       description = subreport[:description].strip # profile
       website = subreport[:website].strip # profile
       teacher_at_institution = subreport[:teacher_at_institution].strip # profile
+      teacher_at_other_institution = subreport[:teacher_at_other_institution].strip # profile
       societies = subreport[:societies].strip # profile
       cms_public_email_toggle_s = "#{row['cms_public_email_toggle']}" || "false"
       cms_public_email_toggle = cms_public_email_toggle_s.downcase() == 'true' ? true : false  # profile
@@ -221,6 +231,8 @@ def main(csv_file, log_level = 'info')
       public_field = subreport[:public].strip
       other_personal_information = subreport[:other_personal_information].strip
       institutional_affiliation = subreport[:institutional_affiliation].strip
+      type_of_affiliation = subreport[:type_of_affiliation].strip
+      other_type_of_affiliation = subreport[:other_type_of_affiliation].strip
 
       # emails
       email_addresses = email_addresses_raw.split(',').map(&:strip).join(', ')  # profile
@@ -313,6 +325,7 @@ def main(csv_file, log_level = 'info')
           alchemy_roles: user.alchemy_roles.join(', '),
           _member_subcategory: subreport[:_member_subcategory],
           _status_wrt_association: subreport[:_status_wrt_association],
+          membership_wanted: subreport[:membership_wanted],
           id: user.id,
           _role_wrt_portal: subreport[:_role_wrt_portal],
           _biblio_name: subreport[:_biblio_name],
@@ -343,9 +356,14 @@ def main(csv_file, log_level = 'info')
           biblio_keys_further_references: subreport[:biblio_keys_further_references],
           bibliography_further_references_asset_url: old_biblio_further_asset_url,
           biblio_dependencies_keys: subreport[:biblio_dependencies_keys],
+          pages_commented: subreport[:pages_commented],
+          mentioned_on: subreport[:mentioned_on],
+          _comments_on_contacts: subreport[:_comments_on_contacts],
           institutional_affiliation: user.profile.institutional_affiliation,
-          _comments: subreport[:_comments],
-          _employment: subreport[:_employment],
+          _comments_on_employment: subreport[:_comments_on_employment],
+          _form_of_address: subreport[:_form_of_address],
+          type_of_affiliation: user.profile.type_of_affiliation,
+          other_type_of_affiliation: user.profile.other_type_of_affiliation,
           _title: subreport[:_title],
           _function_title: subreport[:_function_title],
           _function_standardised: subreport[:_function_standardised],
@@ -356,6 +374,7 @@ def main(csv_file, log_level = 'info')
           description: user.profile.description,
           website: user.profile.website,
           teacher_at_institution: user.profile.teacher_at_institution,
+          teacher_at_other_institution: user.profile.teacher_at_other_institution,
           societies: user.profile.societies.map(&:name).join(', '),
           cms_public_email_toggle: user.profile.cms_public_email_toggle,
           profile_picture: get_profile_picture_file_name(user),
@@ -402,6 +421,7 @@ def main(csv_file, log_level = 'info')
 
           user.profile.name = profile_name
           user.profile.abbreviation = abbreviation
+          user.profile.membership_wanted = membership_wanted.blank? ? false : membership_wanted
           user.profile.email_addresses = email_addresses
           user.profile.academic_page = academic_page
           user.profile.country = country
@@ -409,6 +429,7 @@ def main(csv_file, log_level = 'info')
           user.profile.description = description
           user.profile.website = website
           user.profile.teacher_at_institution = teacher_at_institution
+          user.profile.teacher_at_other_institution = teacher_at_other_institution
 
           societies_names = societies.split(',').map(&:strip)
           societies_for_user = []
@@ -427,6 +448,10 @@ def main(csv_file, log_level = 'info')
 
           user.profile.facebook_profile = facebook_profile
           user.profile.institutional_affiliation = string_to_institutional_affiliation(institutional_affiliation)
+
+          user.profile.type_of_affiliation = string_to_type_of_affiliation(type_of_affiliation)
+
+          user.profile.other_type_of_affiliation = other_type_of_affiliation
 
           user.profile.public = public_field
           user.profile.other_personal_information = other_personal_information
@@ -545,6 +570,7 @@ def main(csv_file, log_level = 'info')
         id: user.id,
         login: user.login,
         _link: "https://www.philosophie.ch/profil/#{user.login}",
+        membership_wanted: user.profile.membership_wanted,
         profile_name: user.profile.name,
         email_addresses: user.profile.email_addresses,
         academic_page: user.profile.academic_page,
@@ -562,6 +588,7 @@ def main(csv_file, log_level = 'info')
         description: user.profile.description,
         website: user.profile.website,
         teacher_at_institution: user.profile.teacher_at_institution,
+        teacher_at_other_institution: user.profile.teacher_at_other_institution,
         societies: user.profile.societies.map(&:name).join(', '),
         cms_public_email_toggle: user.profile.cms_public_email_toggle,
         bibliography_asset_url: bibliography_asset_url_recovered,
@@ -572,7 +599,11 @@ def main(csv_file, log_level = 'info')
 
         public: user.profile.public,
         other_personal_information: user.profile.other_personal_information,
+        pages_commented: get_commented_pages_urlnames(user),
+        mentioned_on: get_mentioned_pages_urlnames(user),
         institutional_affiliation: user.profile.institutional_affiliation,
+        type_of_affiliation: user.profile.type_of_affiliation,
+        other_type_of_affiliation: user.profile.other_type_of_affiliation,
       })
 
       if req == "GET"
