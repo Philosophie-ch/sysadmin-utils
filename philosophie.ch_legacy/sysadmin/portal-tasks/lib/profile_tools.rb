@@ -339,7 +339,11 @@ class InstitutionalAffiliationNotFoundError < StandardError; end
 
 def institutional_affiliation_to_string(institutional_affiliation)
 
-  unless INSTITUTIONAL_AFFILIATION_MAP.key.include?(institutional_affiliation)
+  if institutional_affiliation.blank?
+    return ""
+  end
+
+  unless INSTITUTIONAL_AFFILIATION_MAP.keys.include?(institutional_affiliation)
     raise InstitutionalAffiliationNotFoundError, "Institutional affiliation '#{institutional_affiliation}' not found."
   end
 
@@ -347,7 +351,12 @@ def institutional_affiliation_to_string(institutional_affiliation)
 end
 
 def string_to_institutional_affiliation(string)
-  unless INSTITUTIONAL_AFFILIATION_MAP.value.include?(string)
+
+  if string.blank?
+    return ""
+  end
+
+  unless INSTITUTIONAL_AFFILIATION_MAP.values.include?(string)
     raise InstitutionalAffiliationNotFoundError, "Institutional affiliation '#{string}' not found."
   end
   INSTITUTIONAL_AFFILIATION_MAP.key(string)
@@ -373,7 +382,12 @@ TYPES_OF_AFFILIATION_MAP = {
 class TypeOfAffiliationNotFoundError < StandardError; end
 
 def type_of_affiliation_to_string(type_of_affiliation)
-  unless TYPES_OF_AFFILIATION_MAP.key.include?(type_of_affiliation)
+
+  if type_of_affiliation.blank?
+    return ""
+  end
+
+  unless TYPES_OF_AFFILIATION_MAP.keys.include?(type_of_affiliation)
     raise TypeOfAffiliationNotFoundError, "Type of affiliation '#{type_of_affiliation}' not found."
   end
 
@@ -381,7 +395,12 @@ def type_of_affiliation_to_string(type_of_affiliation)
 end
 
 def string_to_type_of_affiliation(string)
-  unless TYPES_OF_AFFILIATION_MAP.value.include?(string)
+
+  if string.blank?
+    return ""
+  end
+
+  unless TYPES_OF_AFFILIATION_MAP.values.include?(string)
     raise TypeOfAffiliationNotFoundError, "Type of affiliation '#{string}' not found."
   end
   TYPES_OF_AFFILIATION_MAP.key(string)
@@ -395,7 +414,7 @@ end
 
 def get_commented_pages_urlnames(user)
   comments = get_user_comments(user)
-  page_ids = comments.filter { |comment| comment.commentable_type == "Alchemy::Page" }.map(&:commentable_id)
+  page_ids = comments.filter { |comment| comment.commentable_type == "Alchemy::Page" }.map(&:commentable_id).uniq
   page_urlnames = Alchemy::Page.where(id: page_ids).pluck(:urlname)
 
   return page_urlnames.join(", ")

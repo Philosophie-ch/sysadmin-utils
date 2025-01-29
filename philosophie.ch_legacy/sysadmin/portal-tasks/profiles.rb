@@ -43,7 +43,7 @@ def main(csv_file, log_level = 'info')
 
   csv_data.each do |row|
     puts "\n"
-    Rails.logger.info("Processing row #{processed_lines + 1}...")
+    Rails.logger.info("Processing row #{processed_lines + 1}... of #{total_lines}")
     subreport = {
       _correspondence: row["_correspondence"] || "",
       _todo_person: row["_todo_person"] || "",
@@ -114,6 +114,7 @@ def main(csv_file, log_level = 'info')
       error_message: '',
       error_trace: '',
       update_links_report: '',
+      result_order: processed_lines + 1,
 
       public: row["public"] || "",
       other_personal_information: row["other_personal_information"] || "",
@@ -618,7 +619,7 @@ def main(csv_file, log_level = 'info')
       if req == "UPDATE" || req == "GET" || req == "AD HOC"
         changes = []
         subreport.each do |key, value|
-          if old_user[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :update_links_report && key != :_request
+          if old_user[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :update_links_report && key != :_request && key != :result_order
             # Skip if both old and new values are empty
             unless old_user[key].to_s.empty? && value.to_s.empty?
               changes << "#{key}: {{ #{old_user[key]} }} => {{ #{value} }}"
