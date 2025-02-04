@@ -36,6 +36,12 @@ def main(csv_file, log_level = 'info')
   csv_data = CSV.read(csv_file, col_sep: ',', headers: true, encoding: 'utf-16')
   total_lines = csv_data.size
 
+  rts_with_non_ac_parents = Alchemy::EssenceRichtext.left_outer_joins(element: :parent_element).where("alchemy_elements.parent_element_id IS NOT NULL AND parent_elements_alchemy_elements.name != ?", "aside_column")
+
+  rts_with_no_parents = Alchemy::EssenceRichtext.left_outer_joins(element: :parent_element).where("alchemy_elements.parent_element_id IS NULL")
+
+  rich_text_essences_not_in_aside_columns = rts_with_non_ac_parents.or(rts_with_no_parents)
+
 
   ############
   # MAIN
@@ -601,7 +607,7 @@ def main(csv_file, log_level = 'info')
         public: user.profile.public,
         other_personal_information: user.profile.other_personal_information,
         pages_commented: get_commented_pages_urlnames(user),
-        mentioned_on: get_mentioned_pages_urlnames(user),
+        mentioned_on: get_mentioned_pages_urlnames(user, rich_text_essences_not_in_aside_columns),
         institutional_affiliation: user.profile.institutional_affiliation,
         type_of_affiliation: user.profile.type_of_affiliation,
         other_type_of_affiliation: user.profile.other_type_of_affiliation,

@@ -414,7 +414,7 @@ end
 
 def get_commented_pages_urlnames(user)
   comments = get_user_comments(user)
-  page_ids = comments.filter { |comment| comment.commentable_type == "Alchemy::Page" }.map(&:commentable_id).uniq
+  page_ids = comments.filter { |comment| comment.commentable_type == "Alchemy::Page" }.pluck(:commentable_id).uniq
   page_urlnames = Alchemy::Page.where(id: page_ids).pluck(:urlname)
 
   return page_urlnames.join(", ")
@@ -426,10 +426,10 @@ def get_user_profile_slug(user)
   return "profil/#{user.profile.slug}"
 end
 
-def get_mentioned_pages_urlnames(user)
+def get_mentioned_pages_urlnames(user, rich_text_essences)
   profile_slug = get_user_profile_slug(user)
 
-  richtext_element_ids = Alchemy::EssenceRichtext.where("body LIKE ?", "%#{profile_slug}%").map { |essence| essence.content&.element_id }.compact.uniq
+  richtext_element_ids = rich_text_essences.where("body LIKE ?", "%#{profile_slug}%").pluck(:element_id).compact.uniq
 
   page_ids = Alchemy::Element.where(id: richtext_element_ids).pluck(:page_id).compact.uniq
 
