@@ -426,6 +426,15 @@ def get_user_profile_slug(user)
   return "profil/#{user.profile.slug}"
 end
 
+def get_rich_text_essences_not_in_aside_columns()
+  rts_with_non_ac_parents = Alchemy::EssenceRichtext.left_outer_joins(element: :parent_element).where("alchemy_elements.parent_element_id IS NOT NULL AND parent_elements_alchemy_elements.name != ?", "aside_column")
+
+  rts_with_no_parents = Alchemy::EssenceRichtext.left_outer_joins(element: :parent_element).where("alchemy_elements.parent_element_id IS NULL")
+
+  return rts_with_non_ac_parents.or(rts_with_no_parents)
+end
+
+
 def get_mentioned_pages_urlnames(user, rich_text_essences)
   profile_slug = get_user_profile_slug(user)
 

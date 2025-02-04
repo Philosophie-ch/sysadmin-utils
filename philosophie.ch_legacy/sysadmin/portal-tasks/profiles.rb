@@ -36,11 +36,7 @@ def main(csv_file, log_level = 'info')
   csv_data = CSV.read(csv_file, col_sep: ',', headers: true, encoding: 'utf-16')
   total_lines = csv_data.size
 
-  rts_with_non_ac_parents = Alchemy::EssenceRichtext.left_outer_joins(element: :parent_element).where("alchemy_elements.parent_element_id IS NOT NULL AND parent_elements_alchemy_elements.name != ?", "aside_column")
-
-  rts_with_no_parents = Alchemy::EssenceRichtext.left_outer_joins(element: :parent_element).where("alchemy_elements.parent_element_id IS NULL")
-
-  rich_text_essences_not_in_aside_columns = rts_with_non_ac_parents.or(rts_with_no_parents)
+  rich_text_essences_not_in_aside_columns = get_rich_text_essences_not_in_aside_columns()
 
 
   ############
