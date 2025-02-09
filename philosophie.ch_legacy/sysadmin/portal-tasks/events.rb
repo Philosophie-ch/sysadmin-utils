@@ -67,8 +67,8 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
     date: row["date"] || '',
     profile_slug: row["profile_slug"] || '',
     title: row["title"] || '',
-    city: row["city"] || '',
-    _region: row["_region"] || '',
+    _city: row["_city"] || '',
+    region: row["region"] || '',
     link: row["link"] || '',
     _url: row["_url"] || '',
     _recurrent: row["_recurrent"] || '',
@@ -101,10 +101,10 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
     end
 
     if req == 'POST'
-      same_events = Event.where(title: subreport[:title], city: subreport[:city], date: subreport[:date])
+      same_events = Event.where(title: subreport[:title], region: subreport[:region], date: subreport[:date])
       unless same_events.empty?
         subreport[:status] = 'error'
-        subreport[:error_message] = "Event with the same title, city, and date already exists. Skipping..."
+        subreport[:error_message] = "Event with the same title, region, and date already exists. Skipping..."
         subreport[:error_trace] = "Main::Control::POST"
         next
       end
@@ -118,9 +118,9 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
         next
       end
 
-      if subreport[:city].nil? || subreport[:city].empty? || subreport[:city].strip == '' || subreport[:city].blank?
+      if subreport[:region].nil? || subreport[:region].empty? || subreport[:region].strip == '' || subreport[:region].blank?
         subreport[:status] = 'error'
-        subreport[:error_message] = "City is empty, but required for '#{req}'. Skipping..."
+        subreport[:error_message] = "Region is empty, but required for '#{req}'. Skipping..."
         subreport[:error_trace] = "Main::Control::UPDATE/POST"
         next
       end
@@ -154,7 +154,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
     date = subreport[:date]
     profile_slug = subreport[:profile_slug]
     title = subreport[:title]
-    city = subreport[:city]
+    region = subreport[:region]
     link = subreport[:link]
 
 
@@ -179,13 +179,13 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
         end
 
       else
-        # else try to retrieve event by title, city, and date
-        event = Event.where(title: title, city: city, date: date).first
+        # else try to retrieve event by title, region, and date
+        event = Event.where(title: title, region: region, date: date).first
 
         if event.nil?
-          Rails.logger.error("Event with title '#{title}', city '#{city}', and date '#{date}' not found. Skipping...")
+          Rails.logger.error("Event with title '#{title}', region '#{region}', and date '#{date}' not found. Skipping...")
           subreport[:status] = 'error'
-          subreport[:error_message] = "Event with title '#{title}', city '#{city}', and date '#{date}' not found. Skipping..."
+          subreport[:error_message] = "Event with title '#{title}', region '#{region}', and date '#{date}' not found. Skipping..."
           subreport[:error_trace] = "Main::Setup"
           next
         end
@@ -231,8 +231,8 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
         date: event.date.strftime('%Y-%m-%d'),
         profile_slug: event.profile.slug,
         title: event.title,
-        city: event.city,
-        _region: subreport[:_region],
+        region: event.region,
+        _city: subreport[:_city],
         link: event.link,
         _url: subreport[:_url],
         _recurrent: subreport[:_recurrent],
@@ -253,7 +253,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
       event.date = date
       event.profile = Profile.find_by(slug: profile_slug)
       event.title = title
-      event.city = city
+      event.region = region
       event.link = link
 
       successful_save = event.save!
@@ -274,7 +274,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
       date: event.date.strftime('%Y-%m-%d'),
       profile_slug: event.profile.slug,
       title: event.title,
-      city: event.city,
+      region: event.region,
       link: event.link,
       _url: "https://www.philosophie.ch#{event.link}",
     })
