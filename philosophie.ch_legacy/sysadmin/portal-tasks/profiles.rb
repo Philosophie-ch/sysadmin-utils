@@ -603,7 +603,7 @@ def main(csv_file, log_level = 'info')
         public: user.profile.public,
         other_personal_information: user.profile.other_personal_information,
         pages_commented: get_commented_pages_urlnames(user),
-        mentioned_on: get_mentioned_pages_urlnames(user, rich_text_essences_not_in_aside_columns),
+        mentioned_on: get_set_mentioned_pages_urlnames(user, rich_text_essences_not_in_aside_columns),
         institutional_affiliation: user.profile.institutional_affiliation,
         type_of_affiliation: user.profile.type_of_affiliation,
         other_type_of_affiliation: user.profile.other_type_of_affiliation,

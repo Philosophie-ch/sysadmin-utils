@@ -435,13 +435,19 @@ def get_rich_text_essences_not_in_aside_columns()
 end
 
 
-def get_mentioned_pages_urlnames(user, rich_text_essences)
+def get_set_mentioned_pages_urlnames(user, rich_text_essences)
   profile_slug = get_user_profile_slug(user)
 
   richtext_element_ids = rich_text_essences.where("body LIKE ?", "%#{profile_slug}%").pluck(:element_id).compact.uniq
 
   page_ids = Alchemy::Element.where(id: richtext_element_ids).pluck(:page_id).compact.uniq
 
+  # Repristine mentioned on page IDs in the server
+  user.profile.pages_id_mentioned_on = page_ids
+  user.profile.save!
+  user.save!
+
+  # Output urlnames for report
   page_urlnames = Alchemy::Page.where(id: page_ids).pluck(:urlname)
 
   return page_urlnames.join(", ")
