@@ -661,6 +661,7 @@ def set_themetags(page, themetag_names)
 end
 
 
+# Utils
 def retrieve_page_slug(page)
   Alchemy::Engine.routes.url_helpers.show_page_path({
     locale: !page.language.default ? page.language_code : nil, urlname: page.urlname
@@ -1099,4 +1100,47 @@ def generate_asset_filename(page, media_name, extension)
   sanitized_urlname = page.urlname.gsub('/', '-')
   filename = "#{sanitized_urlname}-#{media_name}#{n}.#{extension}"
   return filename
+end
+
+
+# Comments
+def get_comments(page)
+  Comment.find_comments_for_commentable('Alchemy::Page', page.id).distinct.order('created_at DESC')
+end
+
+def get_latest_comment_login_and_date(page)
+  latest_comment = get_comments(page).first
+
+  login = Alchemy::User.find_by(id: latest_comment.user_id).login
+  date = latest_comment.blank? ? "" : latest_comment.created_at.strftime('%Y-%m-%d')
+
+  return {login: login, date: date}
+end
+
+
+# Threads
+def get_reply_target_urlname(page)
+  result = Alchemy::Page.find_by(id: page.reply_target_id)
+  return result.blank? ? "" : result.urlname
+end
+
+class SetReplyTargetError < StandardError; end
+def set_reply_target_by_urlname(page, urlname)
+  begin
+    reply_target = Alchemy::Page.find_by(urlname: urlname)
+
+    if reply_target.blank?
+      return ""
+
+    else
+      page.update!(reply_target_id: reply_target.id)
+      return ""
+    end
+  rescue => e
+    return "Could not set reply target via 'urlname'. Details :: #{e.class} :: #{e.message}"
+  end
+end
+
+def get_replied_by(page)
+  Alchemy::Page.where(reply_target_id: page.id).order('created_at DESC').pluck(:urlname).join(", ")
 end

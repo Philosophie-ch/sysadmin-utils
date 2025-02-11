@@ -74,6 +74,10 @@ def main(csv_file, log_level = 'info')
       created_by: row['created_by'] || "",  # page
       last_updated_by: row['last_updated_by'] || "",  # page
       last_updated_date: row['last_updated_date'] || "",  # page
+      last_commented_on: row['last_commented_on'] || "",  # page
+      last_commented_by: row['last_commented_by'] || "",  # page
+      replies_to: row['replies_to'] || "",  # page
+      replied_by: row['replied_by'] || "",  # page
 
       tag_page_type: row['tag_page_type'] || "",  # tag
       tag_media: row['tag_media'] || "",  # tag
@@ -220,6 +224,10 @@ def main(csv_file, log_level = 'info')
       created_by = subreport[:created_by].strip
       last_updated_by = subreport[:last_updated_by].strip
       last_updated_date = subreport[:last_updated_date].strip
+      last_commented_on = subreport[:last_commented_on].strip
+      last_commented_by = subreport[:last_commented_by].strip
+      replies_to = subreport[:replies_to].strip
+      replied_by = subreport[:replied_by].strip
 
       tag_page_type = subreport[:tag_page_type].strip
       tag_media = subreport[:tag_media].strip
@@ -438,6 +446,10 @@ def main(csv_file, log_level = 'info')
           created_by: created_by,
           last_updated_by: last_updated_by,
           last_updated_date: last_updated_date,
+          last_commented_on: last_commented_on,
+          last_commented_by: last_commented_by,
+          replies_to: replies_to,
+          replied_by: replied_by,
 
           tag_page_type: old_page_tag_columns[:tag_page_type],
           tag_media: old_page_tag_columns[:tag_media],
@@ -725,6 +737,7 @@ def main(csv_file, log_level = 'info')
       ############
 
       themetags_hashmap = get_themetags(page)
+      last_commented_login_and_date = get_latest_comment_login_and_date(page)
 
 
       subreport.merge!({
@@ -743,6 +756,10 @@ def main(csv_file, log_level = 'info')
         created_by: get_creator(page),
         last_updated_by: get_last_updater(page),
         last_updated_date: get_last_updated_date(page),
+        last_commented_on: last_commented_login_and_date[:date],
+        last_commented_by: last_commented_login_and_date[:login],
+        replies_to: get_reply_target_urlname(page),
+        replied_by: get_replied_by(page),
 
         tag_page_type: tags_to_cols[:tag_page_type],
         tag_media: tags_to_cols[:tag_media],
@@ -801,6 +818,16 @@ def main(csv_file, log_level = 'info')
           next
         end
         subreport[:assigned_authors] = get_assigned_authors(page)
+
+
+        # Replies to
+        set_reply_target_report = set_reply_target_by_urlname(page, replies_to)
+        unless set_reply_target_report == ""
+          subreport[:_request] += " PARTIAL"
+          subreport[:status] = 'partial success'
+          subreport[:error_message] += set_reply_target_report
+        end
+        subreport[:replies_to] = get_reply_target_urlname(page)
 
 
         # References bibkeys
