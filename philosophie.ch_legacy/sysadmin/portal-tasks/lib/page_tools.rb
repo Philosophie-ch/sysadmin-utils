@@ -1111,7 +1111,7 @@ end
 def get_latest_comment_login_and_date(page)
   latest_comment = get_comments(page).first
 
-  login = Alchemy::User.find_by(id: latest_comment.user_id).login
+  login = Alchemy::User.find_by(id: latest_comment&.user_id)&.login
   date = latest_comment.blank? ? "" : latest_comment.created_at.strftime('%Y-%m-%d')
 
   return {login: login, date: date}

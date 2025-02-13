@@ -589,3 +589,93 @@ def migrate_text_and_picture_block_headlines_to_title_blocks()
 
   Rails.logger.info("Text and picture block migration report written to text_and_picture_block_migration_report.csv")
 end
+
+
+# Replace names by links to their profiles
+def replace_names_by_links()
+
+  st = Time.now
+
+  text_for_text_block_element_ids = Alchemy::Content.where(element: Alchemy::Element.where(name: 'text_block'), name: 'text' ).pluck(:essence_id)
+
+  selected_essences = Alchemy::EssenceRichtext.where(id: text_for_text_block_element_ids)
+  total_essences = selected_essences.length
+
+  # NOTE: hard-coded CSV file name
+  replacement_data = CSV.read('portal-tasks/lib/rt.csv', col_sep: ',', headers: true, encoding: 'UTF-16')
+
+
+  base_folder = 'portal-tasks-reports'
+  FileUtils.mkdir_p(base_folder) unless Dir.exist?(base_folder)
+
+  st_loop = Time.now
+  CSV.open("#{base_folder}/name-links-report.csv", "wb") do |csv|
+    csv << ["id", "page_id", "page_urlname", "old_body", "new_body", "strings_changed", "status", "error_message", "error_trace"]
+
+    count = 1
+
+    selected_essences.each do |essence|
+
+      changed = false
+      strings_changed_list = []
+
+      subreport = {
+        id: essence.id,
+        page_id: essence.page.id,
+        page_urlname: essence.page.urlname,
+
+        old_body: essence&.body,
+        new_body: '',
+        strings_changed: '',
+
+        status: 'not started',
+        error_message: '',
+        error_trace: '',
+      }
+
+      begin
+        ActiveRecord::Base.transaction do
+          replacement_data.each do |row|
+
+            old_body = essence&.body.present? ? essence.body : ""
+            new_body = old_body.gsub(row['string'], row['target'])
+
+            if old_body != new_body
+              essence.update!(body: new_body)
+              strings_changed_list << "{{ #{row['string']} }}"
+              changed = true
+            end
+
+          end
+        end
+
+      rescue => e
+        Rails.logger.error("Error while replacing names by links: #{e.message}")
+        subreport[:status] = 'error'
+        subreport[:error_message] = "#{e.class} :: #{e.message}"
+        subreport[:error_trace] = e.backtrace.join(" ::: ")
+
+      end
+
+      if changed
+        subreport[:status] = 'success'
+        subreport[:new_body] = essence&.body
+      else
+        subreport[:status] = 'no change'
+      end
+
+      subreport[:strings_changed] = strings_changed_list.join(" ::: ")
+
+      csv << [subreport[:id], subreport[:page_id], subreport[:page_urlname], subreport[:old_body], subreport[:new_body], subreport[:strings_changed], subreport[:status], subreport[:error_message], subreport[:error_trace]]
+
+      Rails.logger.info("Processed #{count} of #{total_essences} essences")
+      count += 1
+    end
+
+
+  end
+
+  et = Time.now
+  Rails.logger.info("Time elapsed: #{et - st}")
+  Rails.logger.info("Time elapsed (loop): #{et - st_loop}")
+end
