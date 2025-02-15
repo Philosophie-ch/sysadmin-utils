@@ -596,9 +596,27 @@ def replace_names_by_links()
 
   st = Time.now
 
-  text_for_text_block_element_ids = Alchemy::Content.where(element: Alchemy::Element.where(name: 'text_block'), name: 'text' ).pluck(:essence_id)
+  selected_richtext_elements = [
+    'intro',
+    #'text_block',
+    'text_and_picture',
+    'large_box',
+    'xlarge_box',
+    'box',
+    'title_block',
+    'subtitle_block',
+    #'quote_block',  # ask if we want this
+  ]
 
-  selected_essences = Alchemy::EssenceRichtext.where(id: text_for_text_block_element_ids)
+  selected_content_names = [
+    'pre_headline',
+    'lead_text',
+    'text'
+  ]
+
+  selected_ids = Alchemy::Content.where(element: Alchemy::Element.where(name: selected_richtext_elements), name: selected_content_names).pluck(:essence_id)
+
+  selected_essences = Alchemy::EssenceRichtext.where(id: selected_ids)
   total_essences = selected_essences.length
 
   # NOTE: hard-coded CSV file name
