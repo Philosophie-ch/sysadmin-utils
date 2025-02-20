@@ -43,7 +43,9 @@ def main(csv_file, log_level = 'info')
   csv_data.each do |row|
     puts "\n"
     Rails.logger.info("Processing row #{processed_lines + 1}... of #{total_lines}")
+
     subreport = {
+      _temp: row["_temp"] || "",
       _correspondence: row["_correspondence"] || "",
       _todo_person: row["_todo_person"] || "",
       _request: row["_request"] || "",
@@ -319,6 +321,7 @@ def main(csv_file, log_level = 'info')
         old_biblio_further_asset_url = user.profile.bibliography_further_references_asset_url.blank? ? "" : user.profile.bibliography_further_references_asset_url.gsub(bibliography_base_url, '')
 
         old_user = {
+          _temp: subreport[:_temp],
           _correspondence: subreport[:_correspondence],
           _todo_person: subreport[:_todo_person],
           _request: subreport[:_request],

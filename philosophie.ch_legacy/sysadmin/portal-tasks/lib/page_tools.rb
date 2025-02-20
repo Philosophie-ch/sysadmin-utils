@@ -1121,7 +1121,7 @@ end
 # Threads
 def get_reply_target_urlname(page)
   result = Alchemy::Page.find_by(id: page.reply_target_id)
-  return result.blank? ? "" : result.urlname
+  return result.blank? ? "" : result.id
 end
 
 class SetReplyTargetError < StandardError; end
