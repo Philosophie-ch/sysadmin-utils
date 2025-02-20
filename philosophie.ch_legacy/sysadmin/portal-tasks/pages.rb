@@ -821,7 +821,7 @@ def main(csv_file, log_level = 'info')
 
 
         # Replies to
-        set_reply_target_report = set_reply_target_by_urlname(page, replies_to)
+        set_reply_target_report = set_reply_target_by_id(page, replies_to)
         unless set_reply_target_report == ""
           subreport[:_request] += " PARTIAL"
           subreport[:status] = 'partial success'

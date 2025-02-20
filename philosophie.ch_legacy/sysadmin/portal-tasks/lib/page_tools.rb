@@ -1125,9 +1125,10 @@ def get_reply_target_urlname(page)
 end
 
 class SetReplyTargetError < StandardError; end
-def set_reply_target_by_urlname(page, urlname)
+def set_reply_target_by_id(page, id_s)
   begin
-    reply_target = Alchemy::Page.find_by(urlname: urlname)
+    id_i = id_s.to_i
+    reply_target = Alchemy::Page.find_by(id: id_i)
 
     if reply_target.blank?
       return ""
@@ -1137,7 +1138,7 @@ def set_reply_target_by_urlname(page, urlname)
       return ""
     end
   rescue => e
-    return "Could not set reply target via 'urlname'. Details :: #{e.class} :: #{e.message}"
+    return "Could not set reply target via 'id'. Details :: #{e.class} :: #{e.message}"
   end
 end
 
