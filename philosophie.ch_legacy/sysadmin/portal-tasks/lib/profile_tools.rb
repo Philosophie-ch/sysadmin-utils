@@ -421,7 +421,92 @@ def get_commented_pages_urlnames(user)
 end
 
 
-# Mentioned tools
+# Mentioned on tools
+
+MENTIONED_ON_PAGES_TO_EXCLUDE = [
+
+  # Home
+  "index",
+
+  # article overview pages
+  "our-articles",
+  ## German tree
+  "willkommen",
+  ## French tree
+  "bienvenue",
+  ## Italian tree
+  "benvenuto",
+  ## English tree
+  "welcome",
+
+  # profile overview pages
+  "our-profiles",
+  "institutional-profiles",
+  "famous-philosophers",
+  "our-authors",
+  "swiss-philosophers",
+
+  # region pages
+  "geneve",
+  "lausanne",
+  "neuchatel",
+  "fribourg",
+  "bern",
+  "basel",
+  "zuerich",
+  "ostschweiz",
+  "zentralschweiz",
+  "ticino",
+
+  # news pages and newsletter archive
+  ## German tree
+  "neuigkeiten",
+  "2022-03-neuigkeiten",
+  "2022-04-neuigkeiten",
+  "2022-05-neuigkeiten",
+  "2022-06-neuigkeiten",
+  "2022-08-neuigkeiten",
+  "2022-09-neuigkeiten",
+  "2022-10-neuigkeiten",
+  "2022-11-neuigkeiten",
+  "2023-01-neuigkeiten",
+  ## English tree
+  "news",
+  "2022-03-news",
+  "2022-04-news",
+  "2022-05-news",
+  "2022-06-news",
+  "2022-08-news",
+  "2022-09-news",
+  "2022-10-news",
+  "2022-11-news",
+  "2023-01-news",
+  ## French tree
+  "nouvelles",
+  "2023-01-nouvelles",
+  "2022-11-nouvelles",
+  "2022-10-nouvelles",
+  "2022-09-nouvelles",
+  "2022-08-nouvelles",
+  "2022-06-nouvelles",
+  "2022-05-nouvelles",
+  "2022-04-nouvelles",
+  "2022-03-nouvelles",
+  ## Italian tree
+  "novita",
+  "2023-01-novita",
+  "2022-11-novita",
+  "2022-10-novita",
+  "2022-09-novita",
+  "2022-08-novita",
+  "2022-06-novita",
+  "2022-05-novita",
+  "2022-04-novita",
+  "2022-03-novita",
+
+]
+
+
 def get_user_profile_slug(user)
   return "profil/#{user.profile.slug}"
 end
@@ -435,10 +520,15 @@ def get_rich_text_essences_not_in_aside_columns()
   return rts_with_non_ac_parents.or(rts_with_no_parents)
 end
 
-def get_set_mentioned_pages_urlnames(user)
+# Get all richtext essences whose richtext_essence.page.urlname is NOT in MENTIONED_ON_PAGES_TO_EXCLUDE
+def get_richtext_essences_for_metioned_on()
+  return Alchemy::EssenceRichtext.joins(:page).where.not("alchemy_pages.urlname": MENTIONED_ON_PAGES_TO_EXCLUDE)
+end
+
+def get_set_mentioned_pages_urlnames(user, essence_richtexts)
   profile_slug = get_user_profile_slug(user)
 
-  richtext_element_ids = Alchemy::EssenceRichtext.joins(:content).where("alchemy_essence_richtexts.body LIKE ?", "%#{profile_slug}%").pluck("alchemy_contents.element_id").compact.uniq
+  richtext_element_ids = essence_richtexts.joins(:content).where("alchemy_essence_richtexts.body LIKE ? OR alchemy_essence_richtexts.body LIKE ?", "%#{profile_slug}\"%", "%#{profile_slug}'%").pluck("alchemy_contents.element_id").compact.uniq
 
   page_ids = Alchemy::Element.where(id: richtext_element_ids).pluck(:page_id).compact.uniq
 

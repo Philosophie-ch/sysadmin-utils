@@ -36,6 +36,9 @@ def main(csv_file, log_level = 'info')
   csv_data = CSV.read(csv_file, col_sep: ',', headers: true, encoding: 'utf-16')
   total_lines = csv_data.size
 
+
+  richtext_essences_for_mentioned_on = get_richtext_essences_for_metioned_on()
+
   ############
   # MAIN
   ############
@@ -603,7 +606,7 @@ def main(csv_file, log_level = 'info')
         public: user.profile.public,
         other_personal_information: user.profile.other_personal_information,
         pages_commented: get_commented_pages_urlnames(user),
-        mentioned_on: get_set_mentioned_pages_urlnames(user),
+        mentioned_on: get_set_mentioned_pages_urlnames(user, richtext_essences_for_mentioned_on),
         institutional_affiliation: user.profile.institutional_affiliation,
         type_of_affiliation: user.profile.type_of_affiliation,
         other_type_of_affiliation: user.profile.other_type_of_affiliation,
