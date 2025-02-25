@@ -1,5 +1,5 @@
 require_relative 'utils'
-require_relative 'lib/page_tools'
+require_relative 'page_tools'
 
 require 'open-uri'
 require 'nokogiri'
