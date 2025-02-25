@@ -659,6 +659,9 @@ def replace_names_by_links()
 
             if old_body != new_body
               essence.update!(body: new_body)
+              essence.element.save!
+              essence.page.save!
+              essence.page.publish!
               strings_changed_list << "{{ #{row['string']} }}"
               changed = true
             end
@@ -695,4 +698,121 @@ def replace_names_by_links()
   et = Time.now
   Rails.logger.info("Time elapsed: #{et - st}")
   Rails.logger.info("Time elapsed (loop): #{et - st_loop}")
+end
+
+
+def replace_profile_ids_by_logins_in_links()
+
+  selected_richtext_elements = [
+    'intro',
+    'text_block',
+    'text_and_picture',
+    'large_box',
+    'xlarge_box',
+    'box',
+    'title_block',
+    'subtitle_block',
+  ]
+
+  selected_content_names = [
+    'pre_headline',
+    'lead_text',
+    'text'
+  ]
+
+  #selected_ids = Alchemy::Content.where(element: Alchemy::Element.where(name: selected_richtext_elements), name: selected_content_names).pluck(:essence_id)
+
+  selected_ids = Alchemy::EssenceRichtext.pluck(:id)
+
+  selected_essences = Alchemy::EssenceRichtext.where(id: selected_ids).where("body ~ ?", "profil/\\d+").reject { |richtext| richtext.page.nil? }
+
+  total_essences = selected_essences.length
+
+  base_folder = 'portal-tasks-reports'
+  FileUtils.mkdir_p(base_folder) unless Dir.exist?(base_folder)
+
+  st_loop = Time.now
+  CSV.open("#{base_folder}/profil-links-report.csv", "wb") do |csv|
+
+    csv << ["id", "page_id", "page_urlname", "old_body", "new_body", "strings_changed", "status", "error_message", "error_trace"]
+
+    count = 1
+
+    selected_essences.each do |essence|
+
+      changed = false
+      strings_changed_list = []
+
+      subreport = {
+        id: essence.id,
+        page_id: essence.page.id,
+        page_urlname: essence.page.urlname,
+
+        old_body: essence&.body,
+        new_body: '',
+        strings_changed: '',
+
+        status: 'not started',
+        error_message: '',
+        error_trace: '',
+      }
+
+      begin
+
+        ActiveRecord::Base.transaction do
+
+          old_body = essence&.body.present? ? essence.body : ""
+          new_body = old_body
+
+          # Replace profile IDs by logins
+          old_body.scan(/profil\/\d+/).each do |match|
+            profile_id = match.split("/").last.to_i
+            profile = Profile.find_by(id: profile_id)
+
+            if profile.present?
+              login = profile.user.login
+              new_body = new_body.gsub(match, "profil/#{login}")
+              essence.update!(body: new_body)
+              essence.element.save!
+              essence.page.save!
+              essence.page.publish!
+              strings_changed_list << "{{ #{match} -> profil/#{login} }}"
+              changed = true
+
+            end
+
+          end
+
+        end
+
+      rescue => e
+        Rails.logger.error("Error while replacing profile IDs by logins in links: #{e.message}")
+        subreport[:status] = 'error'
+        subreport[:error_message] = "#{e.class} :: #{e.message}"
+        subreport[:error_trace] = e.backtrace.join(" ::: ")
+      end
+
+      if changed
+        subreport[:status] = 'success'
+        subreport[:new_body] = essence&.body
+      else
+        subreport[:status] = 'no change'
+      end
+
+      subreport[:strings_changed] = strings_changed_list.join(" ::: ")
+
+      csv << [subreport[:id], subreport[:page_id], subreport[:page_urlname], subreport[:old_body], subreport[:new_body], subreport[:strings_changed], subreport[:status], subreport[:error_message], subreport[:error_trace]]
+
+      Rails.logger.info("Processed #{count} of #{total_essences} essences")
+      count += 1
+
+    end
+
+
+
+  end
+
+  et = Time.now
+  Rails.logger.info("Time elapsed (loop): #{et - st_loop}")
+
 end
