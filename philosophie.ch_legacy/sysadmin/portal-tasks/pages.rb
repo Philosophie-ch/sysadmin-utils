@@ -508,7 +508,46 @@ def main(csv_file, log_level = 'info')
         Rails.logger.info("\t...POST or UPDATE: '#{page_identifier}': Setting attributes")
         page.name = name
         page.title = title
-        page.language_code = language_code
+
+        if req == "UPDATE"
+          # Handle moving pages across trees
+          alchemy_language_code = ''
+          alchemy_country_code = ''
+          if language_code.include?('-')
+            alchemy_language_code = language_code.split('-').first
+            alchemy_country_code = language_code.split('-').last
+          else
+            alchemy_language_code = language_code
+          end
+
+          language = Alchemy::Language.find_by(language_code: alchemy_language_code, country_code: alchemy_country_code)
+
+          if language.nil?
+              Rails.logger.error("Language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping")
+              subreport[:_request] += " ERROR"
+              subreport[:status] = "error"
+              subreport[:error_message] = "Language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping"
+              subreport[:error_trace] = "pages.rb::main::Setup::POST"
+              next
+
+          else
+            root_page = Alchemy::Page.language_root_for(language.id)
+
+            if root_page.nil?
+              Rails.logger.error("Root page for language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping")
+              subreport[:_request] += " ERROR"
+              subreport[:status] = "error"
+              subreport[:error_message] = "Root page for language with code '#{alchemy_language_code}' and country code '#{alchemy_country_code}' not found. Skipping"
+              subreport[:error_trace] = "pages.rb::main::Setup::POST"
+              next
+            else
+              page.parent_id = root_page.id
+              page.language_id = root_page.language_id
+              page.language_code = root_page.language_code
+            end
+          end
+        end
+
         page.urlname = urlname
         page.page_layout = page_layout
         page.created_at = parse_created_at(created_at)

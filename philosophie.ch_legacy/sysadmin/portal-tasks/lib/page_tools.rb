@@ -629,7 +629,7 @@ def set_themetags(page, themetag_names)
 
   begin
 
-    if page.page_layout == ''
+    if page.page_layout == '' || page.page_layout == 'index'
       report[:status] = 'success'
       return report
     end
