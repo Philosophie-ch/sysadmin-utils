@@ -39,14 +39,24 @@ def main(log_level = 'info')
   Alchemy::Page.all.each do |page|
     Rails.logger.info("Processing page '#{page.urlname}'")
 
-    source_page = page_full_path(page)
-    target_pages = get_all_links(page)
+    page_id = page.id
+    page_language_code = page.language_code
+    page_urlname = page.urlname
+    page_full_path = page_full_path(page)
 
-    target_pages.each do |target_page|
+    link_reports = get_all_links(page)
+
+    link_reports.each do |link_report|
 
       report << {
-        source_page: source_page,
-        target_page: target_page,
+        page_id: page_id,
+        page_language_code: page_language_code,
+        page_urlname: page_urlname,
+        page_full_path: page_full_path,
+
+        link: link_report[:link],
+        link_status: link_report[:status],
+        link_status_message: link_report[:message]
       }
 
     end
