@@ -70,7 +70,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
     region: row["region"] || '',
     link: row["link"] || '',
     _url: row["_url"] || '',
-    _recurrent: row["_recurrent"] || '',
+    recurrent: row["recurrent"] || '',
     _to_do_for_us: row["_to_do_for_us"] || '',
 
     status: '',
@@ -155,6 +155,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
     title = subreport[:title]
     region = subreport[:region]
     link = subreport[:link]
+    recurrent = subreport[:recurrent].strip.downcase == 'true' ? true : false
 
 
     # Setup
@@ -233,7 +234,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
         region: event.region,
         link: event.link,
         _url: subreport[:_url],
-        _recurrent: subreport[:_recurrent],
+        recurrent: subreport[:recurrent],
         _to_do_for_us: subreport[:_to_do_for_us],
 
         status: subreport[:status],
@@ -253,6 +254,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
       event.title = title
       event.region = region
       event.link = link
+      event.recurrent = recurrent
 
       successful_save = event.save!
       if successful_save
@@ -274,6 +276,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
       title: event.title,
       region: event.region,
       link: event.link,
+      recurrent: "#{event.recurrent}",
       _url: "https://www.philosophie.ch#{event.link}",
     })
 
