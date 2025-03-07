@@ -276,7 +276,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
       title: event.title,
       region: event.region,
       link: event.link,
-      recurrent: "#{event.recurrent}",
+      recurrent: "#{event.recurrent}".upcase,
       _url: "https://www.philosophie.ch#{event.link}",
     })
 
