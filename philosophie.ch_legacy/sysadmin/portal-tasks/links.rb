@@ -36,38 +36,76 @@ def main(log_level = 'info')
   # MAIN
   ############
 
-  Alchemy::Page.all.each do |page|
-    Rails.logger.info("Processing page '#{page.urlname}'")
+  pages = Alchemy::Page.all
+  pages_total = pages.count
+  count = 1
 
-    page_id = page.id
-    page_language_code = page.language_code
-    page_urlname = page.urlname
-    page_full_path = page_full_path(page)
+  base_folder = 'portal-tasks-reports'
+  FileUtils.mkdir_p(base_folder) unless Dir.exist?(base_folder)
+  file_name = "#{base_folder}/#{Time.now.strftime('%y%m%d')}_links_report.csv"
 
-    link_reports = get_all_links(page)
+  CSV.open(file_name, "wb") do |csv|
+    csv << [
+      "page_id",
+      "page_language_code",
+      "page_urlname",
+      "element_id",
+      "essence_type",
+      "link",
+      "link_html_tag",
+      "status",
+      "message",
+      "error_trace"
+    ]
 
-    link_reports.each do |link_report|
+    pages.each do |page|
+      Rails.logger.info("Processing page '#{page.urlname}'")
 
-      report << {
-        page_id: page_id,
-        page_language_code: page_language_code,
-        page_urlname: page_urlname,
-        page_full_path: page_full_path,
+      begin
+        page_id = page.id
+        page_language_code = page.language_code
+        page_urlname = page.urlname
 
-        link: link_report[:link],
-        link_status: link_report[:status],
-        link_status_message: link_report[:message]
-      }
+        link_reports = get_all_links(page)
+
+        link_reports.each do |link_report|
+          csv << [
+            page_id,
+            page_language_code,
+            page_urlname,
+            link_report[:element_id],
+            link_report[:element_type],
+            link_report[:link],
+            link_report[:tag],
+            "success",
+            "",
+            ""
+          ]
+        end
+
+        Rails.logger.info("Processed page '#{page.urlname}', #{count} of #{pages_total}")
+        count += 1
+
+      rescue => e
+        Rails.logger.error("Error processing page '#{page.urlname}': #{e.class}; #{e.message}; BACKTRACE: #{e.backtrace.join(" ::: ")}")
+        csv << [
+          page_id,
+          page_language_code,
+          page_urlname,
+          "",
+          "",
+          "",
+          "",
+          "error",
+          "#{e.class}: #{e.message}",
+          e.backtrace.join(" ::: ")
+        ]
+        Rails.logger.info("Processed page '#{page.urlname}', #{count} of #{pages_total}")
+        count += 1
+      end
 
     end
-
   end
-
-  ############
-  # REPORT
-  ############
-
-  generate_csv_report(report, "links")
 
 end
 
