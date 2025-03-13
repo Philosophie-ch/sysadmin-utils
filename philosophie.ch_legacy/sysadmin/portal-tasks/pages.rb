@@ -585,9 +585,9 @@ def main(csv_file, log_level = 'info')
       if req == 'GET RAW FILENAMES'
         retrieved_intro_image_portal = get_intro_image_portal_raw_filename(page)
       elsif req == 'GET'
-        retrieved_intro_image_portal = get_intro_image_portal(page)
+        retrieved_intro_image_portal = get_intro_image_show_url(page)
       else
-        retrieved_intro_image_portal = get_intro_image_portal(page)
+        retrieved_intro_image_portal = get_intro_image_show_url(page)
       end
 
 
@@ -698,7 +698,7 @@ def main(csv_file, log_level = 'info')
 
           Rails.logger.info("\t...DL-RN: '#{page_identifier}': Downloading and renaming media from '#{element_name}' elements...")
 
-          media = page.elements.where(name: element_name).map(&:contents).flatten.filter { |content| content.name == file_attribute_name }.map(&:essence).map{ |essence| essence.send(file_attribute_name) }
+          media = page.elements.where(name: element_name).map(&:contents).flatten.filter { |content| content.name == file_attribute_name }.map(&:essence).map(&:attachment)
 
           if !media.empty?
             n = 1
@@ -816,15 +816,15 @@ def main(csv_file, log_level = 'info')
         intro_image_asset: get_asset_names(page, "intro", ELEMENT_NAME_AND_URL_FIELD_MAP[:"intro"]),
         intro_image_portal: retrieved_intro_image_portal,
         audio_assets: get_asset_names(page, "audio_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"audio_block"]),
-        audios_portal: get_audio_blocks_file_names(page),
+        audios_portal: get_media_blocks_download_urls(page, "audio"),
         video_assets: get_asset_names(page, "video_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"video_block"]),
-        videos_portal: get_video_blocks_file_names(page),
+        videos_portal: get_media_blocks_download_urls(page, "video"),
         pdf_assets: get_asset_names(page, "pdf_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"pdf_block"]),
-        pdfs_portal: get_pdf_blocks_file_names(page),
+        pdfs_portal: get_media_blocks_download_urls(page, "pdf"),
         picture_assets: get_asset_names(page, "picture_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"picture_block"]),
-        pictures_portal: get_picture_blocks_file_names(page),
+        pictures_portal: get_picture_blocks_show_links(page, "picture_block"),
         text_and_picture_assets: get_asset_names(page, "text_and_picture", ELEMENT_NAME_AND_URL_FIELD_MAP[:"text_and_picture"]),
-        text_and_pictures_portal: get_text_and_picture_blocks_file_names(page),
+        text_and_pictures_portal: get_picture_blocks_show_links(page, "text_and_picture"),
         box_assets: get_asset_names(page, "box", ELEMENT_NAME_AND_URL_FIELD_MAP[:"box"]),
 
         embed_blocks: has_embed_blocks(page),

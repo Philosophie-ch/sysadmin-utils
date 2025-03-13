@@ -257,6 +257,36 @@ end
 # Intro pictures
 ############
 
+class ImageFileUrlNotProvided < StandardError; end
+def generate_picture_show_url(image_file_url)
+
+  if image_file_url.blank? || image_file_url.nil?
+    return nil
+  end
+
+  return "https://philosophie.ch#{image_file_url}"
+end
+
+
+def get_intro_image_show_url(page)
+  intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
+
+  page.elements.each do |element|
+    next unless intro_elements.include?(element.name)
+
+    has_intro_picture = element.contents&.any? { |content| content.essence.is_a?(Alchemy::EssencePicture) }
+
+    if has_intro_picture
+      picture_image_file_url = element.contents&.find { |content| content.essence.is_a?(Alchemy::EssencePicture) }&.essence&.picture&.image_file&.url
+      return picture_image_file_url.blank? ? '' : generate_picture_show_url(picture_image_file_url)
+    end
+  end
+
+  ""
+
+end
+
+#deprecated
 def get_intro_image_portal(page)
   intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
 
@@ -355,6 +385,73 @@ end
 # Portal assets
 ############
 
+class AttachmentIDNotProvided < StandardError; end
+def generate_attachment_download_url(attachment_id)
+
+  if attachment_id.blank? || attachment_id.nil?
+    raise AttachmentIDNotProvided, "Attachment ID not provided"
+  end
+
+  return "https://philosophie.ch/attachment/#{attachment_id}/download"
+end
+
+
+VALID_ASSET_TYPES = ['audio', 'video', 'pdf']
+class InvalidAssetType < StandardError; end
+class InvalidPage < StandardError; end
+def get_media_blocks_download_urls(page, asset_type)
+
+  unless VALID_ASSET_TYPES.include?(asset_type)
+    raise InvalidAssetType, "Invalid asset type: '#{asset_type}'. Expected one of: #{VALID_ASSET_TYPES.map { |at| "'#{at}'" }.join(', ')}"
+  end
+
+  unless page
+    raise InvalidPage, "Page not found"
+  end
+
+  block_name = "#{asset_type}_block"
+
+  blocks = page&.elements&.filter { |element| element.name == block_name }
+
+  files = blocks&.flat_map do |block|
+    block.contents&.map do |content|
+      essence = content.essence
+      essence.respond_to?(:attachment) ? generate_attachment_download_url(essence.attachment.id) : nil
+    end
+  end
+
+  return files&.compact&.blank? ? "" : files.compact.join(', ')
+end
+
+
+VALID_ELEMENT_NAMES = ['picture_block', 'text_and_picture']
+class InvalidElementName < StandardError; end
+def get_picture_blocks_show_links(page, element_name)
+
+  unless page
+    raise InvalidPage, "Page not found"
+  end
+
+  unless VALID_ELEMENT_NAMES.include?(element_name)
+    raise InvalidElementName, "Invalid element name: '#{element_name}'. Expected one of: #{VALID_ELEMENT_NAMES.map { |en| "'#{en}'" }.join(', ')}"
+  end
+
+  elements = page&.elements&.filter { |element| element.name == element_name }
+
+  files = elements&.flat_map do |element|
+    element.contents&.map do |content|
+      essence = content.essence
+      essence.respond_to?(:picture) ? generate_picture_show_url(essence.picture&.image_file&.url) : nil
+    end
+  end
+
+  return files&.compact&.blank? ? "" : files.compact.join(', ')
+
+end
+
+
+
+#deprecated
 def get_audio_blocks_file_names(page)
   audio_blocks = page&.elements&.filter { |element| element.name == 'audio_block' }
 
@@ -368,7 +465,7 @@ def get_audio_blocks_file_names(page)
   return audio_files&.compact&.blank? ? "" : audio_files.compact.join(', ')
 end
 
-
+#deprecated
 def get_video_blocks_file_names(page)
   video_blocks = page&.elements&.filter { |element| element.name == 'video_block' }
 
@@ -382,7 +479,7 @@ def get_video_blocks_file_names(page)
   return video_files&.compact&.blank? ? "" : video_files.compact.join(', ')
 end
 
-
+#deprecated
 def get_pdf_blocks_file_names(page)
   pdf_blocks = page&.elements&.filter { |element| element.name == 'pdf_block' }
 
@@ -397,6 +494,7 @@ def get_pdf_blocks_file_names(page)
 end
 
 
+#deprecated
 def get_picture_blocks_file_names(page)
   picture_block_elements = page&.elements&.filter { |element| element.name == 'picture_block' }
 
@@ -410,6 +508,7 @@ def get_picture_blocks_file_names(page)
   return picture_files&.compact&.blank? ? "" : picture_files.compact.join(', ')
 end
 
+#deprecated
 def get_text_and_picture_blocks_file_names(page)
   text_and_picture_block_elements = page&.elements&.filter { |element| element.name == 'text_and_picture' }
 
