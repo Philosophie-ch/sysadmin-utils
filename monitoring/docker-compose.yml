@@ -1,0 +1,86 @@
+services:
+  prometheus:
+  # For monitoring
+    image: prom/prometheus:v2.53.4
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/prometheus/prometheus.yml
+    ports:
+      - "${PROMETHEUS_PORT:-9099}:9090"
+    environment:
+      - PROMETHEUS_SCRAPE_INTERVAL=${PROMETHEUS_SCRAPE_INTERVAL:-15s}
+      - PROMETHEUS_RETENTION_TIME=${PROMETHEUS_RETENTION_TIME:-7d}
+      - PROMETEUS_STORAGE_SIZE=${PROMETEUS_STORAGE_SIZE:-1GB}
+    command:
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME}"
+    networks:
+      monitoring: {}
+    depends_on:
+      - cadvisor
+      - node_exporter
+
+  cadvisor:
+  # For docker metrics
+    image: google/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "${CADVISOR_PORT:-8089}:8080"
+    networks:
+      monitoring: {}
+
+  node_exporter:
+  # For system metrics
+    image: prom/node-exporter:latest
+    container_name: node_exporter
+    ports:
+      - "${NODE_EXPORTER_PORT:-9109}:9100"
+    networks:
+      monitoring: {}
+
+  loki:
+  # For logs storage
+    image: grafana/loki:2.5.0
+    container_name: loki
+    ports:
+      - "${LOKI_PORT:-3109}:3100"
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml
+    environment:
+      - LOKI_CONFIG_FILE=/etc/loki/local-config.yaml
+    networks:
+      monitoring: {}
+
+  promtail:
+  # For log collection
+    image: grafana/promtail:2.5.0
+    container_name: promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - ./promtail-config.yaml:/etc/promtail/config.yaml
+    networks:
+      monitoring: {}
+    depends_on:
+      - loki
+
+  grafana:
+  # For visualization
+    image: grafana/grafana:9.4.3
+    container_name: grafana
+    ports:
+      - "${GRAFANA_PORT:-3009}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      monitoring: {}
+    depends_on:
+      - prometheus
+      - loki
+
+networks:
+  monitoring:
+    external: true
+    name: ${MONITORED_NETWORK}

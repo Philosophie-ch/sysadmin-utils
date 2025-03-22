@@ -4,4 +4,5 @@
 **-report*
 **dltc-web
 **dl-rn
-**data*
+**/data/*
+**data-*
