@@ -414,10 +414,12 @@ def get_media_blocks_download_urls(page, asset_type)
   blocks = page&.elements&.filter { |element| element.name == block_name }
 
   files = blocks&.flat_map do |block|
-    block.contents&.map do |content|
-      essence = content.essence
-      essence.respond_to?(:attachment) ? generate_attachment_download_url(essence.attachment.id) : nil
+    essences_with_attachment = block.contents&.filter { |content| content.essence.respond_to?(:attachment) }.map(&:essence)
+
+    essences_with_attachment&.map do |essence|
+      essence.attachment&.id ? generate_attachment_download_url(essence.attachment.id) : nil
     end
+
   end
 
   return files&.compact&.blank? ? "" : files.compact.join(', ')
