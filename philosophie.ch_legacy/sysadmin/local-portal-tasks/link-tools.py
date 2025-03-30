@@ -15,16 +15,10 @@ type TStatus = str
 type TErrorType = str
 type TError = str
 
-type UrlReport = Tuple[
-    TRawUrl,
-    TScheme,
-    TUrl,
-    TStatus,
-    TErrorType,
-    TError
-]
+type UrlReport = Tuple[TRawUrl, TScheme, TUrl, TStatus, TErrorType, TError]
 
 CSV_HEADER = ["url", "scheme", "url_stripped", "status", "error_type", "error"]
+
 
 async def check_url(session, raw_url: str, check_philch: bool) -> UrlReport:
     """Check if a URL is broken, ignoring redirects"""
@@ -32,7 +26,14 @@ async def check_url(session, raw_url: str, check_philch: bool) -> UrlReport:
 
         url = raw_url
 
-        if raw_url.startswith("data:") or raw_url.startswith("mailto:") or raw_url.startswith("tel:") or raw_url.startswith("javascript:") or raw_url.startswith("ftp:") or raw_url.startswith("file:"):
+        if (
+            raw_url.startswith("data:")
+            or raw_url.startswith("mailto:")
+            or raw_url.startswith("tel:")
+            or raw_url.startswith("javascript:")
+            or raw_url.startswith("ftp:")
+            or raw_url.startswith("file:")
+        ):
             scheme_url = raw_url.split(":")
             return raw_url, scheme_url[0], scheme_url[1], "Skipped", "Scheme", ""
 
@@ -41,13 +42,27 @@ async def check_url(session, raw_url: str, check_philch: bool) -> UrlReport:
 
         elif raw_url.startswith("/"):
             url = f"https://www.philosophie.ch{raw_url}"
-            if url.startswith("https://www.philosophie.ch/profil/"): 
+            if url.startswith("https://www.philosophie.ch/profil/"):
                 return raw_url, "", url, "Skipped", "PhilosophieCH-Profile", "To check against existing profiles"
             elif not url.startswith("https://www.philosophie.ch/profil/") and not check_philch:
-                return raw_url, "", url, "Skipped", "PhilosophieCH", "To check independently, else we get 'too many requests'"
-            
+                return (
+                    raw_url,
+                    "",
+                    url,
+                    "Skipped",
+                    "PhilosophieCH",
+                    "To check independently, else we get 'too many requests'",
+                )
+
         elif "philosophie.ch" in raw_url and not check_philch:
-            return raw_url, "", "", "Skipped", "PhilosophieCH", "To check independently, else we get 'too many requests'"
+            return (
+                raw_url,
+                "",
+                "",
+                "Skipped",
+                "PhilosophieCH",
+                "To check independently, else we get 'too many requests'",
+            )
 
         elif raw_url.startswith("#"):
             return raw_url, "", "", "Skipped", "Anchor", ""
@@ -58,7 +73,14 @@ async def check_url(session, raw_url: str, check_philch: bool) -> UrlReport:
         async with session.get(url, timeout=TIMEOUT, max_redirects=MAX_REDIRECTS, allow_redirects=True) as response:
 
             if 400 <= response.status < 600:
-                return raw_url, "", "", "NonSuccessCode", f"{response.status}", f"Code {response.status}: {response.reason}"
+                return (
+                    raw_url,
+                    "",
+                    "",
+                    "NonSuccessCode",
+                    f"{response.status}",
+                    f"Code {response.status}: {response.reason}",
+                )
             return raw_url, "", "", "OK", "", ""
 
     except aiohttp.TooManyRedirects:
@@ -75,7 +97,7 @@ async def check_all_urls(urls, check_philch, throttle):
     broken_urls = []
     connector = aiohttp.TCPConnector(limit_per_host=CONCURRENCY)
 
-    if not check_philch: 
+    if not check_philch:
         async with aiohttp.ClientSession(connector=connector) as session:
             tasks = [check_url(session, url) for url in urls]
             results = await asyncio.gather(*tasks)
@@ -95,7 +117,7 @@ def read_urls_from_file(file_path):
     """Read URLs from a file"""
     with open(file_path, "r", encoding="utf-8") as file:
         return {line.strip() for line in file if line.strip()}  # Keep unique URLs
-        
+
 
 def save_broken_urls(broken_urls, output_file):
     """Save broken URLs to a CSV file"""
@@ -105,12 +127,7 @@ def save_broken_urls(broken_urls, output_file):
         writer.writerows(broken_urls)
 
 
-def main(
-    file: str,
-    output: str,
-    check_philch: bool,
-    throttle: float
-):
+def main(file: str, output: str, check_philch: bool, throttle: float):
     start_time = time.time()
     print(f"{start_time=}")
 
@@ -126,7 +143,7 @@ def main(
     end_time = time.time()
     print(f"{end_time=}")
     print(f"Total time: {end_time - start_time:.2f} seconds")
-    
+
 
 def cli():
     import argparse
@@ -167,12 +184,7 @@ def cli():
 
     args = parser.parse_args()
 
-    return main(
-        file=args.file,
-        output=args.output,
-        check_philch=args.philch,
-        throttle=args.throttle
-    )
+    return main(file=args.file, output=args.output, check_philch=args.philch, throttle=args.throttle)
 
 
 if __name__ == "__main__":

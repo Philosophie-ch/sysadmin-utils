@@ -6,16 +6,18 @@ from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
+
 @dataclass
 class Ok(Generic[T]):
     out: T
+
 
 @dataclass
 class Err:
     msg: str
 
 
-def rename_file(old: str, new: str) -> Ok[tuple[str,str]] | Err:
+def rename_file(old: str, new: str) -> Ok[tuple[str, str]] | Err:
     try:
         # Assert that the old file exists
         if not os.path.exists(old):
@@ -33,7 +35,8 @@ def rename_file(old: str, new: str) -> Ok[tuple[str,str]] | Err:
 @dataclass
 class MainOutput:
     header: list[str]
-    results: list[tuple[str,str,str]]
+    results: list[tuple[str, str, str]]
+
 
 def main(input_csv: str, encoding: str) -> Ok[MainOutput] | Err:
     try:
@@ -79,12 +82,17 @@ def cli(result: Ok[MainOutput] | Err) -> None:
             print("")
 
 
-
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Rename assets") 
-    parser.add_argument("-i", "--input", type=str, help="CSV file with old and new filenames. Needs to have a header row with 'old' and 'new' columns, with the corresponding filenames. Prints the result to the stdout.", required=True)
+    parser = argparse.ArgumentParser(description="Rename assets")
+    parser.add_argument(
+        "-i",
+        "--input",
+        type=str,
+        help="CSV file with old and new filenames. Needs to have a header row with 'old' and 'new' columns, with the corresponding filenames. Prints the result to the stdout.",
+        required=True,
+    )
     parser.add_argument("-e", "--encoding", type=str, help="CSV file encoding", default='utf-8')
 
     args = parser.parse_args()
@@ -94,6 +102,3 @@ if __name__ == "__main__":
 
     result = main(csv_file, encoding)
     cli(result)
-   
-
-

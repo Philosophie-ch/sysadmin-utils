@@ -1,0 +1,7 @@
+aletk>=0.1.6
+aiohttp>=3.11.13
+pillow>=11.1.0
+piexif>=1.1.3
+black>=25.1.0
+mypy>=1.15.0
+mypy-extensions>=1.0.0
