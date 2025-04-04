@@ -940,7 +940,7 @@ def main(csv_file, log_level = 'info')
 
         ELEMENT_NAME_AND_URL_FIELD_MAP.each do |element_name, url_field_name|
 
-          if ELEMENTS_TO_SKIP_ON_SET.include?(element_name)
+          if ELEMENTS_TO_SKIP_ON_SET.include?(element_name.to_s)
             next
           end
 
