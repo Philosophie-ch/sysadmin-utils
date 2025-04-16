@@ -18,7 +18,7 @@ end
 HTML_TAGS = ["href", "src", "action", "cite", "data", "poster", "a"]
 
 def _process_link(link)
-  truncate = link.length > 500 ? "#{data_process[0..500]}[TRUNCATED...]" : link
+  truncate = link.length > 500 ? "#{link[0..500]}[TRUNCATED...]" : link
   return truncate
 end
 
