@@ -99,7 +99,7 @@ async def check_all_urls(urls, check_philch, throttle):
 
     if not check_philch:
         async with aiohttp.ClientSession(connector=connector) as session:
-            tasks = [check_url(session, url) for url in urls]
+            tasks = [check_url(session, url, check_philch) for url in urls]
             results = await asyncio.gather(*tasks)
             broken_urls = tuple(r for r in results if r is not None)
     else:
