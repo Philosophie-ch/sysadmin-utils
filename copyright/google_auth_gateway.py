@@ -1,5 +1,6 @@
 import os
 
+
 def authenticate_google(json_key_filepath: str) -> None:
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_key_filepath
 

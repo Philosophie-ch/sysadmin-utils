@@ -29,4 +29,3 @@ class ImageReport:
     status: TStatus
     error_message: str
     error_context: str
-

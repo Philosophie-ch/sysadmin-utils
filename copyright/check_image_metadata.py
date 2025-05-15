@@ -35,7 +35,7 @@ def check_exif_copyright(image_path: str) -> ExifReport:
             error_message="No copyright information found.",
             error_context="",
         )
-    
+
     except Exception as e:
         return ExifReport(
             exif_copyright="",
@@ -43,5 +43,3 @@ def check_exif_copyright(image_path: str) -> ExifReport:
             error_message=str(e),
             error_context=f"Error processing image: '{image_path}'. Traceback: {traceback.format_exc()}",
         )
-
-

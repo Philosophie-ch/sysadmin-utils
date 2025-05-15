@@ -11,9 +11,7 @@ from check_image_metadata import check_exif_copyright
 lgr = get_logger(__name__)
 
 
-def multi_check(
-    image_path: str
-) -> ImageReport:
+def multi_check(image_path: str) -> ImageReport:
 
     try:
 
@@ -48,6 +46,7 @@ def multi_check(
             error_context=f"Error processing image: '{image_path}'. Traceback: {traceback.format_exc()}",
         )
 
+
 def read_image_paths_from_file(file_path: str) -> Tuple[str, ...]:
     """
     Read image paths from a file.
@@ -60,7 +59,7 @@ def read_image_paths_from_file(file_path: str) -> Tuple[str, ...]:
     except Exception as e:
         lgr.error(f"Error reading file {file_path}: {e}")
         return ()
-    
+
 
 def write_image_reports_to_csv(image_reports: Iterable[ImageReport], output_file: str) -> None:
     """
