@@ -1012,15 +1012,20 @@ def get_references_urls(page)
 
 end
 
+def soft_get_aside_columns(page)
+  aside_columns = Alchemy::Element.where(parent_element_id: nil, page_id: page.id, name: "aside_column")
+
+  return aside_columns
+end
+
+class MoreThanOneAsideColumnError < StandardError; end
+
 def get_aside_column(page)
   aside_columns = Alchemy::Element.where(parent_element_id: nil, page_id: page.id, name: "aside_column")
 
   amount = aside_columns.length
   if amount > 1
-    # destroy all but the first one
-    aside_columns[1..-1].each do |aside_column|
-      aside_column.destroy!
-    end
+    raise MoreThanOneAsideColumnError, "There are more than one aside column for page '#{page.id}'. Please clean this up and try again."
   end
 
   return aside_columns.first
