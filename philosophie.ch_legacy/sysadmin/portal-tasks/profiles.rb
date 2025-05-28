@@ -417,9 +417,12 @@ def main(csv_file, log_level = 'info')
             user.password_confirmation = password
             user.profile = Profile.new(
               slug: user.login,
-              confirmed_at: Time.now,
-              public: true
             )
+
+            user.profile.confirmed_at = Time.now
+            user.profile.public = true
+            user.profile.confirmation_token = nil
+
             subreport[:password] = password
           end
 
