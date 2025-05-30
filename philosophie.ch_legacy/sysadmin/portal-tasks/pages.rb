@@ -121,6 +121,7 @@ def main(csv_file, log_level = 'info')
 
       themetags_discipline: row['themetags_discipline'] || "",  # themetags
       themetags_focus: row['themetags_focus'] || "",  # themetags
+      themetags_badges: row['themetags_badges'] || "",  # themetags
       themetags_structural: row['themetags_structural'] || "",  # themetags
 
       status: '',
@@ -274,6 +275,7 @@ def main(csv_file, log_level = 'info')
 
       themetags_discipline = subreport[:themetags_discipline].strip
       themetags_focus = subreport[:themetags_focus].strip
+      themetags_badges = subreport[:themetags_badges].strip
       themetags_structural = subreport[:themetags_structural].strip
 
       # Setup
@@ -492,6 +494,7 @@ def main(csv_file, log_level = 'info')
 
           themetags_discipline: subreport[:themetags_discipline],
           themetags_focus: subreport[:themetags_focus],
+          themetags_badges: subreport[:themetags_badges],
           themetags_structural: subreport[:themetags_structural],
 
           status: '',
@@ -832,6 +835,7 @@ def main(csv_file, log_level = 'info')
         has_html_header_tags: has_html_header_tags(page),
         themetags_discipline: themetags_hashmap[:discipline],
         themetags_focus: themetags_hashmap[:focus],
+        themetags_badges: themetags_hashmap[:badges],
         themetags_structural: themetags_hashmap[:structural],
       })
 
@@ -883,7 +887,7 @@ def main(csv_file, log_level = 'info')
 
 
         # Themetags
-        themetags = themetags_discipline.split(',').map(&:strip) + themetags_focus.split(',').map(&:strip) + themetags_structural.split(',').map(&:strip)
+        themetags = themetags_discipline.split(',').map(&:strip) + themetags_focus.split(',').map(&:strip) + themetags_badges.split(',').map(&:strip) + themetags_structural.split(',').map(&:strip)
         update_themetags_report = set_themetags(page, themetags)
 
         if update_themetags_report[:status] != 'success'
@@ -897,6 +901,7 @@ def main(csv_file, log_level = 'info')
         new_themetags_hashmap = get_themetags(page)
         subreport[:themetags_discipline] = new_themetags_hashmap[:discipline]
         subreport[:themetags_focus] = new_themetags_hashmap[:focus]
+        subreport[:themetags_badges] = new_themetags_hashmap[:badges]
         subreport[:themetags_structural] = new_themetags_hashmap[:structural]
 
 
