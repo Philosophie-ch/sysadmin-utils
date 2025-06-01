@@ -63,7 +63,7 @@ def main(csv_file, log_level = 'info')
       firstname: row["firstname"] || "",
       lastname: row["lastname"] || "",
       email_addresses: row["email_addresses"] || "",
-      _NL: row["_NL"] || "",
+      newsletter: row["newsletter"] || "",
       academic_page: row["academic_page"] || "",
       abbreviation: row["abbreviation"] || "",
       _function: row["_function"] || "",
@@ -192,6 +192,7 @@ def main(csv_file, log_level = 'info')
       firstname = subreport[:firstname].strip # user
       lastname = subreport[:lastname].strip # user
       email_addresses_raw = subreport[:email_addresses].strip  # profile
+      newsletter = subreport[:newsletter].strip.lower == 'true' ? true : false  # profile
       academic_page = subreport[:academic_page].strip  # profile
       abbreviation = subreport[:abbreviation].strip  # profile
       password = subreport[:password].strip  # user
@@ -339,7 +340,7 @@ def main(csv_file, log_level = 'info')
           firstname: user.firstname,
           lastname: user.lastname,
           email_addresses: user.profile.email_addresses,
-          _NL: subreport[:_NL],
+          newsletter: user.profile.newsletter,
           academic_page: user.profile.academic_page,
           abbreviation: user.profile.abbreviation,
           _function: subreport[:_function],
@@ -433,6 +434,7 @@ def main(csv_file, log_level = 'info')
           user.profile.abbreviation = abbreviation
           user.profile.membership_wanted = membership_wanted.blank? ? false : membership_wanted
           user.profile.email_addresses = email_addresses
+          user.profile.newsletter = newsletter
           user.profile.academic_page = academic_page
           user.profile.country = country
           user.profile.area = area
@@ -583,6 +585,7 @@ def main(csv_file, log_level = 'info')
         membership_wanted: user.profile.membership_wanted,
         profile_name: user.profile.name,
         email_addresses: user.profile.email_addresses,
+        newsletter: user.profile.newsletter,
         academic_page: user.profile.academic_page,
         abbreviation: user.profile.abbreviation,
         language: user.language,
