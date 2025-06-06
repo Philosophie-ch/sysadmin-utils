@@ -121,6 +121,8 @@ def main(csv_file, log_level = 'info')
 
       public: row["public"] || "",
       other_personal_information: row["other_personal_information"] || "",
+      confirmed_at: row["confirmed_at"] || "",
+      potential_duplicates: row["potential_duplicates"] || "",
 
     }
 
@@ -192,7 +194,7 @@ def main(csv_file, log_level = 'info')
       firstname = subreport[:firstname].strip # user
       lastname = subreport[:lastname].strip # user
       email_addresses_raw = subreport[:email_addresses].strip  # profile
-      newsletter = subreport[:newsletter].strip.lower == 'true' ? true : false  # profile
+      newsletter = subreport[:newsletter].strip.downcase == 'true' ? true : false  # profile
       academic_page = subreport[:academic_page].strip  # profile
       abbreviation = subreport[:abbreviation].strip  # profile
       password = subreport[:password].strip  # user
@@ -394,9 +396,7 @@ def main(csv_file, log_level = 'info')
 
           public: user.profile.public,
           other_personal_information: user.profile.other_personal_information,
-          confirmation_token: user.profile.confirmation_token,
           confirmed_at: user.profile.confirmed_at,
-          confirmation_sent_at: user.profile.confirmation_sent_at,
         }
       end
 
@@ -612,6 +612,8 @@ def main(csv_file, log_level = 'info')
 
         public: user.profile.public,
         other_personal_information: user.profile.other_personal_information,
+        confirmed_at: user.profile.confirmed_at,
+        potential_duplicates: get_potential_duplicates(user),
         pages_commented: get_commented_pages_urlnames(user),
         mentioned_on: subreport[:mentioned_on],
         institutional_affiliation: user.profile.institutional_affiliation,

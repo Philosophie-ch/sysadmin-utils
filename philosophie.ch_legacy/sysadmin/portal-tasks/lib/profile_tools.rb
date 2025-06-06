@@ -542,3 +542,20 @@ def get_set_mentioned_pages_urlnames(user, essence_richtexts)
 
   return page_urlnames.join(", ")
 end
+
+
+def get_potential_duplicates(user)
+  unless user.alchemy_roles.include?("new")
+    return ""
+  end
+
+  suggester = UsernameSuggester.new(
+    raw_firstname: user.firstname,
+    raw_lastname: user.lastname
+  )
+
+  pd = suggester.potential_duplicates.pluck(:slug) - [user.profile.slug]
+
+  return pd.join(", ")
+
+end
