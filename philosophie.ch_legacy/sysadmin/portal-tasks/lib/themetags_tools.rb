@@ -1,9 +1,9 @@
 
 ## Get these two from topic.rb in the portal code
 # enum group: [:logic, :language, :ethic, :history, :aesthetic, :administrative]
-SUPPORTED_GROUPS = ["logic", "language", "ethic", "history", "aesthetic", "administrative"]
+SUPPORTED_GROUPS = ["logic", "language", "ethic", "history", "aesthetic", "administrative", "badge_group"]
 # enum interest_type: [:structural, :discipline, :focus]
-SUPPORTED_INTEREST_TYPES = ["structural", "discipline", "focus"]
+SUPPORTED_INTEREST_TYPES = ["structural", "discipline", "focus", "badge"]
 
 # Take them from the language.rb in the portal code
 SUPPORTED_LANGUAGE_CODES = ["en-UK", "it", "fr", "de", "en"]

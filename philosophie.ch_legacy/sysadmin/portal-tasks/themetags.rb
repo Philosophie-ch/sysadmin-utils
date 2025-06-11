@@ -53,6 +53,7 @@ def main(csv_file, log_level = 'info')
       name: row['name'] || '',
       group: row['group'] || '',
       interest_type: row['interest_type'] || '',
+      color_theme: row['color_theme'] || '',
       page_language_code: row['page_language_code'] || '',
       page_urlname: row['page_urlname'] || '',
       url: row['url'] || '',
@@ -87,6 +88,7 @@ def main(csv_file, log_level = 'info')
       id = subreport[:id].strip
       name = subreport[:name].strip
       group = subreport[:group].strip
+      color_theme = subreport[:color_theme].strip || nil  # Optional, for badges only
       interest_type = subreport[:interest_type].strip
 
       if req == 'POST'
@@ -146,6 +148,8 @@ def main(csv_file, log_level = 'info')
           next
         end
 
+
+
       end
 
 
@@ -175,6 +179,17 @@ def main(csv_file, log_level = 'info')
           subreport[:error_message] = "Validation failed: #{validation_error_message}. Skipping"
           subreport[:error_trace] = "themetags.rb::main::Execution::POST"
           next
+        end
+
+        # Badge validations
+        if interest_type == "badge"
+          unless Topic::COLOR_THEMES.include?(color_theme)
+            subreport[:request] += " ERROR"
+            subreport[:status] = "error"
+            subreport[:error_message] = "Unsupported color theme '#{color_theme}'. Skipping. Supported color themes are: #{Topic::COLOR_THEMES.join(', ')}"
+            subreport[:error_trace] = "themetags.rb::main::Parsing"
+            next
+          end
         end
 
       end
@@ -225,6 +240,10 @@ def main(csv_file, log_level = 'info')
           interest_type: interest_type,
         )
 
+        if color_theme.present?
+          themetag.color_theme = color_theme
+        end
+
         if page.present?
           themetag.page_id = page.id
         end
@@ -239,6 +258,7 @@ def main(csv_file, log_level = 'info')
           name: name,
           group: group,
           interest_type: interest_type,
+          color_theme: color_theme,
           page_language_code: page_language_code,
           page_urlname: page_urlname,
           url: url,
@@ -254,6 +274,10 @@ def main(csv_file, log_level = 'info')
         themetag.name = name
         themetag.group = group
         themetag.interest_type = interest_type
+
+        if themetag.interest_type == "badge"
+          themetag.color_theme = color_theme
+        end
 
         if page.present?
           themetag.page_id = page.id
@@ -304,6 +328,7 @@ def main(csv_file, log_level = 'info')
         name: updated_themetag.name,
         group: updated_themetag.group,
         interest_type: updated_themetag.interest_type,
+        color_theme: updated_themetag.color_theme,
         page_language_code: queried_page_language_code,
         page_urlname: queried_page_urlname,
         url: new_url,
