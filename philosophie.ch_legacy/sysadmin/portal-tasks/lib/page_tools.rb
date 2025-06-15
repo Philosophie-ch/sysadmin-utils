@@ -682,7 +682,7 @@ def get_themetags(page)
   themetags_hashmap = {
     discipline: "",
     focus: "",
-    badges: "",
+    badge: "",
     structural: "",
   }
 
@@ -697,7 +697,7 @@ def get_themetags(page)
 
     themetags_hashmap[:discipline] = themetag_names_by_interest_type(topics, "discipline")
     themetags_hashmap[:focus] = themetag_names_by_interest_type(topics, "focus")
-    themetags_hashmap[:badges] = themetag_names_by_interest_type(topics, "badge")
+    themetags_hashmap[:badge] = themetag_names_by_interest_type(topics, "badge")
     themetags_hashmap[:structural] = themetag_names_by_interest_type(topics, "structural")
   end
 
