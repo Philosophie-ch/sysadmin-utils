@@ -85,6 +85,7 @@ docker exec "${DB_CONTAINER_NAME}" /bin/bash -c "pg_dump \"postgresql://\${POSTG
 docker exec "${DB_CONTAINER_NAME}" /bin/bash -c "pg_dump \"postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@127.0.0.1/\${POSTGRES_DB}\" --column-inserts --data-only --no-owner --no-privileges --file=${CONTAINER_DB_TO_BACKUP_DIR}/backup.sql" && echo "Database data-only dump done." || echo "Failed to dump data-only database."
 rm -f "${LOCAL_BACKUP_DIR}/${DB_DUMP_NAME}"
 rsync -avP "${DB_TO_BACKUP_DIR}/${DB_DUMP_NAME}" "${LOCAL_BACKUP_DIR}"
+rsync -avP "${DB_TO_BACKUP_DIR}/backup.sql" "${LOCAL_BACKUP_DIR}"
 echo "Backing up database step culminated."
 
 
