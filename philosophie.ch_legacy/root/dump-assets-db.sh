@@ -17,6 +17,7 @@ Requires the following environment variables to be set in ${HOME}/.backup.env:
   - CONTAINER_DB_TO_BACKUP_DIR: directory in the database container to backup the database dump to. Should be mounted to DB_TO_BACKUP_DIR
   - DB_CONTAINER_NAME: name of the database container
   - DB_DUMP_NAME: basename of the database dump
+  - DB_DATA_DUMP_NAME: basename of the data-only database dump
 
 
 Options:
@@ -38,7 +39,7 @@ set -e
 source "${HOME}/.backup.env"
 set +e
 
-req_env_vars=( "SYSADMIN_USERNAME" "LOCAL_BACKUP_DIR" "RAILS_ASSETS_TO_BACKUP_DIR" "DB_TO_BACKUP_DIR" "DB_CONTAINER_NAME" "CONTAINER_DB_TO_BACKUP_DIR" "DB_DUMP_NAME" )
+req_env_vars=( "SYSADMIN_USERNAME" "LOCAL_BACKUP_DIR" "RAILS_ASSETS_TO_BACKUP_DIR" "DB_TO_BACKUP_DIR" "DB_CONTAINER_NAME" "CONTAINER_DB_TO_BACKUP_DIR" "DB_DUMP_NAME" "DB_DATA_DUMP_NAME" )
 error_msg=
 error_flag=0
 
@@ -82,10 +83,10 @@ echo "Backing up rails assets done."
 echo "Backing up database..."
 rm -f "${DB_TO_BACKUP_DIR}/${DB_DUMP_NAME}"
 docker exec "${DB_CONTAINER_NAME}" /bin/bash -c "pg_dump \"postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@127.0.0.1/\${POSTGRES_DB}\" --column-inserts --no-owner --no-privileges > ${CONTAINER_DB_TO_BACKUP_DIR}/${DB_DUMP_NAME}" && echo "Database dump done." || echo "Failed to dump database."
-docker exec "${DB_CONTAINER_NAME}" /bin/bash -c "pg_dump \"postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@127.0.0.1/\${POSTGRES_DB}\" --column-inserts --data-only --no-owner --no-privileges --file=${CONTAINER_DB_TO_BACKUP_DIR}/backup.sql" && echo "Database data-only dump done." || echo "Failed to dump data-only database."
+docker exec "${DB_CONTAINER_NAME}" /bin/bash -c "pg_dump \"postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@127.0.0.1/\${POSTGRES_DB}\" --column-inserts --data-only --no-owner --no-privileges --file=${CONTAINER_DB_TO_BACKUP_DIR}/${DB_DATA_DUMP_NAME}" && echo "Database data-only dump done." || echo "Failed to dump data-only database."
 rm -f "${LOCAL_BACKUP_DIR}/${DB_DUMP_NAME}"
 rsync -avP "${DB_TO_BACKUP_DIR}/${DB_DUMP_NAME}" "${LOCAL_BACKUP_DIR}"
-rsync -avP "${DB_TO_BACKUP_DIR}/backup.sql" "${LOCAL_BACKUP_DIR}"
+rsync -avP "${DB_TO_BACKUP_DIR}/${DB_DATA_DUMP_NAME}" "${LOCAL_BACKUP_DIR}"
 echo "Backing up database step culminated."
 
 
