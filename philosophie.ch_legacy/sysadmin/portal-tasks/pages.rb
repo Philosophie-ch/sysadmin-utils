@@ -95,10 +95,14 @@ def main(csv_file, log_level = 'info')
       _further_refs: row['_further_refs'] || "",
       further_references_asset_url: row['further_references_asset_url'] || "",  # element
       _depends_on: row['_depends_on'] || "",
+      _presentation_of: row['_presentation_of'] || "",
+      _link: row['_link'] || "",
+      _abstract: row['_abstract'] || "",
 
       _to_do_on_the_portal: row['_to_do_on_the_portal'] || "",
 
       assigned_authors: row['assigned_authors'] || "",  # box
+      anon: row['anon'] || "",
 
       intro_image_asset: row['intro_image_asset'] || "",  # element
       intro_image_portal: row['intro_image_portal'] || "",  # element
@@ -263,6 +267,7 @@ def main(csv_file, log_level = 'info')
 
 
       assigned_authors = subreport[:assigned_authors].strip
+      anon = subreport[:anon].strip
 
       # new asset system
       intro_image_asset = subreport[:intro_image_asset].strip
@@ -405,6 +410,7 @@ def main(csv_file, log_level = 'info')
         old_page_tag_names = page.tag_names
         old_page_tag_columns = tag_array_to_columns(old_page_tag_names)
         old_page_assigned_authors = get_assigned_authors(page)
+        old_anon = get_anon(page)
 
         all_references_urls = get_references_urls(page)
         old_references_asset_url = all_references_urls[:references_url] ? all_references_urls[:references_url].gsub(references_base_url, '') : ''
@@ -469,10 +475,14 @@ def main(csv_file, log_level = 'info')
           _further_refs: subreport[:_further_refs],
           further_references_asset_url: old_further_references_asset_url,
           _depends_on: subreport[:_depends_on],
+          _presentation_of: subreport[:_presentation_of],
+          _link: subreport[:_link],
+          _abstract: subreport[:_abstract],
 
           _to_do_on_the_portal: subreport[:_to_do_on_the_portal],
 
           assigned_authors: old_page_assigned_authors,
+          anon: old_anon,
 
           intro_image_asset: subreport[:intro_image_asset],
           intro_image_portal: subreport[:intro_image_portal],
@@ -555,6 +565,7 @@ def main(csv_file, log_level = 'info')
         page.page_layout = page_layout
         page.created_at = parse_created_at(created_at)
 
+
         tag_columns = {
           tag_page_type: tag_page_type,
           tag_media: tag_media,
@@ -576,7 +587,13 @@ def main(csv_file, log_level = 'info')
         # Elements need to be set after page creation, in case of POST
         set_pre_headline(page, pre_headline)
         set_lead_text(page, lead_text)
+
+        if page_layout == 'note'
+          set_anon(page, anon)
+        end
+
         page.save!
+        page.publish!
 
       end
 
@@ -815,6 +832,7 @@ def main(csv_file, log_level = 'info')
         tag_footnotes: tags_to_cols[:tag_footnotes],
         ref_bib_keys: get_references_bib_keys(page),
         assigned_authors: get_assigned_authors(page),
+        anon: get_anon(page),
 
         intro_image_asset: get_asset_names(page, "intro", ELEMENT_NAME_AND_URL_FIELD_MAP[:"intro"]),
         intro_image_portal: retrieved_intro_image_portal,

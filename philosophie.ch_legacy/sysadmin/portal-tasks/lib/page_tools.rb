@@ -84,9 +84,9 @@ ELEMENT_NAME_AND_URL_FIELD_MAP = {
   "box": "picture_asset_url",
 }
 
-ELEMENTS_NOT_IN_ASIDE_COLUMN = ['intro']
+ELEMENTS_NOT_IN_ASIDE_COLUMN = ['intro', 'note_intro']
 
-UNIQUE_ELEMENTS = ['intro']
+UNIQUE_ELEMENTS = ['intro', 'note_intro']
 
 ELEMENTS_TO_SKIP_ON_SET = ['box']
 
@@ -112,7 +112,12 @@ def _get_asset_blocks(page, element_name, url_field_name)
 
     if element_name != 'box'
 
-      asset_blocks_main_body = page&.elements&.filter { |element| element.name == "#{element_name}" }
+      if element_name == 'intro'
+        asset_blocks_main_body = [page.intro_element]
+      else
+        asset_blocks_main_body = page&.elements&.filter { |element| element.name == "#{element_name}" }
+      end
+
 
       unless ELEMENTS_NOT_IN_ASIDE_COLUMN.include?(element_name)
         aside_column = Alchemy::Element.where(parent_element_id: nil, page_id: page.id, name: "aside_column").first
@@ -337,7 +342,7 @@ def update_intro_image_portal(page, image_file_name)
       return result
     end
 
-    intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
+    intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro', 'note_intro']
 
     # Find the picture with the given image_file_name
     new_picture = Alchemy::Picture.find_by(image_file_name: image_file_name)
@@ -533,20 +538,29 @@ def get_assigned_authors(page)
   page_is_article = page.page_layout == "article" ? true : false
   page_is_event = page.page_layout == "event" ? true : false
   page_is_info = page.page_layout == "info" ? true : false
+  page_is_note = page.page_layout == "note" ? true : false
 
-  unless page_is_article || page_is_event || page_is_info
+  unless page_is_article || page_is_event || page_is_info || page_is_note
     return ""
   end
 
-  intro_element = page.elements.find { |element| element.name.include?('intro') }; nil
-  creator_content = intro_element&.content_by_name(:creator); nil
-  creator_essence = creator_content&.essence
+  if page_is_article
 
-  unless creator_essence
-    return ""
+    intro_element = page.intro_element || page.elements.find { |element| element.name.include?('intro') }
+    creator_content = intro_element&.content_by_name(:creator); nil
+    creator_essence = creator_content&.essence
+
+    unless creator_essence
+      return ""
+    end
+
+    return creator_essence.alchemy_users.map(&:login).join(', ')
+
+  elsif page_is_note
+
+    return page.authors.map(&:slug).join(', ')
+
   end
-
-  return creator_essence.alchemy_users.map(&:login).join(', ')
 
 end
 
@@ -557,9 +571,10 @@ def update_assigned_authors(page, authors_str)
   page_is_article = page.page_layout == "article" ? true : false
   page_is_event = page.page_layout == "event" ? true : false
   page_is_info = page.page_layout == "info" ? true : false
+  page_is_note = page.page_layout == "note" ? true : false
 
-  unless page_is_article || page_is_event || page_is_info
-    Rails.logger.debug("\tPage is not an article or event or info. Skipping...")
+  unless page_is_article || page_is_event || page_is_info || page_is_note
+    Rails.logger.debug("\tPage is not an article or event or info or note. Skipping...")
     return {
       status: 'success',
       error_message: '',
@@ -576,15 +591,18 @@ def update_assigned_authors(page, authors_str)
   begin
     Rails.logger.debug("\tPage is an article or event or info. Proceeding...")
 
-    intro_element = page.elements.find { |element| element.name.include?('intro') }
-    creator_essence = intro_element&.content_by_name(:creator)&.essence
+    unless page_is_note
+      intro_element = page.intro_element || page.elements.find { |element| element.name.include?('intro') }
+      creator_essence = intro_element&.content_by_name(:creator)&.essence
 
-    unless creator_essence
-      Rails.logger.error("\tCreator essence not found. Skipping...")
-      result[:status] = 'error'
-      result[:error_message] = "Creator essence not found"
-      result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
-      return result
+      unless creator_essence
+        Rails.logger.error("\tCreator essence not found. Skipping...")
+        result[:status] = 'error'
+        result[:error_message] = "Creator essence not found"
+        result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
+        return result
+      end
+
     end
 
     author_list = authors_str.to_s.split(',').map(&:strip)
@@ -612,8 +630,24 @@ def update_assigned_authors(page, authors_str)
       return result
     end
 
-    creator_essence.alchemy_users = users.uniq.compact
-    creator_essence.save!
+    if page_is_article || page_is_event || page_is_info
+      creator_essence.alchemy_users = users.uniq.compact
+      creator_essence.save!
+
+    elsif page_is_note
+
+      # For notes, we set the authors directly on the page
+      profiles = users.map { |user| user.profile }.uniq.compact
+      page.authors = profiles
+      page.save!
+
+    else
+      Rails.logger.error("\tPage is not an article, event, info or note. Skipping...")
+      result[:status] = 'error'
+      result[:error_message] = "Page is not an article, event, info or note"
+      result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
+      return result
+    end
 
     Rails.logger.debug("\tAssigned authors updated successfully")
     result[:status] = 'success'
@@ -635,7 +669,7 @@ def has_html_header_tags(page)
   page.elements.each do |element|
 
     case element.name
-    when 'intro', 'text_block', 'text_and_picture'
+    when 'intro', 'text_block', 'text_and_picture', 'note_intro'
       richtext_contents = element.contents.where(name: ['pre_headline', 'lead_text', 'text'])
       richtext_contents.each do |content|
         essence = content.essence
@@ -690,7 +724,7 @@ def get_themetags(page)
     return themetags_hashmap
   end
 
-  intro_element = page.elements.find { |element| element.name.include?('intro') }
+  intro_element = page.intro_element || page.elements.find { |element| element.name.include?('intro') }
   if intro_element
     topic_content = intro_element.contents.find { |content| content.name == 'topics' }
     topics = topic_content&.essence&.topics&.uniq || []
@@ -737,7 +771,7 @@ def set_themetags(page, themetag_names)
       return report
     end
 
-    intro_element = page.elements.find { |element| element.name.include?('intro') }
+    intro_element = page.intro_element || page.elements.find { |element| element.name.include?('intro') }
     if intro_element
       topic_content = intro_element.contents.find { |content| content.name == 'topics' }
       themetags = themetag_names.map { |name| get_themetag_by_name(name) }.compact.uniq
@@ -903,22 +937,22 @@ end
 
 
 def get_pre_headline(page)
-  page.elements.find_by(name: "intro")&.content_by_name(:pre_headline)&.essence&.body || ""
+  page.intro_element&.content_by_name(:pre_headline)&.essence&.body || ""
 end
 
 
 def set_pre_headline(page, pre_headline)
-  page.elements.find_by(name: "intro")&.content_by_name(:pre_headline)&.essence&.update({body: pre_headline})
+  page.intro_element&.content_by_name(:pre_headline)&.essence&.update({body: pre_headline})
 end
 
 
 def get_lead_text(page)
-  page.elements.find_by(name: "intro")&.content_by_name(:lead_text)&.essence&.body || ""
+  page.intro_element&.content_by_name(:lead_text)&.essence&.body || ""
 end
 
 
 def set_lead_text(page, lead_text)
-  page.elements.find_by(name: "intro")&.content_by_name(:lead_text)&.essence&.update({body: lead_text})
+  page.intro_element&.content_by_name(:lead_text)&.essence&.update({body: lead_text})
 end
 
 
@@ -1252,4 +1286,44 @@ end
 
 def get_replied_by(page)
   Alchemy::Page.where(reply_target_id: page.id).order('created_at DESC').pluck(:urlname).join(", ")
+end
+
+
+
+# Anonymous pages
+
+def get_anon(page)
+
+  anon_value = page.anonymous
+
+  if anon_value.blank?
+    return ""
+  end
+
+  return anon_value.to_s.strip.upcase
+end
+
+
+def set_anon(page, raw_value)
+
+  page_layout = page.page_layout
+
+  case page_layout
+
+  when 'note'
+    if raw_value.nil? || raw_value == ""
+      raise ArgumentError, "'anon' value must be a string that represents a boolean, or a boolean itself. Got no value"
+    end
+
+    value_s = raw_value.to_s.strip.downcase
+    value = value_s == "true" ? true : false
+
+    if value != true && value != false
+      raise ArgumentError, "'anon' value must be a string that represents a boolean, or a boolean itself. Got: [[ #{raw_value} ]]"
+    end
+
+    page.intro_element.content_by_name(:anonymous)&.essence&.update!({value: value})
+
+  end
+
 end
