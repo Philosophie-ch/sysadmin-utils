@@ -2,6 +2,9 @@ require 'csv'
 
 SUPPORTED_ASSET_TYPES = ["audio_block", "video_block", "picture_block", "pdf_block", "text_and_picture"]
 
+# Take them from the language.rb in the portal code
+SUPPORTED_LANGUAGE_CODES = ["en-UK", "it", "fr", "de", "en"]
+
 
 def generate_csv_report(report, models_affected)
   return if report.empty?
@@ -176,4 +179,9 @@ def check_asset_urls_resolve(processed_urls)
     report[:error_trace] = e.backtrace.join(" ::: ")
     return report
   end
+end
+
+
+def get_page_by_urlname_and_language(urlname, language_code)
+  Alchemy::Page.find_by(urlname: urlname, language_code: language_code)
 end

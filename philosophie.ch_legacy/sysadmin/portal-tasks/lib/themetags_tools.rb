@@ -5,9 +5,6 @@ SUPPORTED_GROUPS = ["logic", "language", "ethic", "history", "aesthetic", "admin
 # enum interest_type: [:structural, :discipline, :focus]
 SUPPORTED_INTEREST_TYPES = ["structural", "discipline", "focus", "badge"]
 
-# Take them from the language.rb in the portal code
-SUPPORTED_LANGUAGE_CODES = ["en-UK", "it", "fr", "de", "en"]
-
 def _retrieve_page_slug(page)
   Alchemy::Engine.routes.url_helpers.show_page_path({
     locale: !page.language.default ? page.language_code : nil, urlname: page.urlname
