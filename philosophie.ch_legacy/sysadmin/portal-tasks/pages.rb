@@ -975,6 +975,7 @@ def main(csv_file, log_level = 'info')
             subreport[:_request] += " PARTIAL"
             subreport[:status] = 'partial success'
             subreport[:error_message] += " --- #{element_name}: {{ #{set_asset_result[:error_message]} }}"
+            subreport[:error_trace] += set_asset_result[:error_trace] + " --- "
           end
         end
 
@@ -1015,7 +1016,7 @@ def main(csv_file, log_level = 'info')
       Rails.logger.error("Error while processing page '#{subreport[:urlname].blank? ? subreport[:id] : subreport[:urlname]}': #{e.message}")
       subreport[:status] = 'unhandled error'
       subreport[:error_message] = "#{e.class} :: #{e.message}"
-      subreport[:error_trace] = e.backtrace.join(" ::: ")
+      subreport[:error_trace] += e.backtrace.join(" ::: ")
 
     ensure
       report << subreport

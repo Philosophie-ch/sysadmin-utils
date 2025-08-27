@@ -37,6 +37,24 @@ def tag_columns_to_array(row)
   return tag_page_type + tag_media + tag_content_type + tag_language + tag_institution + tag_canton + tag_project + tag_public + tag_references + tag_footnotes + tag_others
 end
 
+def forced_intro_element(page)
+  intro_element = page.intro_element
+
+  if intro_element.blank?
+    forced_intro_element = page.elements.filter { |element| element.name.include?('intro') }
+
+    if forced_intro_element.blank?
+      raise "Intro element not found on page with ID #{page.id} and name '#{page.name}'"
+    end
+
+    return forced_intro_element.first
+
+  else
+    return intro_element
+  end
+
+end
+
 
 def tag_array_to_columns(tag_names)
   tag_page_type = tag_names.find { |tag| tag.start_with?('page type: ') }&.gsub('page type: ', '') || ''
@@ -113,9 +131,12 @@ def _get_asset_blocks(page, element_name, url_field_name)
     if element_name != 'box'
 
       if element_name == 'intro'
-        asset_blocks_main_body = [page.intro_element]
+
+        asset_blocks_main_body = [forced_intro_element(page)]
+
       else
         asset_blocks_main_body = page&.elements&.filter { |element| element.name == "#{element_name}" }
+
       end
 
 
@@ -193,13 +214,19 @@ def _set_asset_blocks(page, asset_urls, element_name, url_field_name)
         essence.update(body: asset_url)
 
       else
-        Rails.logger.warn("#{element_name} block: '#{url_field_name}' field not found for #{element_name} block with ID #{asset_block.id}. Creating...")
-        new_essence_text = Alchemy::EssenceText.create(body: asset_url)
-        asset_block.contents.create(
-          name: url_field_name,
-          essence: new_essence_text
-        )
-        asset_block.save!
+        if asset_block
+
+          Rails.logger.warn("#{element_name} block: '#{url_field_name}' field not found for #{element_name} block. Creating...")
+          new_essence_text = Alchemy::EssenceText.create(body: asset_url)
+          asset_block.contents.create(
+            name: url_field_name,
+            essence: new_essence_text
+          )
+          asset_block.save!
+        else
+          Rails.logger.error("Asset block is nil while setting asset blocks for element '#{element_name}'. This should never happen.")
+          return 'error'
+        end
       end
     end
 
@@ -546,7 +573,7 @@ def get_assigned_authors(page)
 
   if page_is_article
 
-    intro_element = page.intro_element || page.elements.find { |element| element.name.include?('intro') }
+    intro_element = forced_intro_element(page) || page.elements.find { |element| element.name.include?('intro') }
     creator_content = intro_element&.content_by_name(:creator); nil
     creator_essence = creator_content&.essence
 
@@ -592,7 +619,7 @@ def update_assigned_authors(page, authors_str)
     Rails.logger.debug("\tPage is an article or event or info. Proceeding...")
 
     unless page_is_note
-      intro_element = page.intro_element || page.elements.find { |element| element.name.include?('intro') }
+      intro_element = forced_intro_element(page) || page.elements.find { |element| element.name.include?('intro') }
       creator_essence = intro_element&.content_by_name(:creator)&.essence
 
       unless creator_essence
@@ -724,7 +751,7 @@ def get_themetags(page)
     return themetags_hashmap
   end
 
-  intro_element = page.intro_element || page.elements.find { |element| element.name.include?('intro') }
+  intro_element = forced_intro_element(page) || page.elements.find { |element| element.name.include?('intro') }
   if intro_element
     topic_content = intro_element.contents.find { |content| content.name == 'topics' }
     topics = topic_content&.essence&.topics&.uniq || []
@@ -771,7 +798,7 @@ def set_themetags(page, themetag_names)
       return report
     end
 
-    intro_element = page.intro_element || page.elements.find { |element| element.name.include?('intro') }
+    intro_element = forced_intro_element(page) || page.elements.find { |element| element.name.include?('intro') }
     if intro_element
       topic_content = intro_element.contents.find { |content| content.name == 'topics' }
       themetags = themetag_names.map { |name| get_themetag_by_name(name) }.compact.uniq
@@ -937,22 +964,22 @@ end
 
 
 def get_pre_headline(page)
-  page.intro_element&.content_by_name(:pre_headline)&.essence&.body || ""
+  forced_intro_element(page).content_by_name(:pre_headline)&.essence&.body || ""
 end
 
 
 def set_pre_headline(page, pre_headline)
-  page.intro_element&.content_by_name(:pre_headline)&.essence&.update({body: pre_headline})
+  forced_intro_element(page).content_by_name(:pre_headline)&.essence&.update({body: pre_headline})
 end
 
 
 def get_lead_text(page)
-  page.intro_element&.content_by_name(:lead_text)&.essence&.body || ""
+  forced_intro_element(page).content_by_name(:lead_text)&.essence&.body || ""
 end
 
 
 def set_lead_text(page, lead_text)
-  page.intro_element&.content_by_name(:lead_text)&.essence&.update({body: lead_text})
+  forced_intro_element(page).content_by_name(:lead_text)&.essence&.update({body: lead_text})
 end
 
 
@@ -1322,7 +1349,7 @@ def set_anon(page, raw_value)
       raise ArgumentError, "'anon' value must be a string that represents a boolean, or a boolean itself. Got: [[ #{raw_value} ]]"
     end
 
-    page.intro_element.content_by_name(:anonymous)&.essence&.update!({value: value})
+    forced_intro_element(page).essence&.update!({value: value})
 
   end
 
