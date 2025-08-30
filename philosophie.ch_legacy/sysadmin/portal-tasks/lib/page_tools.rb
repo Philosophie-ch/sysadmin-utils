@@ -1354,3 +1354,52 @@ def set_anon(page, raw_value)
   end
 
 end
+
+
+
+
+def create_pdf_block(page)
+  report = {
+    status: 'not started',
+    error_message: '',
+    error_trace: '',
+  }
+
+  begin
+    # Validate input
+    if page.nil? || page.blank?
+      raise InvalidPage, "Page is required and cannot be nil"
+    end
+
+    # Create the pdf_block element
+    pdf_block = page.elements.create!(name: "pdf_block")
+
+    # Create the pdf_asset_url content with empty essence
+    new_essence_text = Alchemy::EssenceText.create!(body: "")
+    pdf_block.contents.create!(
+      name: "pdf_asset_url",
+      essence: new_essence_text
+    )
+
+    # Save and publish
+    pdf_block.save!
+    page.save!
+    page.publish!
+
+    # Return success
+    report[:status] = 'success'
+    return report
+
+  rescue InvalidPage => e
+    report[:status] = 'error'
+    report[:error_message] = e.message
+    report[:error_trace] = "page_tools.rb::create_pdf_block::validation"
+    return report
+
+  rescue => e
+    report[:status] = 'unhandled error'
+    report[:error_message] = "#{e.class} :: #{e.message}"
+    report[:error_trace] = e.backtrace.join(" ::: ")
+    return report
+  end
+end
