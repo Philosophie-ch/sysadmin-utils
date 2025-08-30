@@ -786,30 +786,7 @@ def main(csv_file, log_level = 'info')
       #######
 
       if req == 'AD HOC'
-        # Create exactly one pdf_block element if there is none
-        pdf_blocks = page.elements.where(name: 'pdf_block')
-        n_pdf_blocks = pdf_blocks.count
-        if n_pdf_blocks == 0
-          create_pdf_block_report = create_pdf_block(page)
-          if create_pdf_block_report[:status] != 'success'
-            subreport[:_request] += " ERROR"
-            subreport[:status] = 'error'
-            subreport[:error_message] = create_pdf_block_report[:error_message]
-            subreport[:error_message] += ". create_pdf_block failed! Stopping...\n"
-            subreport[:error_trace] = create_pdf_block_report[:error_trace] + "\n"
-
-            next
-
-          else
-            Rails.logger.info("\t...AD HOC: '#{page_identifier}': Created one pdf_block element")
-          end
-        end
-        # get number of pdf_block elements
-        pdf_blocks = page.elements.where(name: 'pdf_block')
-        n_pdf_blocks = pdf_blocks.count
-        Rails.logger.info("\t...AD HOC: '#{page_identifier}': Number of pdf_block elements: #{n_pdf_blocks}")
-        subreport[:_to_do_on_the_portal] = "#{n_pdf_blocks}"
-
+        Rails.logger.info("\t...AD HOC: '#{page_identifier}': No AD HOC tasks")
       end
 
 
