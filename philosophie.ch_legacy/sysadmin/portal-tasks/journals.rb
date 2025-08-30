@@ -385,7 +385,7 @@ def main(csv_file, log_level = 'info')
       unprocessed_further_references_asset = updated_entity.further_references_url.blank? ? 'empty' : updated_entity.further_references_url
 
       cover_pic_url = updated_entity.picture_url.to_s.strip || ''
-      unprocessed_cover_picture_asset = cover_pic_url.blank? ? 'empty' : unprocessed_asset_urls([cover_pic_url]).first.to_s.strip
+      unprocessed_cover_picture_asset = cover_pic_url.blank? ? 'empty' : unprocess_asset_urls([cover_pic_url]).strip
 
       subreport.merge!({
         id: "#{updated_entity.id}".strip,
