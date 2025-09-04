@@ -193,6 +193,25 @@ def main(csv_file, log_level = 'info')
       # Parse authors list
       assigned_authors = parse_authors_list(subreport[:assigned_authors])
 
+      # Pure links base URL (matching pages.rb)
+      pure_links_base_url = "https://assets.philosophie.ch/dialectica/"
+
+      # Process pure HTML asset URL
+      pure_html_asset = subreport[:pure_html_asset].strip
+      if pure_html_asset.blank?
+        pure_html_asset_full_url = ""
+      else
+        pure_html_asset_full_url = pure_links_base_url + pure_html_asset
+      end
+
+      # Process pure PDF asset URL
+      pure_pdf_asset = subreport[:pure_pdf_asset].strip
+      if pure_pdf_asset.blank?
+        pure_pdf_asset_full_url = ""
+      else
+        pure_pdf_asset_full_url = pure_links_base_url + pure_pdf_asset
+      end
+
       # Setup
       Rails.logger.info("Processing #{ENTITY_NAME} '#{entity_display_name}': Setup")
 
@@ -201,12 +220,6 @@ def main(csv_file, log_level = 'info')
 
       raw_pdf_asset = subreport[:pdf_asset].strip
       pdf_asset = raw_pdf_asset.blank? ? 'empty' : raw_pdf_asset
-
-      raw_pure_html_asset = subreport[:pure_html_asset].strip
-      pure_html_asset = raw_pure_html_asset.blank? ? 'empty' : raw_pure_html_asset
-
-      raw_pure_pdf_asset = subreport[:pure_pdf_asset].strip
-      pure_pdf_asset = raw_pure_pdf_asset.blank? ? 'empty' : raw_pure_pdf_asset
 
       raw_references_asset_url = subreport[:references_asset_url].strip
       references_asset_url = raw_references_asset_url.blank? ? 'empty' : raw_references_asset_url
@@ -217,8 +230,6 @@ def main(csv_file, log_level = 'info')
       unprocessed_assets = [
         cover_picture_asset,
         pdf_asset,
-        pure_html_asset,
-        pure_pdf_asset,
         references_asset_url,
         further_references_asset_url
       ].join(',').strip
@@ -240,8 +251,6 @@ def main(csv_file, log_level = 'info')
 
       processed_cover_picture_asset = process_asset_urls(cover_picture_asset).first.to_s.strip
       processed_pdf_asset = process_asset_urls(pdf_asset).first.to_s.strip
-      processed_pure_html_asset = process_asset_urls(pure_html_asset).first.to_s.strip
-      processed_pure_pdf_asset = process_asset_urls(pure_pdf_asset).first.to_s.strip
       processed_references_asset_url = process_asset_urls(references_asset_url).first.to_s.strip
       processed_further_references_asset_url = process_asset_urls(further_references_asset_url).first.to_s.strip
 
@@ -329,12 +338,12 @@ def main(csv_file, log_level = 'info')
           embedded_html_base_name: subreport[:embedded_html_base_name],
           KEY => old_entity_key,
           root_level: entity.root_level ? 'TRUE' : 'FALSE',
-          link: get_entity_link(old_entity_key, ENTITY_NAME),
+          link: get_entity_link(old_entity_key, ENTITY_NAME, entity.root_level),
           _request: subreport[:_request],
           _article_bib_key: subreport[:_article_bib_key],
           how_to_cite: entity.how_to_cite || '',
-          pure_html_asset: entity.pure_html_asset || '',
-          pure_pdf_asset: entity.pure_pdf_asset || '',
+          pure_html_asset: get_pure_html_asset(entity, pure_links_base_url),
+          pure_pdf_asset: get_pure_pdf_asset(entity, pure_links_base_url),
           doi: entity.doi || '',
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
           created_by: subreport[:created_by],
@@ -380,8 +389,8 @@ def main(csv_file, log_level = 'info')
         entity.abstract = subreport[:abstract].to_s.strip
 
         entity.how_to_cite = subreport[:how_to_cite].to_s.strip
-        entity.pure_html_asset = processed_pure_html_asset
-        entity.pure_pdf_asset = processed_pure_pdf_asset
+        entity.pure_html_asset = pure_html_asset_full_url
+        entity.pure_pdf_asset = pure_pdf_asset_full_url
         entity.doi = subreport[:doi].to_s.strip
 
         entity.ref_bib_keys = subreport[:ref_bib_keys].to_s.strip
@@ -427,7 +436,7 @@ def main(csv_file, log_level = 'info')
       ############
       updated_entity = MODEL.find_by(id: entity.id)
 
-      new_link = get_entity_link(updated_entity[KEY], ENTITY_NAME)
+      new_link = get_entity_link(updated_entity[KEY], ENTITY_NAME, updated_entity.root_level)
 
       # Get current authors for report
       current_authors = updated_entity.publication_authors.order(:position).map { |pa| pa.profile.slug }.join(',')
@@ -441,11 +450,9 @@ def main(csv_file, log_level = 'info')
       pdf_url = updated_entity.pdf_asset.to_s.strip || ''
       unprocessed_pdf_asset = pdf_url.blank? ? 'empty' : unprocess_asset_urls([pdf_url]).strip
 
-      pure_html_url = updated_entity.pure_html_asset.to_s.strip || ''
-      unprocessed_pure_html_asset = pure_html_url.blank? ? 'empty' : unprocess_asset_urls([pure_html_url]).strip
-
-      pure_pdf_url = updated_entity.pure_pdf_asset.to_s.strip || ''
-      unprocessed_pure_pdf_asset = pure_pdf_url.blank? ? 'empty' : unprocess_asset_urls([pure_pdf_url]).strip
+      # Get pure assets without base URL for report
+      unprocessed_pure_html_asset = get_pure_html_asset(updated_entity, pure_links_base_url)
+      unprocessed_pure_pdf_asset = get_pure_pdf_asset(updated_entity, pure_links_base_url)
 
       subreport.merge!({
         id: "#{updated_entity.id}".strip,

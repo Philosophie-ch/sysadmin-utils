@@ -1,8 +1,14 @@
-def get_entity_link(entity_key, entity_name)
+def get_entity_link(entity_key, entity_name, root_level)
   if entity_key.blank? || entity_name.blank?
     return ""
+
   else
-    return "https://www.philosophie.ch/#{entity_name}/#{entity_key}"
+    if root_level
+      return "https://www.philosophie.ch/#{entity_key}"
+    else
+      return "https://www.philosophie.ch/#{entity_name}/#{entity_key}"
+    end
+
   end
 end
 
@@ -29,7 +35,7 @@ def process_publication_authors(publication, author_slugs)
 
   warnings = []
   errors = []
-  
+
   publication.publication_authors.destroy_all
 
   author_slugs.each_with_index do |slug, index|
@@ -47,10 +53,22 @@ def process_publication_authors(publication, author_slugs)
       warnings << "Profile with slug '#{slug}' not found"
     end
   end
-  
-  { 
-    success: errors.empty?, 
+
+  {
+    success: errors.empty?,
     warnings: warnings,
     errors: errors
   }
+end
+
+def get_pure_html_asset(entity, pure_links_base_url)
+  full_url = entity.pure_html_asset.to_s.strip
+  return "" if full_url.blank?
+  return full_url.start_with?(pure_links_base_url) ? full_url.gsub(pure_links_base_url, "") : full_url
+end
+
+def get_pure_pdf_asset(entity, pure_links_base_url)
+  full_url = entity.pure_pdf_asset.to_s.strip
+  return "" if full_url.blank?
+  return full_url.start_with?(pure_links_base_url) ? full_url.gsub(pure_links_base_url, "") : full_url
 end
