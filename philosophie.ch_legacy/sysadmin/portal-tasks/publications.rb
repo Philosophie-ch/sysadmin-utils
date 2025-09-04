@@ -65,6 +65,7 @@ def main(csv_file, log_level = 'info')
       lead_text: row['lead_text'] || '',
       embedded_html_base_name: row['embedded_html_base_name'] || '',
       KEY => row[KEY_NAME] || '',
+      root_level: row['root_level'] || '',
       link: row['link'] || '',
       _request: row['_request'] || '',
       _article_bib_key: row['_article_bib_key'] || '',
@@ -180,6 +181,13 @@ def main(csv_file, log_level = 'info')
           # Handle legacy boolean values
           published = ['TRUE', '1', 'YES', 'T'].include?(published_str)
         end
+      end
+
+      # Parse root_level field as boolean for model
+      root_level_str = subreport[:root_level].strip.upcase
+      root_level = false
+      unless root_level_str.blank?
+        root_level = ['TRUE', '1', 'YES', 'T'].include?(root_level_str)
       end
 
       # Parse authors list
@@ -320,6 +328,7 @@ def main(csv_file, log_level = 'info')
           lead_text: entity.lead_text || '',
           embedded_html_base_name: subreport[:embedded_html_base_name],
           KEY => old_entity_key,
+          root_level: entity.root_level ? 'TRUE' : 'FALSE',
           link: get_entity_link(old_entity_key, ENTITY_NAME),
           _request: subreport[:_request],
           _article_bib_key: subreport[:_article_bib_key],
@@ -363,6 +372,7 @@ def main(csv_file, log_level = 'info')
 
         entity[KEY] = entity_key
         entity.published = published unless published.nil?
+        entity.root_level = root_level
         entity.name = subreport[:name].to_s.strip
         entity.pre_headline = subreport[:pre_headline].to_s.strip
         entity.title = title
@@ -440,6 +450,7 @@ def main(csv_file, log_level = 'info')
       subreport.merge!({
         id: "#{updated_entity.id}".strip,
         KEY => updated_entity[KEY].strip,
+        root_level: updated_entity.root_level ? 'TRUE' : 'FALSE',
 
         published: updated_entity.published ? 'PUBLISHED' : 'UNPUBLISHED',
         name: updated_entity.name.to_s.strip || '',
