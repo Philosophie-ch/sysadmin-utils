@@ -308,58 +308,27 @@ end
 
 # Institutional affiliation tools
 
-INSTITUTIONAL_AFFILIATION_MAP = {
-  "UniBS" => "UniBS",
-  "UniBE" => "UniBE",
-  "UniFR" => "UniFR",
-  "UniGE" => "UniGE",
-  "UniL" => "UniL",
-  "EPFL" => "EPFL",
-  "USI" => "USI",
-  "UniLU" => "UniLU",
-  "UniNE" => "UniNE",
-  "UniSG" => "UniSG",
-  "UZH" => "UZH",
-  "ETHZ" => "ETHZ",
-  "FHNW" => "FHNW",
-  "HEP_Fribourg" => "HEP Fribourg / PH Freiburg",
-  "HEP_Valais" => "HEP Valais / PH Wallis",
-  "HEP_Vaud" => "HEP Vaud",
-  "HEP_BeJuNe" => "HEP BeJuNe",
-  "PH_Bern" => "PH Bern",
-  "PH_Luzern" => "PH Luzern",
-  "PH_Schaffhausen" => "PH Schaffhausen",
-  "PH_St_Gallen" => "PH St. Gallen",
-  "PH_Thurgau" => "PH Thurgau",
-  "PH_Zug" => "PH Zug",
-  "PH_Zuerich" => "PH Zürich",
-}
+INSTITUTIONAL_AFFILIATIONS = Profile::AFFILIATIONS
+
+INSTITUTIONAL_AFFILIATIONS_MAP = INSTITUTIONAL_AFFILIATIONS.each_with_object({}) do |ia, hash|
+  hash[ia.to_s.strip.downcase] = ia
+end
 
 class InstitutionalAffiliationNotFoundError < StandardError; end
 
-def institutional_affiliation_to_string(institutional_affiliation)
+def get_institutional_affiliation(institutional_affiliation_raw)
 
-  if institutional_affiliation.blank?
+  ia = institutional_affiliation_raw.to_s.strip.downcase
+
+  if ia.blank?
     return ""
   end
 
-  unless INSTITUTIONAL_AFFILIATION_MAP.keys.include?(institutional_affiliation)
-    raise InstitutionalAffiliationNotFoundError, "Institutional affiliation '#{institutional_affiliation}' not found."
+  unless INSTITUTIONAL_AFFILIATIONS_MAP.keys.include?(ia)
+    raise InstitutionalAffiliationNotFoundError, "Institutional affiliation '#{ia}' not found."
   end
 
-  INSTITUTIONAL_AFFILIATION_MAP[institutional_affiliation]
-end
-
-def string_to_institutional_affiliation(string)
-
-  if string.blank?
-    return ""
-  end
-
-  unless INSTITUTIONAL_AFFILIATION_MAP.values.include?(string)
-    raise InstitutionalAffiliationNotFoundError, "Institutional affiliation '#{string}' not found."
-  end
-  INSTITUTIONAL_AFFILIATION_MAP.key(string)
+  return INSTITUTIONAL_AFFILIATIONS_MAP[ia]
 end
 
 
