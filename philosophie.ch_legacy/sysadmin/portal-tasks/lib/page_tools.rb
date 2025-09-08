@@ -1323,7 +1323,7 @@ def get_anon(page)
 
   anon_value = page.anonymous
 
-  if anon_value.blank?
+  if anon_value.nil?
     return ""
   end
 
@@ -1349,7 +1349,7 @@ def set_anon(page, raw_value)
       raise ArgumentError, "'anon' value must be a string that represents a boolean, or a boolean itself. Got: [[ #{raw_value} ]]"
     end
 
-    forced_intro_element(page).essence&.update!({value: value})
+    forced_intro_element(page).content_by_name(:anonymous)&.essence&.update!({value: value})
 
   end
 
