@@ -372,7 +372,7 @@ def main(csv_file, log_level = 'info')
           institutional_affiliation: user.profile.institutional_affiliation,
           _comments_on_employment: subreport[:_comments_on_employment],
           _form_of_address: subreport[:_form_of_address],
-          type_of_affiliation: user.profile.type_of_affiliation,
+          type_of_affiliation: type_of_affiliation_to_string(user.profile.type_of_affiliation),
           other_type_of_affiliation: user.profile.other_type_of_affiliation,
           _title: subreport[:_title],
           _function_title: subreport[:_function_title],
@@ -621,7 +621,7 @@ def main(csv_file, log_level = 'info')
         pages_commented: get_commented_pages_urlnames(user),
         mentioned_on: subreport[:mentioned_on],
         institutional_affiliation: user.profile.institutional_affiliation,
-        type_of_affiliation: user.profile.type_of_affiliation,
+        type_of_affiliation: type_of_affiliation_to_string(user.profile.type_of_affiliation),
         other_type_of_affiliation: user.profile.other_type_of_affiliation,
       })
 

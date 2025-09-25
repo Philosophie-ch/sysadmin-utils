@@ -334,33 +334,21 @@ end
 
 # Types of affiliation tools
 
-TYPES_OF_AFFILIATION_MAP = {
-  "full_professor" => "professor (full professor)",
-  "associate_professor" => "professor (associate)",
-  "assistant_professor" => "professor (assistant)",
-  "SNSF" => "professor (SNSF)",
-  "collaborator_post_doc_uni" => "collaborator post-doc, paid by the university",
-  "collaborator_post_doc_snsf" => "collaborator post-doc, paid by the SNSF",
-  "doctoral_collaborator_uni" => "PhD collaborator, paid by the university",
-  "doctoral_collaborator_snsf" => "PhD collaborator, paid by the SNSF",
-  "currently_abroad" => "currently abroad, paid by the SNSF",
-  "institutional_staff" => "institutional staff",
-  "other" => "other"
-}
-
 class TypeOfAffiliationNotFoundError < StandardError; end
 
 def type_of_affiliation_to_string(type_of_affiliation)
-
   if type_of_affiliation.blank?
     return ""
   end
 
-  unless TYPES_OF_AFFILIATION_MAP.keys.include?(type_of_affiliation)
-    raise TypeOfAffiliationNotFoundError, "Type of affiliation '#{type_of_affiliation}' not found."
+  # Use the Profile model's method for translation
+  begin
+    Profile.human_affiliation_type_name(type_of_affiliation)
+  rescue => e
+    # Fallback to the affiliation type itself if translation fails
+    Rails.logger.warn("Could not translate affiliation type '#{type_of_affiliation}': #{e.message}")
+    type_of_affiliation
   end
-
-  TYPES_OF_AFFILIATION_MAP[type_of_affiliation]
 end
 
 def string_to_type_of_affiliation(string)
@@ -369,10 +357,19 @@ def string_to_type_of_affiliation(string)
     return ""
   end
 
-  unless TYPES_OF_AFFILIATION_MAP.values.include?(string)
-    raise TypeOfAffiliationNotFoundError, "Type of affiliation '#{string}' not found."
+  # Get all possible affiliation types from the Profile model constant
+  affiliation_types = Profile::AFFILIATION_TYPES
+
+  # Try to find a matching affiliation type by comparing translations
+  affiliation_types.each do |affiliation_type|
+    translated = Profile.human_affiliation_type_name(affiliation_type)
+    if translated == string
+      return affiliation_type
+    end
   end
-  TYPES_OF_AFFILIATION_MAP.key(string)
+
+  # If no match found, raise error
+  raise TypeOfAffiliationNotFoundError, "Type of affiliation string '#{string}' not found."
 end
 
 

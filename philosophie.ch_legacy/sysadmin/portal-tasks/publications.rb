@@ -73,6 +73,8 @@ def main(csv_file, log_level = 'info')
       pure_html_asset: row['pure_html_asset'] || '',
       pure_pdf_asset: row['pure_pdf_asset'] || '',
       doi: row['doi'] || '',
+      aside_column: row['aside_column'] || '',
+      published_at: row['published_at'] || '',
       created_at: row['created_at'] || '',
       created_by: row['created_by'] || '',
       last_updated_by: row['last_updated_by'] || '',
@@ -189,6 +191,18 @@ def main(csv_file, log_level = 'info')
       root_level = false
       unless root_level_str.blank?
         root_level = ['TRUE', '1', 'YES', 'T'].include?(root_level_str)
+      end
+
+      # Parse published_at date field
+      published_at_str = subreport[:published_at].strip
+      published_at = nil
+      unless published_at_str.blank?
+        begin
+          published_at = Date.parse(published_at_str)
+        rescue ArgumentError => e
+          Rails.logger.warn("Invalid date format for published_at: '#{published_at_str}'. Skipping field.")
+          subreport[:warning_messages] += " ::: Invalid date format for published_at: '#{published_at_str}'. Field skipped."
+        end
       end
 
       # Parse authors list
@@ -346,6 +360,8 @@ def main(csv_file, log_level = 'info')
           pure_html_asset: get_pure_html_asset(entity, pure_links_base_url),
           pure_pdf_asset: get_pure_pdf_asset(entity, pure_links_base_url),
           doi: entity.doi || '',
+          aside_column: entity.aside_column || '',
+          published_at: entity.published_at.nil? ? '' : entity.published_at.strftime('%Y-%m-%d'),
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
           created_by: subreport[:created_by],
           last_updated_by: subreport[:last_updated_by],
@@ -394,6 +410,8 @@ def main(csv_file, log_level = 'info')
         entity.pure_html_asset = pure_html_asset_full_url
         entity.pure_pdf_asset = pure_pdf_asset_full_url
         entity.doi = subreport[:doi].to_s.strip
+        entity.aside_column = subreport[:aside_column].to_s.strip
+        entity.published_at = published_at unless published_at.nil?
 
         entity.ref_bib_keys = subreport[:ref_bib_keys].to_s.strip
         entity.references_asset_url = processed_references_asset_url
@@ -473,6 +491,8 @@ def main(csv_file, log_level = 'info')
         pure_html_asset: unprocessed_pure_html_asset,
         pure_pdf_asset: unprocessed_pure_pdf_asset,
         doi: updated_entity.doi.to_s.strip || '',
+        aside_column: updated_entity.aside_column.to_s.strip || '',
+        published_at: updated_entity.published_at.nil? ? '' : updated_entity.published_at.strftime('%Y-%m-%d'),
 
         created_at: updated_entity.created_at.nil? ? '' : updated_entity.created_at.strftime('%Y-%m-%d'),
 
