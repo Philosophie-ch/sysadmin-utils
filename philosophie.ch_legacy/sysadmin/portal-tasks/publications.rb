@@ -205,6 +205,39 @@ def main(csv_file, log_level = 'info')
         end
       end
 
+      # Validate external_link URL
+      external_link_str = subreport[:external_link].to_s.strip
+      external_link = ""
+      unless external_link_str.blank?
+        # Validate URL format
+        unless external_link_str.start_with?("http://") || external_link_str.start_with?("https://")
+          subreport[:_request] = req_err
+          subreport[:status] = "error"
+          subreport[:error_message] = "external_link '#{external_link_str}' is not a valid URL. Must start with http:// or https://"
+          subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::external_link"
+          next
+        end
+
+        # Validate URI format
+        begin
+          uri = URI.parse(external_link_str)
+          unless uri.is_a?(URI::HTTP) || uri.is_a?(URI::HTTPS)
+            subreport[:_request] = req_err
+            subreport[:status] = "error"
+            subreport[:error_message] = "external_link '#{external_link_str}' is not a valid HTTP/HTTPS URL"
+            subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::external_link"
+            next
+          end
+          external_link = external_link_str
+        rescue URI::InvalidURIError => e
+          subreport[:_request] = req_err
+          subreport[:status] = "error"
+          subreport[:error_message] = "external_link '#{external_link_str}' is not a valid URL: #{e.message}"
+          subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::external_link"
+          next
+        end
+      end
+
       # Parse authors list
       assigned_authors = parse_authors_list(subreport[:assigned_authors])
 
@@ -371,7 +404,7 @@ def main(csv_file, log_level = 'info')
           _further_refs: subreport[:_further_refs],
           further_references_asset_url: entity.further_references_asset_url || '',
           _depends_on: subreport[:_depends_on],
-          external_link: subreport[:external_link],
+          external_link: entity.external_link.to_s.strip || '',
           abstract: entity.abstract || '',
           _to_do_on_the_portal: subreport[:_to_do_on_the_portal],
           assigned_authors: old_authors,
@@ -416,6 +449,8 @@ def main(csv_file, log_level = 'info')
         entity.ref_bib_keys = subreport[:ref_bib_keys].to_s.strip
         entity.references_asset_url = processed_references_asset_url
         entity.further_references_asset_url = processed_further_references_asset_url
+
+        entity.external_link = external_link
 
         entity.cover_picture_asset = processed_cover_picture_asset
         entity.pdf_asset = processed_pdf_asset
@@ -499,6 +534,8 @@ def main(csv_file, log_level = 'info')
         ref_bib_keys: updated_entity.ref_bib_keys.to_s.strip || '',
         references_asset_url: unprocessed_references_asset_url,
         further_references_asset_url: unprocessed_further_references_asset_url,
+
+        external_link: updated_entity.external_link.to_s.strip || '',
 
         assigned_authors: current_authors,
         cover_picture_asset: unprocessed_cover_picture_asset,
