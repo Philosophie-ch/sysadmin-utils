@@ -66,6 +66,8 @@ def main(csv_file, log_level = 'info')
       embedded_html_base_name: row['embedded_html_base_name'] || '',
       KEY => row[KEY_NAME] || '',
       root_level: row['root_level'] || '',
+      open_access: row['open_access'] || '',
+      pub_type: row['pub_type'] || '',
       link: row['link'] || '',
       _request: row['_request'] || '',
       bibkey: row['bibkey'] || '',
@@ -246,6 +248,28 @@ def main(csv_file, log_level = 'info')
       # Parse metadata_json
       metadata_json_str = subreport[:metadata_json].to_s.strip
 
+      # Parse open_access field as boolean for model
+      open_access_str = subreport[:open_access].strip.upcase
+      open_access = nil
+      unless open_access_str.blank?
+        open_access = ['TRUE', '1', 'YES', 'T', 'OPEN ACCESS'].include?(open_access_str)
+      end
+
+      # Parse pub_type field - validate against MODEL::PUB_TYPES constant
+      pub_type_str = subreport[:pub_type].strip
+      pub_type = nil
+      unless pub_type_str.blank?
+        # Check if the provided pub_type is valid
+        unless MODEL::PUB_TYPES.include?(pub_type_str)
+          subreport[:_request] = req_err
+          subreport[:status] = "error"
+          subreport[:error_message] = "Invalid pub_type '#{pub_type_str}'. Must be one of: #{MODEL::PUB_TYPES.join(', ')}"
+          subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::pub_type"
+          next
+        end
+        pub_type = pub_type_str
+      end
+
       # Pure links base URL (matching pages.rb)
       pure_links_base_url = "https://assets.philosophie.ch/dialectica/"
 
@@ -391,6 +415,8 @@ def main(csv_file, log_level = 'info')
           embedded_html_base_name: subreport[:embedded_html_base_name],
           KEY => old_entity_key,
           root_level: entity.root_level ? 'TRUE' : 'FALSE',
+          open_access: entity.open_access ? 'TRUE' : 'FALSE',
+          pub_type: entity.pub_type || '',
           link: get_entity_link(old_entity_key, ENTITY_NAME, entity.root_level),
           _request: subreport[:_request],
           bibkey: entity.bibkey || '',
@@ -451,6 +477,8 @@ def main(csv_file, log_level = 'info')
         entity.pure_html_asset = pure_html_asset_full_url
         entity.pure_pdf_asset = pure_pdf_asset_full_url
         entity.doi = subreport[:doi].to_s.strip
+        entity.open_access = open_access unless open_access.nil?
+        entity.pub_type = pub_type unless pub_type.nil?
         entity.aside_column = subreport[:aside_column].to_s.strip
         entity.published_at = published_at unless published_at.nil?
 
@@ -531,6 +559,8 @@ def main(csv_file, log_level = 'info')
         id: "#{updated_entity.id}".strip,
         KEY => updated_entity[KEY].strip,
         root_level: updated_entity.root_level ? 'TRUE' : 'FALSE',
+        open_access: updated_entity.open_access ? 'TRUE' : 'FALSE',
+        pub_type: updated_entity.pub_type.to_s.strip || '',
 
         published: updated_entity.published ? 'PUBLISHED' : 'UNPUBLISHED',
         name: updated_entity.name.to_s.strip || '',
