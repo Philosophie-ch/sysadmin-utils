@@ -68,11 +68,13 @@ def main(csv_file, log_level = 'info')
       root_level: row['root_level'] || '',
       link: row['link'] || '',
       _request: row['_request'] || '',
+      bibkey: row['bibkey'] || '',
       _article_bib_key: row['_article_bib_key'] || '',
       how_to_cite: row['how_to_cite'] || '',
       pure_html_asset: row['pure_html_asset'] || '',
       pure_pdf_asset: row['pure_pdf_asset'] || '',
       doi: row['doi'] || '',
+      metadata_json: row['metadata_json'] || '',
       aside_column: row['aside_column'] || '',
       published_at: row['published_at'] || '',
       created_at: row['created_at'] || '',
@@ -241,6 +243,9 @@ def main(csv_file, log_level = 'info')
       # Parse authors list
       assigned_authors = parse_authors_list(subreport[:assigned_authors])
 
+      # Parse metadata_json
+      metadata_json_str = subreport[:metadata_json].to_s.strip
+
       # Pure links base URL (matching pages.rb)
       pure_links_base_url = "https://assets.philosophie.ch/dialectica/"
 
@@ -388,11 +393,13 @@ def main(csv_file, log_level = 'info')
           root_level: entity.root_level ? 'TRUE' : 'FALSE',
           link: get_entity_link(old_entity_key, ENTITY_NAME, entity.root_level),
           _request: subreport[:_request],
+          bibkey: entity.bibkey || '',
           _article_bib_key: subreport[:_article_bib_key],
           how_to_cite: entity.how_to_cite || '',
           pure_html_asset: get_pure_html_asset(entity, pure_links_base_url),
           pure_pdf_asset: get_pure_pdf_asset(entity, pure_links_base_url),
           doi: entity.doi || '',
+          metadata_json: entity.academic_metadata.blank? ? '' : entity.academic_metadata.to_json,
           aside_column: entity.aside_column || '',
           published_at: entity.published_at.nil? ? '' : entity.published_at.strftime('%Y-%m-%d'),
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
@@ -439,6 +446,7 @@ def main(csv_file, log_level = 'info')
         entity.lead_text = subreport[:lead_text].to_s.strip
         entity.abstract = subreport[:abstract].to_s.strip
 
+        entity.bibkey = subreport[:bibkey].to_s.strip
         entity.how_to_cite = subreport[:how_to_cite].to_s.strip
         entity.pure_html_asset = pure_html_asset_full_url
         entity.pure_pdf_asset = pure_pdf_asset_full_url
@@ -454,6 +462,16 @@ def main(csv_file, log_level = 'info')
 
         entity.cover_picture_asset = processed_cover_picture_asset
         entity.pdf_asset = processed_pdf_asset
+
+        # Set academic metadata from JSON string if provided
+        unless metadata_json_str.blank?
+          begin
+            entity.set_academic_metadata_from_json(metadata_json_str)
+          rescue => e
+            Rails.logger.warn("Failed to set academic_metadata: #{e.message}")
+            subreport[:warning_messages] += " ::: Failed to set academic_metadata: #{e.message}"
+          end
+        end
 
         entity.save!
 
@@ -522,10 +540,12 @@ def main(csv_file, log_level = 'info')
         abstract: updated_entity.abstract.to_s.strip || '',
         link: new_link,
 
+        bibkey: updated_entity.bibkey.to_s.strip || '',
         how_to_cite: updated_entity.how_to_cite.to_s.strip || '',
         pure_html_asset: unprocessed_pure_html_asset,
         pure_pdf_asset: unprocessed_pure_pdf_asset,
         doi: updated_entity.doi.to_s.strip || '',
+        metadata_json: updated_entity.academic_metadata.blank? ? '' : updated_entity.academic_metadata.to_json,
         aside_column: updated_entity.aside_column.to_s.strip || '',
         published_at: updated_entity.published_at.nil? ? '' : updated_entity.published_at.strftime('%Y-%m-%d'),
 
