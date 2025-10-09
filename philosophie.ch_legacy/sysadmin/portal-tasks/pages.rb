@@ -64,11 +64,13 @@ def main(csv_file, log_level = 'info')
       slug: row['slug'] || "", # page
       link: row['link'] || "",  # crafted
       _request: row['_request'] || "",
+      bibkey: row['bibkey'] || "",
       _article_bib_key: row['_article_bib_key'] || "",  # article
       how_to_cite: row['how_to_cite'] || "",  # article
       pure_html_asset: row['pure_html_asset'] || "",  # element
       pure_pdf_asset: row['pure_pdf_asset'] || "",  # element
       doi: row['doi'] || "",  # article
+      metadata_json: row['metadata_json'] || "",
       created_at: row['created_at'] || "",  # page
       page_layout: row['page_layout'] || "",  # page
       created_by: row['created_by'] || "",  # page
@@ -202,6 +204,7 @@ def main(csv_file, log_level = 'info')
 
 
       # Metadata block
+      bibkey = subreport[:bibkey].strip
       how_to_cite = subreport[:how_to_cite].strip
 
       pure_links_base_url = "https://assets.philosophie.ch/dialectica/"
@@ -221,6 +224,9 @@ def main(csv_file, log_level = 'info')
       end
 
       doi = subreport[:doi].strip
+
+      # Parse metadata_json
+      metadata_json_str = subreport[:metadata_json].to_s.strip
       ##
 
       created_at = subreport[:created_at].strip
@@ -423,11 +429,13 @@ def main(csv_file, log_level = 'info')
           old_how_to_cite = ''
           old_pure_html_asset = ''
           old_pure_pdf_asset = ''
+          old_metadata_json = ''
         else
           old_doi = get_doi(article_metadata_element)
           old_how_to_cite = get_how_to_cite(article_metadata_element)
           old_pure_html_asset = get_pure_html_asset(article_metadata_element, pure_links_base_url)
           old_pure_pdf_asset = get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
+          old_metadata_json = get_metadata_json(article_metadata_element)
         end
 
         old_page = {
@@ -444,11 +452,13 @@ def main(csv_file, log_level = 'info')
           slug: subreport[:slug],
           link: subreport[:link],
           _request: subreport[:_request],
+          bibkey: page.bibkey || '',
           _article_bib_key: subreport[:_article_bib_key],
           how_to_cite: old_how_to_cite,
           pure_html_asset: old_pure_html_asset,
           pure_pdf_asset: old_pure_pdf_asset,
           doi: old_doi,
+          metadata_json: old_metadata_json,
           created_at: subreport[:created_at],
           page_layout: subreport[:page_layout],
           created_by: created_by,
@@ -521,6 +531,7 @@ def main(csv_file, log_level = 'info')
         Rails.logger.info("\t...POST or UPDATE: '#{page_identifier}': Setting attributes")
         page.name = name
         page.title = title
+        page.bibkey = bibkey
 
         if req == "UPDATE"
           # Handle moving pages across trees
@@ -923,9 +934,9 @@ def main(csv_file, log_level = 'info')
 
 
         # Article metadata
-        if !how_to_cite.blank? || !pure_html_asset_full_url.blank? || !pure_pdf_asset_full_url.blank? || !doi.blank?
+        if !how_to_cite.blank? || !pure_html_asset_full_url.blank? || !pure_pdf_asset_full_url.blank? || !doi.blank? || !metadata_json_str.blank?
 
-          set_article_metadata_report = set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi)
+          set_article_metadata_report = set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, metadata_json_str)
 
           if set_article_metadata_report[:status] != 'success'
             subreport[:_request] += " PARTIAL"
@@ -941,12 +952,17 @@ def main(csv_file, log_level = 'info')
           new_pure_html_asset = get_pure_html_asset(new_metadata_element, pure_links_base_url)
           new_pure_pdf_asset = get_pure_pdf_asset(new_metadata_element, pure_links_base_url)
           new_doi = get_doi(new_metadata_element)
+          new_metadata_json = get_metadata_json(new_metadata_element)
 
           subreport[:how_to_cite] = new_how_to_cite
           subreport[:pure_html_asset] = new_pure_html_asset
           subreport[:pure_pdf_asset] = new_pure_pdf_asset
           subreport[:doi] = new_doi
+          subreport[:metadata_json] = new_metadata_json
         end
+
+        # Read bibkey from page
+        subreport[:bibkey] = page.bibkey || ''
 
 
         # Handle asset tasks

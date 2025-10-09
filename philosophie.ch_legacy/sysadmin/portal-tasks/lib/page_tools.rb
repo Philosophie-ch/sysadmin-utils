@@ -1109,10 +1109,11 @@ def get_article_metadata_element(aside_column)
 end
 
 
-def set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi)
+def set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, metadata_json_str = '')
   # pure_html_asset_full_url and pure_pdf_asset_full_url are meant to be full URLs
   # doi is EssenceText
   # how_to_cite is EssenceRichtext
+  # metadata_json_str is a JSON string for the metadata ingredient
 
   report = {
     status: 'not started',
@@ -1172,6 +1173,14 @@ def set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_a
 
     article_metadata.contents.find_by(name: "pure_pdf_url").essence.update!({body: pure_pdf_asset_full_url})
 
+    # Set metadata ingredient if JSON string is provided
+    unless metadata_json_str.blank?
+      metadata_ingredient = article_metadata.ingredients.find_by(role: "metadata")
+      if metadata_ingredient.present?
+        metadata_ingredient.update!(value: metadata_json_str)
+      end
+    end
+
     # Put the article metadata at the top of the aside column
     article_metadata.update!(position: 1)
 
@@ -1213,6 +1222,11 @@ end
 def get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
   full_url = article_metadata_element.contents.find_by(name: "pure_pdf_url").essence.body
   return  full_url&.start_with?(pure_links_base_url) ? full_url.gsub(pure_links_base_url, "") : full_url
+end
+
+def get_metadata_json(article_metadata_element)
+  metadata_ingredient = article_metadata_element.ingredients.find_by(role: "metadata")
+  return metadata_ingredient.present? ? metadata_ingredient.value.to_s : ''
 end
 
 
