@@ -842,14 +842,15 @@ def parse_created_at(date)
 end
 
 def get_references_bib_keys(page)
-  references = page.find_elements.find_by(name: "references")
-  return "" unless references
-
-  result = references.contents.each_with_object([]) do |c, arr|
-    arr << c.essence.body if c.name == "bibkeys"
+  references = page.elements.named(:references).first
+  unless references
+    Rails.logger.info("get_references_bib_keys: No references element found")
+    return ""
   end
 
-  result.join(", ").strip.split(", ").uniq.join(", ")
+  bibkeys = references.ingredient(:bibkeys)
+  Rails.logger.info("get_references_bib_keys: Found bibkeys = '#{bibkeys}'")
+  return bibkeys.to_s.strip
 end
 
 
@@ -860,25 +861,27 @@ def set_references_bib_keys(page, bibkeys)
     error_trace: '',
   }
   begin
-    references = page.find_elements.find_by(name: "references")
+    Rails.logger.info("set_references_bib_keys called with bibkeys: '#{bibkeys}'")
+    references = page.elements.named(:references).first
 
     unless references
-      Rails.logger.warn("References element not found. Skipping...")
-      result[:status] = 'success'
-      return result
+      Rails.logger.warn("References element not found. Creating...")
+      # Create the references element
+      page.elements.create!(name: "references", page_id: page.id, parent_element_id: nil, public: true)
+      page.reload
+      references = page.elements.named(:references).first
+
+      unless references
+        raise "References element could not be created"
+      end
+      Rails.logger.info("References element created successfully")
     end
 
-    bibkeys_content = references.contents.find_by(name: "bibkeys")
-
-    unless bibkeys_content
-      Rails.logger.error("Bibkeys content not found in the references element! How is this possible?. Skipping...")
-      result[:status] = 'error'
-      result[:error_message] = "Bibkeys content not found in the references element! How is this possible?"
-      result[:error_trace] = "pages_tasks.rb::set_references_bib_keys"
-      return result
-    end
-
-    bibkeys_content.essence.update(body: bibkeys)
+    # Update the bibkeys content using the proper Alchemy API
+    bibkeys_content = references.content_by_name(:bibkeys)
+    Rails.logger.info("Updating bibkeys content. Current value: '#{bibkeys_content&.ingredient}', New value: '#{bibkeys}'")
+    bibkeys_content.update_essence(ingredient: bibkeys)
+    Rails.logger.info("Bibkeys after update: '#{bibkeys_content.reload.ingredient}'")
 
     Rails.logger.info("References bibkeys updated successfully")
 
@@ -1109,11 +1112,10 @@ def get_article_metadata_element(aside_column)
 end
 
 
-def set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, metadata_json_str = '')
+def set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi)
   # pure_html_asset_full_url and pure_pdf_asset_full_url are meant to be full URLs
   # doi is EssenceText
   # how_to_cite is EssenceRichtext
-  # metadata_json_str is a JSON string for the metadata ingredient
 
   report = {
     status: 'not started',
@@ -1173,14 +1175,6 @@ def set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_a
 
     article_metadata.contents.find_by(name: "pure_pdf_url").essence.update!({body: pure_pdf_asset_full_url})
 
-    # Set metadata ingredient if JSON string is provided
-    unless metadata_json_str.blank?
-      metadata_ingredient = article_metadata.ingredients.find_by(role: "metadata")
-      if metadata_ingredient.present?
-        metadata_ingredient.update!(value: metadata_json_str)
-      end
-    end
-
     # Put the article metadata at the top of the aside column
     article_metadata.update!(position: 1)
 
@@ -1225,8 +1219,66 @@ def get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
 end
 
 def get_metadata_json(article_metadata_element)
-  metadata_ingredient = article_metadata_element.ingredients.find_by(role: "metadata")
-  return metadata_ingredient.present? ? metadata_ingredient.value.to_s : ''
+  metadata_content = article_metadata_element.contents.find_by(name: "metadata")
+  return metadata_content.present? ? metadata_content.essence.body.to_s : ''
+end
+
+
+def get_academic_metadata_json(page)
+  academic_metadata = page.elements.named(:academic_metadata).first
+  unless academic_metadata
+    Rails.logger.info("get_academic_metadata_json: No academic_metadata element found")
+    return ""
+  end
+
+  metadata_json = academic_metadata.ingredient(:metadata_json)
+  Rails.logger.info("get_academic_metadata_json: Found metadata_json = '#{metadata_json}'")
+  return metadata_json.to_s.strip
+end
+
+
+def set_academic_metadata_json(page, metadata_json_str)
+  result = {
+    status: 'not started',
+    error_message: '',
+    error_trace: '',
+  }
+  begin
+    Rails.logger.info("set_academic_metadata_json called with metadata_json: '#{metadata_json_str}'")
+
+    # Find or create academic_metadata element
+    academic_metadata = page.elements.named(:academic_metadata).first
+
+    unless academic_metadata
+      Rails.logger.warn("Academic metadata element not found. Creating...")
+      # Create the academic_metadata element
+      page.elements.create!(name: "academic_metadata", page_id: page.id, parent_element_id: nil, public: true)
+      page.reload
+      academic_metadata = page.elements.named(:academic_metadata).first
+
+      unless academic_metadata
+        raise "Academic metadata element could not be created"
+      end
+      Rails.logger.info("Academic metadata element created successfully")
+    end
+
+    # Update the metadata_json content using the proper Alchemy API
+    metadata_json_content = academic_metadata.content_by_name(:metadata_json)
+    Rails.logger.info("Updating metadata_json content. Current value: '#{metadata_json_content&.ingredient}', New value: '#{metadata_json_str}'")
+    metadata_json_content.update_essence(ingredient: metadata_json_str)
+    Rails.logger.info("Metadata_json after update: '#{metadata_json_content.reload.ingredient}'")
+
+    Rails.logger.info("Academic metadata_json updated successfully")
+
+    result[:status] = 'success'
+    return result
+
+  rescue => e
+    result[:status] = 'unhandled error'
+    result[:error_message] = "#{e.class} :: #{e.message}"
+    result[:error_trace] = e.backtrace.join(" ::: ")
+    return result
+  end
 end
 
 

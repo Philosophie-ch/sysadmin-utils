@@ -65,7 +65,6 @@ def main(csv_file, log_level = 'info')
       link: row['link'] || "",  # crafted
       _request: row['_request'] || "",
       bibkey: row['bibkey'] || "",
-      _article_bib_key: row['_article_bib_key'] || "",  # article
       how_to_cite: row['how_to_cite'] || "",  # article
       pure_html_asset: row['pure_html_asset'] || "",  # element
       pure_pdf_asset: row['pure_pdf_asset'] || "",  # element
@@ -205,6 +204,7 @@ def main(csv_file, log_level = 'info')
 
       # Metadata block
       bibkey = subreport[:bibkey].strip
+      bibkey = nil if bibkey.blank?
       how_to_cite = subreport[:how_to_cite].strip
 
       pure_links_base_url = "https://assets.philosophie.ch/dialectica/"
@@ -252,7 +252,9 @@ def main(csv_file, log_level = 'info')
       tag_footnotes = subreport[:tag_footnotes].strip
 
 
-      # References urls
+      # References urls and bibkeys
+      ref_bib_keys = subreport[:ref_bib_keys].to_s.strip
+
       references_base_url = "https://assets.philosophie.ch/references/articles/"
       references_asset_url = subreport[:references_asset_url].strip
 
@@ -421,21 +423,35 @@ def main(csv_file, log_level = 'info')
         all_references_urls = get_references_urls(page)
         old_references_asset_url = all_references_urls[:references_url] ? all_references_urls[:references_url].gsub(references_base_url, '') : ''
         old_further_references_asset_url = all_references_urls[:further_references_url] ? all_references_urls[:further_references_url].gsub(references_base_url, '') : ''
+        old_ref_bib_keys = get_references_bib_keys(page)
 
-        aside_column = get_aside_column(page)
-        article_metadata_element = get_article_metadata_element(aside_column)
-        if article_metadata_element.nil?
+        # Read article_metadata (aside_column) - ONLY for article page layout
+        if page.page_layout == "article"
+          aside_column = get_aside_column(page)
+          article_metadata_element = get_article_metadata_element(aside_column)
+          if article_metadata_element.nil?
+            old_doi = ''
+            old_how_to_cite = ''
+            old_pure_html_asset = ''
+            old_pure_pdf_asset = ''
+          else
+            old_doi = get_doi(article_metadata_element)
+            old_how_to_cite = get_how_to_cite(article_metadata_element)
+            old_pure_html_asset = get_pure_html_asset(article_metadata_element, pure_links_base_url)
+            old_pure_pdf_asset = get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
+          end
+        else
           old_doi = ''
           old_how_to_cite = ''
           old_pure_html_asset = ''
           old_pure_pdf_asset = ''
-          old_metadata_json = ''
+        end
+
+        # Read academic_metadata (page level) - for article OR standard page layouts
+        if page.page_layout == "article" || page.page_layout == "standard"
+          old_metadata_json = get_academic_metadata_json(page)
         else
-          old_doi = get_doi(article_metadata_element)
-          old_how_to_cite = get_how_to_cite(article_metadata_element)
-          old_pure_html_asset = get_pure_html_asset(article_metadata_element, pure_links_base_url)
-          old_pure_pdf_asset = get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
-          old_metadata_json = get_metadata_json(article_metadata_element)
+          old_metadata_json = ''
         end
 
         old_page = {
@@ -453,7 +469,6 @@ def main(csv_file, log_level = 'info')
           link: subreport[:link],
           _request: subreport[:_request],
           bibkey: page.bibkey || '',
-          _article_bib_key: subreport[:_article_bib_key],
           how_to_cite: old_how_to_cite,
           pure_html_asset: old_pure_html_asset,
           pure_pdf_asset: old_pure_pdf_asset,
@@ -480,7 +495,7 @@ def main(csv_file, log_level = 'info')
           tag_references: old_page_tag_columns[:tag_references],
           tag_footnotes: old_page_tag_columns[:tag_footnotes],
 
-          ref_bib_keys: subreport[:ref_bib_keys],
+          ref_bib_keys: old_ref_bib_keys,
           references_asset_url: old_references_asset_url,
           _further_refs: subreport[:_further_refs],
           further_references_asset_url: old_further_references_asset_url,
@@ -902,7 +917,7 @@ def main(csv_file, log_level = 'info')
 
 
         # References bibkeys
-        update_references_report = set_references_bib_keys(page, subreport[:ref_bib_keys])
+        update_references_report = set_references_bib_keys(page, ref_bib_keys)
 
         if update_references_report[:status] != 'success'
           subreport[:_request] += " PARTIAL"
@@ -933,32 +948,57 @@ def main(csv_file, log_level = 'info')
         subreport[:themetags_structural] = new_themetags_hashmap[:structural]
 
 
-        # Article metadata
-        if !how_to_cite.blank? || !pure_html_asset_full_url.blank? || !pure_pdf_asset_full_url.blank? || !doi.blank? || !metadata_json_str.blank?
+        # Article metadata (aside_column) - ONLY for article page layout
+        if page.page_layout == "article"
+          if !how_to_cite.blank? || !pure_html_asset_full_url.blank? || !pure_pdf_asset_full_url.blank? || !doi.blank?
 
-          set_article_metadata_report = set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi, metadata_json_str)
+            set_article_metadata_report = set_article_metadata(page, how_to_cite, pure_html_asset_full_url, pure_pdf_asset_full_url, doi)
 
-          if set_article_metadata_report[:status] != 'success'
-            subreport[:_request] += " PARTIAL"
-            subreport[:status] = 'partial success'
-            subreport[:error_message] += set_article_metadata_report[:error_message]
-            subreport[:error_message] += ". Page saved, but set_article_metadata failed! Stopping...\n"
-            subreport[:error_trace] += set_article_metadata_report[:error_trace] + "\n"
+            if set_article_metadata_report[:status] != 'success'
+              subreport[:_request] += " PARTIAL"
+              subreport[:status] = 'partial success'
+              subreport[:error_message] += set_article_metadata_report[:error_message]
+              subreport[:error_message] += ". Page saved, but set_article_metadata failed! Stopping...\n"
+              subreport[:error_trace] += set_article_metadata_report[:error_trace] + "\n"
+            end
           end
 
+          # Read back article metadata after POST/UPDATE
           new_aside_column = get_aside_column(page)
           new_metadata_element = get_article_metadata_element(new_aside_column)
-          new_how_to_cite = get_how_to_cite(new_metadata_element)
-          new_pure_html_asset = get_pure_html_asset(new_metadata_element, pure_links_base_url)
-          new_pure_pdf_asset = get_pure_pdf_asset(new_metadata_element, pure_links_base_url)
-          new_doi = get_doi(new_metadata_element)
-          new_metadata_json = get_metadata_json(new_metadata_element)
+          if new_metadata_element.present?
+            new_how_to_cite = get_how_to_cite(new_metadata_element)
+            new_pure_html_asset = get_pure_html_asset(new_metadata_element, pure_links_base_url)
+            new_pure_pdf_asset = get_pure_pdf_asset(new_metadata_element, pure_links_base_url)
+            new_doi = get_doi(new_metadata_element)
 
-          subreport[:how_to_cite] = new_how_to_cite
-          subreport[:pure_html_asset] = new_pure_html_asset
-          subreport[:pure_pdf_asset] = new_pure_pdf_asset
-          subreport[:doi] = new_doi
-          subreport[:metadata_json] = new_metadata_json
+            subreport[:how_to_cite] = new_how_to_cite
+            subreport[:pure_html_asset] = new_pure_html_asset
+            subreport[:pure_pdf_asset] = new_pure_pdf_asset
+            subreport[:doi] = new_doi
+          end
+        end
+
+        # Academic metadata (page level) - for article OR standard page layouts
+        if page.page_layout == "article" || page.page_layout == "standard"
+          # Set academic_metadata element (metadata_json)
+          if !metadata_json_str.blank?
+            set_academic_metadata_report = set_academic_metadata_json(page, metadata_json_str)
+
+            if set_academic_metadata_report[:status] != 'success'
+              subreport[:_request] += " PARTIAL"
+              subreport[:status] = 'partial success'
+              subreport[:error_message] += set_academic_metadata_report[:error_message]
+              subreport[:error_message] += ". Page saved, but set_academic_metadata_json failed! Stopping...\n"
+              subreport[:error_trace] += set_academic_metadata_report[:error_trace] + "\n"
+            end
+          end
+
+          # Read back metadata_json from academic_metadata element
+          subreport[:metadata_json] = get_academic_metadata_json(page)
+        else
+          # For non-article/standard layouts, always return empty string
+          subreport[:metadata_json] = ''
         end
 
         # Read bibkey from page
