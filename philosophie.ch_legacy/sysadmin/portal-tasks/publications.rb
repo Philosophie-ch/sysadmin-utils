@@ -71,14 +71,12 @@ def main(csv_file, log_level = 'info')
       link: row['link'] || '',
       _request: row['_request'] || '',
       bibkey: row['bibkey'] || '',
-      _article_bib_key: row['_article_bib_key'] || '',
       how_to_cite: row['how_to_cite'] || '',
       pure_html_asset: row['pure_html_asset'] || '',
       pure_pdf_asset: row['pure_pdf_asset'] || '',
       doi: row['doi'] || '',
       metadata_json: row['metadata_json'] || '',
       aside_column: row['aside_column'] || '',
-      published_at: row['published_at'] || '',
       created_at: row['created_at'] || '',
       created_by: row['created_by'] || '',
       last_updated_by: row['last_updated_by'] || '',
@@ -90,7 +88,6 @@ def main(csv_file, log_level = 'info')
       _depends_on: row['_depends_on'] || '',
       external_link: row['external_link'] || '',
       abstract: row['abstract'] || '',
-      _to_do_on_the_portal: row['_to_do_on_the_portal'] || '',
       assigned_authors: row['assigned_authors'] || '',
       cover_picture_asset: row['cover_picture_asset'] || '',
       pdf_asset: row['pdf_asset'] || '',
@@ -195,18 +192,6 @@ def main(csv_file, log_level = 'info')
       root_level = false
       unless root_level_str.blank?
         root_level = ['TRUE', '1', 'YES', 'T'].include?(root_level_str)
-      end
-
-      # Parse published_at date field
-      published_at_str = subreport[:published_at].strip
-      published_at = nil
-      unless published_at_str.blank?
-        begin
-          published_at = Date.parse(published_at_str)
-        rescue ArgumentError => e
-          Rails.logger.warn("Invalid date format for published_at: '#{published_at_str}'. Skipping field.")
-          subreport[:warning_messages] += " ::: Invalid date format for published_at: '#{published_at_str}'. Field skipped."
-        end
       end
 
       # Validate external_link URL
@@ -420,14 +405,12 @@ def main(csv_file, log_level = 'info')
           link: get_entity_link(old_entity_key, ENTITY_NAME, entity.root_level),
           _request: subreport[:_request],
           bibkey: entity.bibkey || '',
-          _article_bib_key: subreport[:_article_bib_key],
           how_to_cite: entity.how_to_cite || '',
           pure_html_asset: get_pure_html_asset(entity, pure_links_base_url),
           pure_pdf_asset: get_pure_pdf_asset(entity, pure_links_base_url),
           doi: entity.doi || '',
           metadata_json: entity.academic_metadata.blank? ? '' : entity.academic_metadata.to_json,
           aside_column: entity.aside_column || '',
-          published_at: entity.published_at.nil? ? '' : entity.published_at.strftime('%Y-%m-%d'),
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
           created_by: subreport[:created_by],
           last_updated_by: subreport[:last_updated_by],
@@ -439,7 +422,6 @@ def main(csv_file, log_level = 'info')
           _depends_on: subreport[:_depends_on],
           external_link: entity.external_link.to_s.strip || '',
           abstract: entity.abstract || '',
-          _to_do_on_the_portal: subreport[:_to_do_on_the_portal],
           assigned_authors: old_authors,
           cover_picture_asset: entity.cover_picture_asset || '',
           pdf_asset: entity.pdf_asset || '',
@@ -480,7 +462,6 @@ def main(csv_file, log_level = 'info')
         entity.open_access = open_access unless open_access.nil?
         entity.pub_type = pub_type unless pub_type.nil?
         entity.aside_column = subreport[:aside_column].to_s.strip
-        entity.published_at = published_at unless published_at.nil?
 
         entity.ref_bib_keys = subreport[:ref_bib_keys].to_s.strip
         entity.references_asset_url = processed_references_asset_url
@@ -577,7 +558,6 @@ def main(csv_file, log_level = 'info')
         doi: updated_entity.doi.to_s.strip || '',
         metadata_json: updated_entity.academic_metadata.blank? ? '' : updated_entity.academic_metadata.to_json,
         aside_column: updated_entity.aside_column.to_s.strip || '',
-        published_at: updated_entity.published_at.nil? ? '' : updated_entity.published_at.strftime('%Y-%m-%d'),
 
         created_at: updated_entity.created_at.nil? ? '' : updated_entity.created_at.strftime('%Y-%m-%d'),
 
