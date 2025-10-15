@@ -1,12 +1,12 @@
-def get_entity_link(entity_key, entity_name, root_level)
-  if entity_key.blank? || entity_name.blank?
+def get_entity_link(entity_key, url_prefix)
+  if entity_key.blank?
     return ""
 
   else
-    if root_level
+    if url_prefix.blank?
       return "https://www.philosophie.ch/#{entity_key}"
     else
-      return "https://www.philosophie.ch/#{entity_name}/#{entity_key}"
+      return "https://www.philosophie.ch/#{url_prefix}/#{entity_key}"
     end
 
   end

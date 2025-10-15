@@ -196,6 +196,8 @@ def main(csv_file, log_level = 'info')
       Rails.logger.info("Processing page '#{page_identifier}': Parsing")
       id = subreport[:id].strip
       name = subreport[:name].strip
+      published_raw = subreport[:published].strip.downcase
+      published = true ? ['true', 'yes', '1', 'published'].include?(published_raw) : false
       pre_headline = subreport[:pre_headline].strip
       title = subreport[:title].strip
       lead_text = subreport[:lead_text].strip
@@ -610,6 +612,7 @@ def main(csv_file, log_level = 'info')
         page.save!
         page.publish!
 
+
         # Elements need to be set after page creation, in case of POST
         set_pre_headline(page, pre_headline)
         set_lead_text(page, lead_text)
@@ -826,7 +829,6 @@ def main(csv_file, log_level = 'info')
 
       subreport.merge!({
         id: page.id,
-        published: get_published(page),
         name: page.name,
         pre_headline: get_pre_headline(page),
         title: page.title,
@@ -891,7 +893,6 @@ def main(csv_file, log_level = 'info')
 
       if req == "UPDATE" || req == "POST"
         Rails.logger.info("Processing page '#{page_identifier}': Complex tasks")
-
 
         # Authors
         update_authors_report = update_assigned_authors(page, assigned_authors)
@@ -1046,6 +1047,22 @@ def main(csv_file, log_level = 'info')
         # Saving
         page.save!
         page.publish!
+
+        # Published
+        if published
+          page.publish!
+        else
+          unpublish_report = unpublish_page(page)
+          if unpublish_report[:status] != 'success'
+            subreport[:_request] = "#{req} PARTIAL"
+            subreport[:status] = "partial success"
+            subreport[:error_message] = unpublish_report[:error_message]
+            subreport[:error_trace] = unpublish_report[:error_trace]
+            next
+          end
+        end
+        subreport[:published] = get_published(page)
+
         Rails.logger.info("Processing page '#{page_identifier}': Complex tasks: Success!")
       end
 

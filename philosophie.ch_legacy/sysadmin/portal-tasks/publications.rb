@@ -65,7 +65,7 @@ def main(csv_file, log_level = 'info')
       lead_text: row['lead_text'] || '',
       embedded_html_base_name: row['embedded_html_base_name'] || '',
       KEY => row[KEY_NAME] || '',
-      root_level: row['root_level'] || '',
+      url_prefix: row['url_prefix'] || '',
       open_access: row['open_access'] || '',
       pub_type: row['pub_type'] || '',
       link: row['link'] || '',
@@ -187,12 +187,8 @@ def main(csv_file, log_level = 'info')
         end
       end
 
-      # Parse root_level field as boolean for model
-      root_level_str = subreport[:root_level].strip.upcase
-      root_level = false
-      unless root_level_str.blank?
-        root_level = ['TRUE', '1', 'YES', 'T'].include?(root_level_str)
-      end
+      # Parse url_prefix
+      url_prefix = subreport[:url_prefix].strip
 
       # Validate external_link URL
       external_link_str = subreport[:external_link].to_s.strip
@@ -399,10 +395,10 @@ def main(csv_file, log_level = 'info')
           lead_text: entity.lead_text || '',
           embedded_html_base_name: subreport[:embedded_html_base_name],
           KEY => old_entity_key,
-          root_level: entity.root_level ? 'TRUE' : 'FALSE',
+          url_prefix: entity.url_prefix,
           open_access: entity.open_access ? 'TRUE' : 'FALSE',
           pub_type: entity.pub_type || '',
-          link: get_entity_link(old_entity_key, ENTITY_NAME, entity.root_level),
+          link: get_entity_link(old_entity_key, entity.url_prefix),
           _request: subreport[:_request],
           bibkey: entity.bibkey || '',
           how_to_cite: entity.how_to_cite || '',
@@ -447,7 +443,7 @@ def main(csv_file, log_level = 'info')
 
         entity[KEY] = entity_key
         entity.published = published unless published.nil?
-        entity.root_level = root_level
+        entity.url_prefix = url_prefix
         entity.name = subreport[:name].to_s.strip
         entity.pre_headline = subreport[:pre_headline].to_s.strip
         entity.title = title
@@ -518,7 +514,7 @@ def main(csv_file, log_level = 'info')
       ############
       updated_entity = MODEL.find_by(id: entity.id)
 
-      new_link = get_entity_link(updated_entity[KEY], ENTITY_NAME, updated_entity.root_level)
+      new_link = get_entity_link(updated_entity[KEY], updated_entity.url_prefix)
 
       # Get current authors for report
       current_authors = updated_entity.publication_authors.order(:position).map { |pa| pa.profile.slug }.join(',')
@@ -539,7 +535,7 @@ def main(csv_file, log_level = 'info')
       subreport.merge!({
         id: "#{updated_entity.id}".strip,
         KEY => updated_entity[KEY].strip,
-        root_level: updated_entity.root_level ? 'TRUE' : 'FALSE',
+        url_prefix: updated_entity.url_prefix,
         open_access: updated_entity.open_access ? 'TRUE' : 'FALSE',
         pub_type: updated_entity.pub_type.to_s.strip || '',
 
