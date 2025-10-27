@@ -8,6 +8,7 @@
 **/data/*
 **data-*
 secrets
+**_ids.txt
 
 
 # Byte-compiled / optimized / DLL files
