@@ -37,6 +37,35 @@ def main(csv_file, log_level = 'info')
   total_lines = csv_data.size
 
 
+  ############
+  # PRECOMPUTE EXPENSIVE LOOKUPS
+  ############
+
+  Rails.logger.info("Precomputing article assignments for all users...")
+
+  # Build a mapping of user_login => [articles]
+  # This prevents calling get_assigned_articles() multiple times which queries ALL articles each time
+  user_articles_map = {}
+
+  all_articles = Alchemy::Page.where(page_layout: 'article')
+                              .includes(elements: { contents: :essence })
+
+  all_articles.each do |article|
+    intro_element = article.elements.find { |e| e.name == 'intro' }
+    next unless intro_element
+
+    creator_content = intro_element.content_by_name(:creator)
+    next unless creator_content&.essence
+
+    author_logins = creator_content.essence.alchemy_users.map(&:login)
+    author_logins.each do |login|
+      user_articles_map[login] ||= []
+      user_articles_map[login] << article
+    end
+  end
+
+  Rails.logger.info("Precomputed article assignments for #{user_articles_map.keys.length} users")
+
 
   ############
   # MAIN
@@ -626,8 +655,8 @@ def main(csv_file, log_level = 'info')
       })
 
       if req == "GET"
-        # Get assigned articles and links
-        articles = get_assigned_articles(user)
+        # Get assigned articles and links (use precomputed map for performance)
+        articles = user_articles_map[user.login] || []
         subreport[:_articles_assigned_to_profile] = articles.map(&:urlname).join(', ')
 
         article_links = articles.map { |article| get_page_link(article) }
