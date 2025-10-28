@@ -47,7 +47,12 @@ module ExportUtils
 
       id = cleaned.to_i
       if id == 0 && cleaned != "0"
-        raise "Invalid ID on line #{idx + 1}: '#{cleaned}' is not a valid integer"
+        # Check if this looks like a CSV file
+        if cleaned.include?(',') || cleaned.downcase.include?('id')
+          raise "Invalid ID on line #{idx + 1}: File appears to be a CSV. Did you forget to use the -m (merge mode) flag? For CSV files, use: ruby script.rb -m file.csv"
+        else
+          raise "Invalid ID on line #{idx + 1}: '#{cleaned}' is not a valid integer"
+        end
       end
 
       ids << id
