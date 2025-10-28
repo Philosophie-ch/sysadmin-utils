@@ -72,8 +72,6 @@ def main(csv_file, log_level = 'info')
       _request: row['_request'] || '',
       bibkey: row['bibkey'] || '',
       how_to_cite: row['how_to_cite'] || '',
-      pure_html_asset: row['pure_html_asset'] || '',
-      pure_pdf_asset: row['pure_pdf_asset'] || '',
       doi: row['doi'] || '',
       metadata_json: row['metadata_json'] || '',
       aside_column: row['aside_column'] || '',
@@ -91,7 +89,6 @@ def main(csv_file, log_level = 'info')
       assigned_authors: row['assigned_authors'] || '',
       cover_picture_asset: row['cover_picture_asset'] || '',
       pdf_asset: row['pdf_asset'] || '',
-      _attachment_links_assets: row['_attachment_links_assets'] || '',
       themetags_discipline: row['themetags_discipline'] || '',
       themetags_focus: row['themetags_focus'] || '',
       themetags_badge: row['themetags_badge'] || '',
@@ -251,25 +248,6 @@ def main(csv_file, log_level = 'info')
         pub_type = pub_type_str
       end
 
-      # Pure links base URL (matching pages.rb)
-      pure_links_base_url = "https://assets.philosophie.ch/dialectica/"
-
-      # Process pure HTML asset URL
-      pure_html_asset = subreport[:pure_html_asset].strip
-      if pure_html_asset.blank?
-        pure_html_asset_full_url = ""
-      else
-        pure_html_asset_full_url = pure_links_base_url + pure_html_asset
-      end
-
-      # Process pure PDF asset URL
-      pure_pdf_asset = subreport[:pure_pdf_asset].strip
-      if pure_pdf_asset.blank?
-        pure_pdf_asset_full_url = ""
-      else
-        pure_pdf_asset_full_url = pure_links_base_url + pure_pdf_asset
-      end
-
       # Setup
       Rails.logger.info("Processing #{ENTITY_NAME} '#{entity_display_name}': Setup")
 
@@ -402,8 +380,6 @@ def main(csv_file, log_level = 'info')
           _request: subreport[:_request],
           bibkey: entity.bibkey || '',
           how_to_cite: entity.how_to_cite || '',
-          pure_html_asset: get_pure_html_asset(entity, pure_links_base_url),
-          pure_pdf_asset: get_pure_pdf_asset(entity, pure_links_base_url),
           doi: entity.doi || '',
           metadata_json: entity.academic_metadata.blank? ? '' : entity.academic_metadata.to_json,
           aside_column: entity.aside_column || '',
@@ -421,7 +397,6 @@ def main(csv_file, log_level = 'info')
           assigned_authors: old_authors,
           cover_picture_asset: entity.cover_picture_asset || '',
           pdf_asset: entity.pdf_asset || '',
-          _attachment_links_assets: subreport[:_attachment_links_assets],
           themetags_discipline: subreport[:themetags_discipline],
           themetags_focus: subreport[:themetags_focus],
           themetags_badge: subreport[:themetags_badge],
@@ -452,8 +427,6 @@ def main(csv_file, log_level = 'info')
 
         entity.bibkey = subreport[:bibkey].to_s.strip
         entity.how_to_cite = subreport[:how_to_cite].to_s.strip
-        entity.pure_html_asset = pure_html_asset_full_url
-        entity.pure_pdf_asset = pure_pdf_asset_full_url
         entity.doi = subreport[:doi].to_s.strip
         entity.open_access = open_access unless open_access.nil?
         entity.pub_type = pub_type unless pub_type.nil?
@@ -528,10 +501,6 @@ def main(csv_file, log_level = 'info')
       pdf_url = updated_entity.pdf_asset.to_s.strip || ''
       unprocessed_pdf_asset = pdf_url.blank? ? 'empty' : unprocess_asset_urls([pdf_url]).strip
 
-      # Get pure assets without base URL for report
-      unprocessed_pure_html_asset = get_pure_html_asset(updated_entity, pure_links_base_url)
-      unprocessed_pure_pdf_asset = get_pure_pdf_asset(updated_entity, pure_links_base_url)
-
       subreport.merge!({
         id: "#{updated_entity.id}".strip,
         KEY => updated_entity[KEY].strip,
@@ -549,8 +518,6 @@ def main(csv_file, log_level = 'info')
 
         bibkey: updated_entity.bibkey.to_s.strip || '',
         how_to_cite: updated_entity.how_to_cite.to_s.strip || '',
-        pure_html_asset: unprocessed_pure_html_asset,
-        pure_pdf_asset: unprocessed_pure_pdf_asset,
         doi: updated_entity.doi.to_s.strip || '',
         metadata_json: updated_entity.academic_metadata.blank? ? '' : updated_entity.academic_metadata.to_json,
         aside_column: updated_entity.aside_column.to_s.strip || '',
