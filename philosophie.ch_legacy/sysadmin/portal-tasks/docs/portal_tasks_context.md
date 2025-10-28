@@ -257,6 +257,28 @@ get_pure_pdf_asset(entity, base_url)          # Extract pure PDF asset paths
 - URL extraction from different essence types
 - Link resolution checking
 
+### export_utils.rb
+**Size**: ~6KB
+
+**Key Functions**:
+```ruby
+setup_logging(log_level)                                    # Configure logging levels
+generate_export_filename(entity_name)                       # Create timestamped export filenames
+log_progress(current, total, entity_name)                   # Progress tracking for bulk operations
+parse_ids_from_file(file_path)                              # Read IDs from text file (one per line)
+parse_ids(ids_input)                                        # Parse comma-separated ID string
+validate_and_fetch_ordered(model_class, ids)                # Fetch records with strict validation
+parse_ids_from_csv(csv_file, id_column_name)                # Extract IDs from CSV column
+read_input_csv_data(csv_file)                               # Load CSV into hash keyed by ID
+get_preserved_columns(entity_type, input_headers)           # Determine columns to preserve (hybrid approach)
+merge_with_input_csv(db_rows, input_csv_data, preserved_columns)  # Merge DB data with preserved CSV columns
+```
+
+**Merge Mode Support**:
+- Hybrid column preservation strategy (all "_" prefix + known exceptions)
+- UTF-8/UTF-16 encoding handling
+- Order preservation from input CSV
+
 ### ah-page-tools.rb
 **Size**: ~28KB
 
@@ -440,14 +462,16 @@ Bulk export of all user profiles or specific user IDs with optimized database qu
 
 ### Key Differences from CSV-Driven Scripts
 
-| Feature | CSV-Driven (pages.rb) | Export Scripts (export_pages.rb) |
-|---------|----------------------|----------------------------------|
-| Input | CSV file required | Optional: IDs or nothing |
-| Operations | GET, POST, UPDATE, DELETE | GET only |
-| Performance | Slower (row-by-row iteration) | 15-30x faster (bulk queries) |
-| Use case | Selective CRUD operations | Bulk data extraction |
-| Order control | CSV row order | ID list order or DB order |
-| Validation | Per-row errors continue | All IDs must exist (fail-fast) |
+| Feature | CSV-Driven (pages.rb) | Export Scripts (export_pages.rb) | Export + Merge Mode |
+|---------|----------------------|----------------------------------|---------------------|
+| Input | CSV file required | Optional: IDs or nothing | CSV file (Google Sheets) |
+| Operations | GET, POST, UPDATE, DELETE | GET only | GET + preserve metadata |
+| Performance | Slower (row-by-row iteration) | 15-30x faster (bulk queries) | 15-30x faster (bulk queries) |
+| Use case | Selective CRUD operations | Bulk data extraction | Google Sheets round-trip |
+| Order control | CSV row order | ID list order or DB order | Input CSV row order |
+| Validation | Per-row errors continue | All IDs must exist (fail-fast) | All IDs must exist (fail-fast) |
+| Metadata preservation | N/A | N/A | Preserves "_" columns + exceptions |
+| Output filename | Standard timestamped | Standard timestamped | {input}_updated.csv |
 
 ### Usage
 
@@ -473,6 +497,63 @@ ruby portal-tasks/export_pages.rb '123,456,789'
 ```bash
 bundle exec rails runner portal-tasks/export_pages.rb ids.txt debug
 ```
+
+**Merge mode (Google Sheets workflow):**
+```bash
+# Download CSV from Google Sheets: team_profiles.csv
+ruby portal-tasks/export_profiles.rb -m team_profiles.csv
+
+# Output: team_profiles_updated.csv
+# Mass paste back into Google Sheets
+```
+
+### Merge Mode
+
+Merge mode solves the problem of working with Google Sheets CSVs by preserving manual metadata while fetching fresh database data.
+
+**Workflow:**
+1. Download Google Sheets as CSV (e.g., `team_profiles.csv`)
+2. Run export in merge mode: `ruby export_profiles.rb -m team_profiles.csv`
+3. Script extracts IDs from `id` column
+4. Fetches fresh DB data for those IDs
+5. Preserves manual/metadata columns from input CSV
+6. Outputs merged CSV: `team_profiles_updated.csv`
+7. Mass paste updated CSV back to Google Sheets
+
+**Preserved Columns:**
+
+The merge mode uses a hybrid approach to determine which columns to preserve:
+- All columns starting with "_" (manual metadata fields)
+- Plus known exceptions that don't start with "_"
+
+**Pages preserved columns:**
+- All "_" columns (e.g., `_incoming`, `_sort`, `_request`, `_further_refs`, `_depends_on`, etc.)
+- `embedded_html_base_name`
+
+**Profiles preserved columns:**
+- All "_" columns (e.g., `_sort`, `_correspondence`, `_todo_person`, `_request`, etc.)
+- `password`, `biblio_keys`, `biblio_keys_further_references`, `biblio_dependencies_keys`, `mentioned_on`
+
+**Example:**
+```bash
+# Profiles merge mode
+ruby portal-tasks/export_profiles.rb -m team_profiles.csv
+ruby portal-tasks/export_profiles.rb -m team_profiles.csv debug
+
+# Pages merge mode
+ruby portal-tasks/export_pages.rb -m articles.csv
+ruby portal-tasks/export_pages.rb -m articles.csv debug
+
+# With Rails runner
+bundle exec rails runner portal-tasks/export_profiles.rb -m team_profiles.csv
+```
+
+**Benefits:**
+- Eliminates manual column-by-column copy/paste
+- Preserves all manual metadata and TODOs
+- Ensures fresh DB data in all other columns
+- Same row order as input (no reordering needed)
+- Single mass-paste operation back to Google Sheets
 
 ### Performance Optimizations
 
