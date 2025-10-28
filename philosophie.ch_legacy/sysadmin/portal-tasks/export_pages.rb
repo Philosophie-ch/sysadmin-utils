@@ -162,9 +162,6 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         end
       end
 
-      # Get comment info
-      last_commented_login_and_date = get_latest_comment_login_and_date(page)
-
       # Get references info
       references_base_url = "https://assets.philosophie.ch/references/articles/"
       all_references_urls = get_references_urls(page)
@@ -230,8 +227,6 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         created_by: get_creator(page),
         last_updated_by: get_last_updater(page),
         last_updated_date: get_last_updated_date(page),
-        last_commented_on: last_commented_login_and_date[:date],
-        last_commented_by: last_commented_login_and_date[:login],
         replies_to: get_reply_target_urlname(page),
         replied_by: get_replied_by(page),
 
@@ -254,8 +249,6 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         _presentation_of: "",
         _link: "",
         _abstract: "",
-
-        _to_do_on_the_portal: "",
 
         assigned_authors: assigned_authors,
         anon: get_anon(page),
@@ -322,8 +315,6 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         created_by: "",
         last_updated_by: "",
         last_updated_date: "",
-        last_commented_on: "",
-        last_commented_by: "",
         replies_to: "",
         replied_by: "",
         tag_page_type: "",
@@ -344,7 +335,6 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         _presentation_of: "",
         _link: "",
         _abstract: "",
-        _to_do_on_the_portal: "",
         assigned_authors: "",
         anon: "",
         intro_image_asset: "",

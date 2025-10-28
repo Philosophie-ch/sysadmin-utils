@@ -55,12 +55,15 @@ def main(log_level = 'info')
     end
 
   # Fetch page data with creator, updater, last_updated_date, and replied_by info using SQL joins
+  # Note: Using STRING_AGG for PostgreSQL (GROUP_CONCAT is MySQL syntax)
+  # Removed DISTINCT because PostgreSQL doesn't allow ORDER BY on columns not in DISTINCT list
+  # Must include all non-aggregated columns in GROUP BY for PostgreSQL
   pages_data = Alchemy::Page
     .joins("LEFT JOIN alchemy_users AS creators ON alchemy_pages.creator_id = creators.id")
     .joins("LEFT JOIN alchemy_users AS updaters ON alchemy_pages.updater_id = updaters.id")
     .joins("LEFT JOIN alchemy_pages AS replies ON alchemy_pages.id = replies.reply_target_id")
-    .select("alchemy_pages.id, creators.login AS creator_login, updaters.login AS updater_login, alchemy_pages.updated_at, GROUP_CONCAT(DISTINCT replies.urlname ORDER BY replies.created_at DESC) AS replied_by_urlnames")
-    .group("alchemy_pages.id")
+    .select("alchemy_pages.id, creators.login AS creator_login, updaters.login AS updater_login, alchemy_pages.updated_at, STRING_AGG(replies.urlname, ', ' ORDER BY replies.created_at DESC) AS replied_by_urlnames")
+    .group("alchemy_pages.id, creators.login, updaters.login, alchemy_pages.updated_at")
     .map do |page|
       {
         id: page.id,

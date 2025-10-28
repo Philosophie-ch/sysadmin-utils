@@ -843,13 +843,15 @@ end
 
 def get_references_bib_keys(page)
   references = page.elements.named(:references).first
-  unless references
-    Rails.logger.info("get_references_bib_keys: No references element found")
+  unless references and page.page_layout == "article"
+    Rails.logger.debug("get_references_bib_keys: No references element found")
     return ""
   end
 
   bibkeys = references.ingredient(:bibkeys)
-  Rails.logger.info("get_references_bib_keys: Found bibkeys = '#{bibkeys}'")
+
+  Rails.logger.debug("get_references_bib_keys: Found bibkeys = '#{bibkeys}'")
+
   return bibkeys.to_s.strip
 end
 
@@ -1226,8 +1228,8 @@ end
 
 def get_academic_metadata_json(page)
   academic_metadata = page.elements.named(:academic_metadata).first
-  unless academic_metadata
-    Rails.logger.info("get_academic_metadata_json: No academic_metadata element found")
+  unless academic_metadata and page.page_layout == "article"
+    Rails.logger.debug("get_academic_metadata_json: No academic_metadata element found")
     return ""
   end
 

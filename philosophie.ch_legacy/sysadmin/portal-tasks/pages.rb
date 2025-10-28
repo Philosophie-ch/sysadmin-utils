@@ -75,8 +75,6 @@ def main(csv_file, log_level = 'info')
       created_by: row['created_by'] || "",  # page
       last_updated_by: row['last_updated_by'] || "",  # page
       last_updated_date: row['last_updated_date'] || "",  # page
-      last_commented_on: row['last_commented_on'] || "",  # page
-      last_commented_by: row['last_commented_by'] || "",  # page
       replies_to: row['replies_to'] || "",  # page
       replied_by: row['replied_by'] || "",  # page
 
@@ -99,8 +97,6 @@ def main(csv_file, log_level = 'info')
       _presentation_of: row['_presentation_of'] || "",
       _link: row['_link'] || "",
       _abstract: row['_abstract'] || "",
-
-      _to_do_on_the_portal: row['_to_do_on_the_portal'] || "",
 
       assigned_authors: row['assigned_authors'] || "",  # box
       anon: row['anon'] || "",
@@ -237,8 +233,6 @@ def main(csv_file, log_level = 'info')
       created_by = subreport[:created_by].strip
       last_updated_by = subreport[:last_updated_by].strip
       last_updated_date = subreport[:last_updated_date].strip
-      last_commented_on = subreport[:last_commented_on].strip
-      last_commented_by = subreport[:last_commented_by].strip
       replies_to = subreport[:replies_to].strip
       replied_by = subreport[:replied_by].strip
 
@@ -481,8 +475,6 @@ def main(csv_file, log_level = 'info')
           created_by: created_by,
           last_updated_by: last_updated_by,
           last_updated_date: last_updated_date,
-          last_commented_on: last_commented_on,
-          last_commented_by: last_commented_by,
           replies_to: replies_to,
           replied_by: replied_by,
 
@@ -505,8 +497,6 @@ def main(csv_file, log_level = 'info')
           _presentation_of: subreport[:_presentation_of],
           _link: subreport[:_link],
           _abstract: subreport[:_abstract],
-
-          _to_do_on_the_portal: subreport[:_to_do_on_the_portal],
 
           assigned_authors: old_page_assigned_authors,
           anon: old_anon,
@@ -824,7 +814,6 @@ def main(csv_file, log_level = 'info')
       ############
 
       themetags_hashmap = get_themetags(page)
-      last_commented_login_and_date = get_latest_comment_login_and_date(page)
 
 
       subreport.merge!({
@@ -842,8 +831,6 @@ def main(csv_file, log_level = 'info')
         created_by: get_creator(page),
         last_updated_by: get_last_updater(page),
         last_updated_date: get_last_updated_date(page),
-        last_commented_on: last_commented_login_and_date[:date],
-        last_commented_by: last_commented_login_and_date[:login],
         replies_to: get_reply_target_urlname(page),
         replied_by: get_replied_by(page),
 
