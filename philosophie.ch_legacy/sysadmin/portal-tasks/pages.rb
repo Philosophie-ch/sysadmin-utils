@@ -815,6 +815,15 @@ def main(csv_file, log_level = 'info')
 
       themetags_hashmap = get_themetags(page)
 
+      # Get published status once to avoid inconsistency
+      published_status = get_published(page)
+
+      # Generate appropriate link based on published status
+      page_link = if published_status == "PUBLISHED"
+        "https://www.philosophie.ch#{retrieved_slug}"
+      else
+        "https://www.philosophie.ch/admin/pages/#{page.id}/edit"
+      end
 
       subreport.merge!({
         id: page.id,
@@ -825,7 +834,7 @@ def main(csv_file, log_level = 'info')
         language_code: page.language_code,
         urlname: page.urlname,
         slug: retrieved_slug,
-        link: "https://www.philosophie.ch#{retrieved_slug}",
+        link: page_link,
         created_at: get_created_at(page),
         page_layout: page.page_layout,
         created_by: get_creator(page),
@@ -1048,7 +1057,15 @@ def main(csv_file, log_level = 'info')
             next
           end
         end
-        subreport[:published] = get_published(page)
+
+        # Update published status and regenerate link after publish/unpublish
+        final_published_status = get_published(page)
+        subreport[:published] = final_published_status
+        subreport[:link] = if final_published_status == "PUBLISHED"
+          "https://www.philosophie.ch#{retrieved_slug}"
+        else
+          "https://www.philosophie.ch/admin/pages/#{page.id}/edit"
+        end
 
         Rails.logger.info("Processing page '#{page_identifier}': Complex tasks: Success!")
       end

@@ -200,12 +200,22 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         metadata_json = ''
       end
 
+      # Get published status once to avoid inconsistency
+      published_status = get_published(page)
+
+      # Generate appropriate link based on published status
+      page_link = if published_status == "PUBLISHED"
+        "https://www.philosophie.ch#{retrieved_slug}"
+      else
+        "https://www.philosophie.ch/admin/pages/#{page.id}/edit"
+      end
+
       # Build the report hash - MUST match the structure from pages.rb exactly
       page_data = {
         _incoming: "",
         _sort: "",
         id: page.id,
-        published: get_published(page),
+        published: published_status,
         name: page.name,
         pre_headline: pre_headline,
         title: page.title,
@@ -214,7 +224,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         language_code: page.language_code,
         urlname: page.urlname,
         slug: retrieved_slug,
-        link: "https://www.philosophie.ch#{retrieved_slug}",
+        link: page_link,
         _request: "",
         bibkey: page.bibkey || '',
         how_to_cite: how_to_cite,

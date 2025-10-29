@@ -44,7 +44,7 @@ def forced_intro_element(page)
     forced_intro_element = page.elements.filter { |element| element.name.include?('intro') }
 
     if forced_intro_element.blank?
-      raise "Intro element not found on page with ID #{page.id} and name '#{page.name}'"
+      return nil
     end
 
     return forced_intro_element.first
@@ -132,7 +132,8 @@ def _get_asset_blocks(page, element_name, url_field_name)
 
       if element_name == 'intro'
 
-        asset_blocks_main_body = [forced_intro_element(page)]
+        intro_element = forced_intro_element(page)
+        asset_blocks_main_body = intro_element ? [intro_element] : []
 
       else
         asset_blocks_main_body = page&.elements&.filter { |element| element.name == "#{element_name}" }
@@ -573,8 +574,10 @@ def get_assigned_authors(page)
 
   if page_is_article
 
-    intro_element = forced_intro_element(page) || page.elements.find { |element| element.name.include?('intro') }
-    creator_content = intro_element&.content_by_name(:creator); nil
+    intro_element = forced_intro_element(page)
+    return "" if intro_element.nil?
+
+    creator_content = intro_element.content_by_name(:creator)
     creator_essence = creator_content&.essence
 
     unless creator_essence
@@ -588,6 +591,8 @@ def get_assigned_authors(page)
     return page.authors.map(&:slug).join(', ')
 
   end
+
+  return ""
 
 end
 
@@ -619,8 +624,17 @@ def update_assigned_authors(page, authors_str)
     Rails.logger.debug("\tPage is an article or event or info. Proceeding...")
 
     unless page_is_note
-      intro_element = forced_intro_element(page) || page.elements.find { |element| element.name.include?('intro') }
-      creator_essence = intro_element&.content_by_name(:creator)&.essence
+      intro_element = forced_intro_element(page)
+
+      if intro_element.nil?
+        Rails.logger.error("\tIntro element not found. Skipping...")
+        result[:status] = 'error'
+        result[:error_message] = "Intro element not found"
+        result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
+        return result
+      end
+
+      creator_essence = intro_element.content_by_name(:creator)&.essence
 
       unless creator_essence
         Rails.logger.error("\tCreator essence not found. Skipping...")
@@ -751,7 +765,7 @@ def get_themetags(page)
     return themetags_hashmap
   end
 
-  intro_element = forced_intro_element(page) || page.elements.find { |element| element.name.include?('intro') }
+  intro_element = forced_intro_element(page)
   if intro_element
     topic_content = intro_element.contents.find { |content| content.name == 'topics' }
     topics = topic_content&.essence&.topics&.uniq || []
@@ -798,12 +812,17 @@ def set_themetags(page, themetag_names)
       return report
     end
 
-    intro_element = forced_intro_element(page) || page.elements.find { |element| element.name.include?('intro') }
-    if intro_element
-      topic_content = intro_element.contents.find { |content| content.name == 'topics' }
-      themetags = themetag_names.map { |name| get_themetag_by_name(name) }.compact.uniq
-      update_response = topic_content.essence.update(topics: themetags)
+    intro_element = forced_intro_element(page)
+    if intro_element.nil?
+      report[:status] = 'error'
+      report[:error_message] = "Intro element not found for page layout '#{page.page_layout}'"
+      report[:error_trace] = "pages_tools.rb::set_themetags"
+      return report
     end
+
+    topic_content = intro_element.contents.find { |content| content.name == 'topics' }
+    themetags = themetag_names.map { |name| get_themetag_by_name(name) }.compact.uniq
+    update_response = topic_content.essence.update(topics: themetags)
 
     if !update_response
       report[:status] = 'error'
@@ -923,13 +942,15 @@ def get_attachment_links_portal(page, all_attachments_with_pages)
     # Example 2: href="/attachment/1234/download" -> 1234
     id = link.match(/\/attachment\/(\d+)\//)&.captures&.first
 
-    file_name = Alchemy::Attachment.find_by(id: id)&.file_name
+    attachment = Alchemy::Attachment.find_by(id: id)
 
-    unless file_name
+    unless attachment
       result << "Attachment with ID '#{id}' in link '#{link}' not found"
+      next
     end
 
-    result << file_name
+    # Generate downloadable link instead of filename
+    result << generate_attachment_download_url(id)
   end
 
   # 2. Look in the Embed elements of the page
@@ -948,17 +969,19 @@ def get_attachment_links_portal(page, all_attachments_with_pages)
     # Example 2: src="/attachment/1234/download" -> 1234
     id = link.match(/\/attachment\/(\d+)\//)&.captures&.first
 
-    file_name = Alchemy::Attachment.find_by(id: id)&.file_name
+    attachment = Alchemy::Attachment.find_by(id: id)
 
-    unless file_name
+    unless attachment
       result << "Attachment with ID '#{id}' in link '#{link}' not found"
+      next
     end
 
-    result << file_name
+    # Generate downloadable link instead of filename
+    result << generate_attachment_download_url(id)
   end
 
-  # 3. Look for all ttachments, and return those whose 'pages' include the current page
-  page_attachments = all_attachments_with_pages.filter { |attachment| attachment.pages.map(&:id).include?(page.id) }.map(&:file_name)
+  # 3. Look for all attachments, and return those whose 'pages' include the current page
+  page_attachments = all_attachments_with_pages.filter { |attachment| attachment.pages.map(&:id).include?(page.id) }.map { |attachment| generate_attachment_download_url(attachment.id) }
 
   result << page_attachments
 
@@ -969,22 +992,30 @@ end
 
 
 def get_pre_headline(page)
-  forced_intro_element(page).content_by_name(:pre_headline)&.essence&.body || ""
+  intro_element = forced_intro_element(page)
+  return "" if intro_element.nil?
+  intro_element.content_by_name(:pre_headline)&.essence&.body || ""
 end
 
 
 def set_pre_headline(page, pre_headline)
-  forced_intro_element(page).content_by_name(:pre_headline)&.essence&.update({body: pre_headline})
+  intro_element = forced_intro_element(page)
+  return if intro_element.nil?
+  intro_element.content_by_name(:pre_headline)&.essence&.update({body: pre_headline})
 end
 
 
 def get_lead_text(page)
-  forced_intro_element(page).content_by_name(:lead_text)&.essence&.body || ""
+  intro_element = forced_intro_element(page)
+  return "" if intro_element.nil?
+  intro_element.content_by_name(:lead_text)&.essence&.body || ""
 end
 
 
 def set_lead_text(page, lead_text)
-  forced_intro_element(page).content_by_name(:lead_text)&.essence&.update({body: lead_text})
+  intro_element = forced_intro_element(page)
+  return if intro_element.nil?
+  intro_element.content_by_name(:lead_text)&.essence&.update({body: lead_text})
 end
 
 
@@ -1417,7 +1448,9 @@ def set_anon(page, raw_value)
       raise ArgumentError, "'anon' value must be a string that represents a boolean, or a boolean itself. Got: [[ #{raw_value} ]]"
     end
 
-    forced_intro_element(page).content_by_name(:anonymous)&.essence&.update!({value: value})
+    intro_element = forced_intro_element(page)
+    return if intro_element.nil?
+    intro_element.content_by_name(:anonymous)&.essence&.update!({value: value})
 
   end
 
