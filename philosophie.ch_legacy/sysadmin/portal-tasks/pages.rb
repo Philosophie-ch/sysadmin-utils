@@ -50,7 +50,7 @@ def main(csv_file, log_level = 'info')
     Rails.logger.info("Processing row #{processed_lines + 1} of #{total_lines}")
     # Read data
     subreport = {
-      _incoming: row['_incoming'] || "",
+      _to_do: row['_to_do'] || "",
       _sort: row['_sort'] || "",
       id: row['id'] || "",  # page
       published: row['published'] || "",  # page
@@ -90,6 +90,7 @@ def main(csv_file, log_level = 'info')
       tag_footnotes: row['tag_footnotes'] || "",  # tag
 
       ref_bib_keys: row['ref_bib_keys'] || "",  # element
+      _ref_people: row['_ref_people'] || "",
       references_asset_url: row['references_asset_url'] || "",  # element
       _further_refs: row['_further_refs'] || "",
       further_references_asset_url: row['further_references_asset_url'] || "",  # element
@@ -451,6 +452,7 @@ def main(csv_file, log_level = 'info')
         end
 
         old_page = {
+          _to_do: subreport[:_to_do],
           _sort: subreport[:_sort],
           published: get_published(page),
           id: page.id,
@@ -490,6 +492,7 @@ def main(csv_file, log_level = 'info')
           tag_footnotes: old_page_tag_columns[:tag_footnotes],
 
           ref_bib_keys: old_ref_bib_keys,
+          _ref_people: subreport[:_ref_people],
           references_asset_url: old_references_asset_url,
           _further_refs: subreport[:_further_refs],
           further_references_asset_url: old_further_references_asset_url,

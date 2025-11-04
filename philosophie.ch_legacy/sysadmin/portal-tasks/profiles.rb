@@ -124,6 +124,7 @@ def main(csv_file, log_level = 'info')
       _title: row["_title"] || "",
       type_of_affiliation: row["type_of_affiliation"] || "",
       other_type_of_affiliation: row["other_type_of_affiliation"] || "",
+      _type_of_studies: row["_type_of_studies"] || "",
       _function_title: row["_function_title"] || "",
       _function_standardised: row["_function_standardised"] || "",
 
@@ -403,6 +404,7 @@ def main(csv_file, log_level = 'info')
           _form_of_address: subreport[:_form_of_address],
           type_of_affiliation: type_of_affiliation_to_string(user.profile.type_of_affiliation),
           other_type_of_affiliation: user.profile.other_type_of_affiliation,
+          _type_of_studies: subreport[:_type_of_studies],
           _title: subreport[:_title],
           _function_title: subreport[:_function_title],
           _function_standardised: subreport[:_function_standardised],
@@ -652,6 +654,7 @@ def main(csv_file, log_level = 'info')
         institutional_affiliation: user.profile.institutional_affiliation,
         type_of_affiliation: type_of_affiliation_to_string(user.profile.type_of_affiliation),
         other_type_of_affiliation: user.profile.other_type_of_affiliation,
+        _type_of_studies: subreport[:_type_of_studies],
       })
 
       if req == "GET"

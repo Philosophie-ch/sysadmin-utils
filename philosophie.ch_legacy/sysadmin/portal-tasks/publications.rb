@@ -89,6 +89,7 @@ def main(csv_file, log_level = 'info')
       assigned_authors: row['assigned_authors'] || '',
       cover_picture_asset: row['cover_picture_asset'] || '',
       pdf_asset: row['pdf_asset'] || '',
+      pdf_type: row['pdf_type'] || '',
       themetags_discipline: row['themetags_discipline'] || '',
       themetags_focus: row['themetags_focus'] || '',
       themetags_badge: row['themetags_badge'] || '',
@@ -397,6 +398,7 @@ def main(csv_file, log_level = 'info')
           assigned_authors: old_authors,
           cover_picture_asset: entity.cover_picture_asset || '',
           pdf_asset: entity.pdf_asset || '',
+          pdf_type: subreport[:pdf_type],
           themetags_discipline: subreport[:themetags_discipline],
           themetags_focus: subreport[:themetags_focus],
           themetags_badge: subreport[:themetags_badge],
@@ -533,6 +535,7 @@ def main(csv_file, log_level = 'info')
         assigned_authors: current_authors,
         cover_picture_asset: unprocessed_cover_picture_asset,
         pdf_asset: unprocessed_pdf_asset,
+        pdf_type: subreport[:pdf_type],
 
       })
 

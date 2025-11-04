@@ -212,7 +212,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
 
       # Build the report hash - MUST match the structure from pages.rb exactly
       page_data = {
-        _incoming: "",
+        _to_do: "",
         _sort: "",
         id: page.id,
         published: published_status,
@@ -252,6 +252,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         tag_footnotes: tags_to_cols[:tag_footnotes],
 
         ref_bib_keys: get_references_bib_keys(page),
+        _ref_people: "",
         references_asset_url: references_asset_url,
         _further_refs: "",
         further_references_asset_url: further_references_asset_url,
@@ -300,7 +301,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
     rescue => e
       Rails.logger.error("Error exporting page #{page&.id || 'unknown'}: #{e.message}")
       error_data = {
-        _incoming: "",
+        _to_do: "",
         _sort: "",
         id: page&.id || "",
         published: "",
@@ -338,6 +339,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         tag_references: "",
         tag_footnotes: "",
         ref_bib_keys: "",
+        _ref_people: "",
         references_asset_url: "",
         _further_refs: "",
         further_references_asset_url: "",
