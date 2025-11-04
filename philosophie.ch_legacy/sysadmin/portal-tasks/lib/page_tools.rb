@@ -572,7 +572,7 @@ def get_assigned_authors(page)
     return ""
   end
 
-  if page_is_article
+  if page_is_article || page_is_info
 
     intro_element = forced_intro_element(page)
     return "" if intro_element.nil?
@@ -621,7 +621,7 @@ def update_assigned_authors(page, authors_str)
   }
 
   begin
-    Rails.logger.debug("\tPage is an article or event or info. Proceeding...")
+    Rails.logger.debug("\tPage is an article or info or note. Proceeding...")
 
     unless page_is_note
       intro_element = forced_intro_element(page)
@@ -671,7 +671,7 @@ def update_assigned_authors(page, authors_str)
       return result
     end
 
-    if page_is_article || page_is_event || page_is_info
+    if page_is_article || page_is_info
       creator_essence.alchemy_users = users.uniq.compact
       creator_essence.save!
 
@@ -683,9 +683,9 @@ def update_assigned_authors(page, authors_str)
       page.save!
 
     else
-      Rails.logger.error("\tPage is not an article, event, info or note. Skipping...")
+      Rails.logger.error("\tPage is not an article or info or note. Skipping...")
       result[:status] = 'error'
-      result[:error_message] = "Page is not an article, event, info or note"
+      result[:error_message] = "Page is not an article or info or note"
       result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
       return result
     end
