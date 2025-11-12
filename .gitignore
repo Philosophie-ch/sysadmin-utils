@@ -9,7 +9,7 @@
 **data-*
 secrets
 **_ids.txt
-
+**/data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
