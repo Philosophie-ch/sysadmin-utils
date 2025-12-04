@@ -178,7 +178,6 @@ def get_asset_names(page, element_name, url_field_name)
 
     if essence
       if essence.body.blank?
-        Rails.logger.warn("Essence body is nil for #{element_name} block with ID #{asset_block.id}")
         "empty"
       else
         essence.body
@@ -1265,7 +1264,6 @@ def get_academic_metadata_json(page)
   end
 
   metadata_json = academic_metadata.ingredient(:metadata_json)
-  Rails.logger.info("get_academic_metadata_json: Found metadata_json = '#{metadata_json}'")
   return metadata_json.to_s.strip
 end
 
