@@ -76,9 +76,6 @@ def main(csv_file, log_level = 'info')
       metadata_json: row['metadata_json'] || '',
       aside_column: row['aside_column'] || '',
       created_at: row['created_at'] || '',
-      created_by: row['created_by'] || '',
-      last_updated_by: row['last_updated_by'] || '',
-      last_updated_date: row['last_updated_date'] || '',
       ref_bib_keys: row['ref_bib_keys'] || '',
       references_asset_url: row['references_asset_url'] || '',
       _further_refs: row['_further_refs'] || '',
@@ -89,7 +86,7 @@ def main(csv_file, log_level = 'info')
       assigned_authors: row['assigned_authors'] || '',
       cover_picture_asset: row['cover_picture_asset'] || '',
       pdf_asset: row['pdf_asset'] || '',
-      pdf_type: row['pdf_type'] || '',
+      pdf_availability: row['pdf_availability'] || '',
       themetags_discipline: row['themetags_discipline'] || '',
       themetags_focus: row['themetags_focus'] || '',
       themetags_badge: row['themetags_badge'] || '',
@@ -224,8 +221,24 @@ def main(csv_file, log_level = 'info')
       # Parse authors list
       assigned_authors = parse_authors_list(subreport[:assigned_authors])
 
-      # Parse metadata_json
+      # Parse and validate metadata_json - required field
       metadata_json_str = subreport[:metadata_json].to_s.strip
+      if metadata_json_str.blank?
+        subreport[:_request] = req_err
+        subreport[:status] = "error"
+        subreport[:error_message] = "metadata_json is required and cannot be empty"
+        subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::metadata_json"
+        next
+      end
+      begin
+        JSON.parse(metadata_json_str)
+      rescue JSON::ParserError => e
+        subreport[:_request] = req_err
+        subreport[:status] = "error"
+        subreport[:error_message] = "Invalid metadata_json '#{metadata_json_str[0..100]}...'. Must be valid JSON: #{e.message}"
+        subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::metadata_json"
+        next
+      end
 
       # Parse open_access field as boolean for model
       open_access_str = subreport[:open_access].strip.upcase
@@ -247,6 +260,21 @@ def main(csv_file, log_level = 'info')
           next
         end
         pub_type = pub_type_str
+      end
+
+      # Parse pdf_availability field - validate against MODEL::PDF_AVAILABILITY_TYPES constant
+      pdf_availability_str = subreport[:pdf_availability].strip
+      pdf_availability = nil
+      unless pdf_availability_str.blank?
+        # Check if the provided pdf_availability is valid
+        unless MODEL::PDF_AVAILABILITY_TYPES.include?(pdf_availability_str)
+          subreport[:_request] = req_err
+          subreport[:status] = "error"
+          subreport[:error_message] = "Invalid pdf_availability '#{pdf_availability_str}'. Must be one of: #{MODEL::PDF_AVAILABILITY_TYPES.join(', ')}"
+          subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::pdf_availability"
+          next
+        end
+        pdf_availability = pdf_availability_str
       end
 
       # Setup
@@ -385,9 +413,6 @@ def main(csv_file, log_level = 'info')
           metadata_json: entity.academic_metadata.blank? ? '' : entity.academic_metadata.to_json,
           aside_column: entity.aside_column || '',
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
-          created_by: subreport[:created_by],
-          last_updated_by: subreport[:last_updated_by],
-          last_updated_date: subreport[:last_updated_date],
           ref_bib_keys: entity.ref_bib_keys || '',
           references_asset_url: entity.references_asset_url || '',
           _further_refs: subreport[:_further_refs],
@@ -398,7 +423,7 @@ def main(csv_file, log_level = 'info')
           assigned_authors: old_authors,
           cover_picture_asset: entity.cover_picture_asset || '',
           pdf_asset: entity.pdf_asset || '',
-          pdf_type: subreport[:pdf_type],
+          pdf_availability: subreport[:pdf_availability],
           themetags_discipline: subreport[:themetags_discipline],
           themetags_focus: subreport[:themetags_focus],
           themetags_badge: subreport[:themetags_badge],
@@ -535,7 +560,7 @@ def main(csv_file, log_level = 'info')
         assigned_authors: current_authors,
         cover_picture_asset: unprocessed_cover_picture_asset,
         pdf_asset: unprocessed_pdf_asset,
-        pdf_type: subreport[:pdf_type],
+        pdf_availability: subreport[:pdf_availability],
 
       })
 
