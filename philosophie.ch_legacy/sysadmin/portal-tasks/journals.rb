@@ -10,6 +10,7 @@ KEY_NAME = KEY.to_s
 MODEL = Journal
 MODEL_NAME = "#{MODEL.name}"
 FILE_NAME = "#{__FILE__}"
+REFERENCES_BASE_URL = 'https://assets.philosophie.ch/references/journals/'
 
 
 def main(csv_file, log_level = 'info')
@@ -195,7 +196,7 @@ def main(csv_file, log_level = 'info')
       cover_picture_asset = raw_cover_picture_asset.blank? ? 'empty' : raw_cover_picture_asset
 
       raw_references_asset = subreport[:references_asset].strip
-      references_asset = raw_references_asset.blank? ? 'empty' : raw_references_asset
+      references_asset = raw_references_asset.blank? || raw_references_asset == 'empty' ? 'empty' : "#{REFERENCES_BASE_URL}#{raw_references_asset}"
 
       raw_further_references_asset = subreport[:further_references_asset].strip
       further_references_asset = raw_further_references_asset.blank? ? 'empty' : raw_further_references_asset
@@ -291,7 +292,7 @@ def main(csv_file, log_level = 'info')
 
       end
 
-      if ['UPDATE', 'GET'].include?(req)
+      if ['UPDATE', 'GET', 'AD HOC'].include?(req)
 
         old_entity_key = entity[KEY]
         old_page = get_entity_presentation_page(entity, ENTITY_NAME)
@@ -318,7 +319,7 @@ def main(csv_file, log_level = 'info')
           _contact_person_email: subreport[:_contact_person_email],
 
           _references_keys: subreport[:_references_keys],
-          references_asset: entity.references_url || '',
+          references_asset: entity.references_url.to_s.strip.blank? ? 'empty' : entity.references_url.to_s.strip.sub(REFERENCES_BASE_URL, ''),
           _further_references_keys: subreport[:_further_references_keys],
           further_references_asset: entity.further_references_url || '',
           _references_dependencies_keys: subreport[:_references_dependencies_keys],
@@ -366,7 +367,11 @@ def main(csv_file, log_level = 'info')
       #######
 
       if req == 'AD HOC'
-
+        # AD HOC: Update references_asset ONLY (skip if raw input is blank or 'empty')
+        unless raw_references_asset.blank? || raw_references_asset == 'empty'
+          entity.references_url = "#{REFERENCES_BASE_URL}#{raw_references_asset}"
+          entity.save!
+        end
       end
 
 
@@ -381,7 +386,8 @@ def main(csv_file, log_level = 'info')
 
       new_link = get_entity_link(updated_entity[KEY], ENTITY_NAME)
 
-      unprocessed_references_asset = updated_entity.references_url.blank? ? 'empty' : updated_entity.references_url
+      raw_ref_url = updated_entity.references_url.to_s.strip
+      unprocessed_references_asset = raw_ref_url.blank? ? 'empty' : raw_ref_url.sub(REFERENCES_BASE_URL, '')
       unprocessed_further_references_asset = updated_entity.further_references_url.blank? ? 'empty' : updated_entity.further_references_url
 
       cover_pic_url = updated_entity.picture_url.to_s.strip || ''
