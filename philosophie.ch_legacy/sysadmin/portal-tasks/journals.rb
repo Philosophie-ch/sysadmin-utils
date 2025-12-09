@@ -10,7 +10,7 @@ KEY_NAME = KEY.to_s
 MODEL = Journal
 MODEL_NAME = "#{MODEL.name}"
 FILE_NAME = "#{__FILE__}"
-REFERENCES_BASE_URL = 'https://assets.philosophie.ch/references/journals/'
+REFERENCES_BASE_URL = "https://assets.philosophie.ch/references/#{TABLE_NAME}/"
 
 
 def main(csv_file, log_level = 'info')
