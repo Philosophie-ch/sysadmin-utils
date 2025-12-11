@@ -601,8 +601,15 @@ def main(csv_file, log_level = 'info')
 
       ## Ad hoc actions
       if req == "AD HOC"
-
-
+        # AD HOC: Update bibliography_asset_url and bibliography_further_references_asset_url ONLY
+        # (skip if raw input is blank)
+        unless bibliography_asset_url.blank?
+          user.profile.bibliography_asset_url = bibliography_asset_full_url
+        end
+        unless bibliography_further_references_asset_url.blank?
+          user.profile.bibliography_further_references_asset_url = bibliography_further_references_asset_full_url
+        end
+        user.profile.save!
       end
       ##
 
