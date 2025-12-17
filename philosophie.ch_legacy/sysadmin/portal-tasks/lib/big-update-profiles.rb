@@ -58,7 +58,13 @@ end
 # This is an optimization over the one that happens in the loop in profile_tools.rb; the speed-up is of more than one order of magnitude (from ~16h for 6k profiles to ~1 minute)
 def generate_profiles_pages_cache()
 
-  richtexts = Alchemy::EssenceRichtext.joins(:page).where.not("alchemy_pages.urlname": MENTIONED_ON_PAGES_TO_EXCLUDE).where("body LIKE ?", "%profil/%").reject { |richtext| richtext.page.nil? }
+  richtexts = Alchemy::EssenceRichtext
+    .left_outer_joins(element: :parent_element)
+    .joins(:page)
+    .where.not("alchemy_pages.urlname": MENTIONED_ON_PAGES_TO_EXCLUDE)
+    .where("body LIKE ?", "%profil/%")
+    .where("parent_elements_alchemy_elements.name IS NULL OR parent_elements_alchemy_elements.name != ?", "aside_column")
+    .reject { |richtext| richtext.page.nil? }
   #.joins(:page).pluck("alchemy_contents.element_id")
 
   page_profile_hash = Hash.new { |h, k| h[k] = [] }
