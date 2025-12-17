@@ -881,7 +881,6 @@ def set_references_bib_keys(page, bibkeys)
     error_trace: '',
   }
   begin
-    Rails.logger.info("set_references_bib_keys called with bibkeys: '#{bibkeys}'")
     references = page.elements.named(:references).first
 
     unless references
@@ -894,16 +893,11 @@ def set_references_bib_keys(page, bibkeys)
       unless references
         raise "References element could not be created"
       end
-      Rails.logger.info("References element created successfully")
     end
 
     # Update the bibkeys content using the proper Alchemy API
     bibkeys_content = references.content_by_name(:bibkeys)
-    Rails.logger.info("Updating bibkeys content. Current value: '#{bibkeys_content&.ingredient}', New value: '#{bibkeys}'")
     bibkeys_content.update_essence(ingredient: bibkeys)
-    Rails.logger.info("Bibkeys after update: '#{bibkeys_content.reload.ingredient}'")
-
-    Rails.logger.info("References bibkeys updated successfully")
 
     result[:status] = 'success'
     return result
@@ -1275,8 +1269,6 @@ def set_academic_metadata_json(page, metadata_json_str)
     error_trace: '',
   }
   begin
-    Rails.logger.info("set_academic_metadata_json called with metadata_json: '#{metadata_json_str}'")
-
     # Find or create academic_metadata element
     academic_metadata = page.elements.named(:academic_metadata).first
 
@@ -1290,16 +1282,11 @@ def set_academic_metadata_json(page, metadata_json_str)
       unless academic_metadata
         raise "Academic metadata element could not be created"
       end
-      Rails.logger.info("Academic metadata element created successfully")
     end
 
     # Update the metadata_json content using the proper Alchemy API
     metadata_json_content = academic_metadata.content_by_name(:metadata_json)
-    Rails.logger.info("Updating metadata_json content. Current value: '#{metadata_json_content&.ingredient}', New value: '#{metadata_json_str}'")
     metadata_json_content.update_essence(ingredient: metadata_json_str)
-    Rails.logger.info("Metadata_json after update: '#{metadata_json_content.reload.ingredient}'")
-
-    Rails.logger.info("Academic metadata_json updated successfully")
 
     result[:status] = 'success'
     return result
