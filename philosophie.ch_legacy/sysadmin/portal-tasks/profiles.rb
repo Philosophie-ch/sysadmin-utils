@@ -124,7 +124,7 @@ def main(csv_file, log_level = 'info')
       _title: row["_title"] || "",
       type_of_affiliation: row["type_of_affiliation"] || "",
       other_type_of_affiliation: row["other_type_of_affiliation"] || "",
-      _type_of_studies: row["_type_of_studies"] || "",
+      type_of_studies: row["type_of_studies"] || "",
       _function_title: row["_function_title"] || "",
       _function_standardised: row["_function_standardised"] || "",
 
@@ -272,6 +272,7 @@ def main(csv_file, log_level = 'info')
       institutional_affiliation = subreport[:institutional_affiliation].strip
       type_of_affiliation = subreport[:type_of_affiliation].strip
       other_type_of_affiliation = subreport[:other_type_of_affiliation].strip
+      type_of_studies = subreport[:type_of_studies].strip
 
       # emails
       email_addresses = email_addresses_raw.split(',').map(&:strip).join(', ')  # profile
@@ -404,7 +405,7 @@ def main(csv_file, log_level = 'info')
           _form_of_address: subreport[:_form_of_address],
           type_of_affiliation: type_of_affiliation_to_string(user.profile.type_of_affiliation),
           other_type_of_affiliation: user.profile.other_type_of_affiliation,
-          _type_of_studies: subreport[:_type_of_studies],
+          type_of_studies: type_of_studies_to_string(user.profile.type_of_studies),
           _title: subreport[:_title],
           _function_title: subreport[:_function_title],
           _function_standardised: subreport[:_function_standardised],
@@ -499,6 +500,9 @@ def main(csv_file, log_level = 'info')
           user.profile.type_of_affiliation = string_to_type_of_affiliation(type_of_affiliation)
 
           user.profile.other_type_of_affiliation = other_type_of_affiliation
+
+          # type_of_studies: uses model validation directly - will fail if invalid
+          user.profile.type_of_studies = string_to_type_of_studies(type_of_studies)
 
           user.profile.public = public_field
           user.profile.other_personal_information = other_personal_information
@@ -661,7 +665,7 @@ def main(csv_file, log_level = 'info')
         institutional_affiliation: user.profile.institutional_affiliation,
         type_of_affiliation: type_of_affiliation_to_string(user.profile.type_of_affiliation),
         other_type_of_affiliation: user.profile.other_type_of_affiliation,
-        _type_of_studies: subreport[:_type_of_studies],
+        type_of_studies: type_of_studies_to_string(user.profile.type_of_studies),
       })
 
       if req == "GET"

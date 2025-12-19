@@ -1,5 +1,9 @@
 # Portal Tasks Context & Architecture
 
+## Portal Codebase Location
+
+The full target code of the portal is located at: `~/philosophie-ch/portal/legacy`
+
 ## Overview
 
 The Portal Tasks system is a collection of Ruby scripts designed to manage and synchronize content for the Philosophie.ch portal through CSV-based batch processing. These scripts integrate deeply with Rails/Alchemy CMS to handle bulk operations on pages, profiles, publications, journals, publishers, events, and thematic tags.

@@ -525,3 +525,53 @@ def get_potential_duplicates(user)
   return pd.join(", ")
 
 end
+
+
+# Type of studies tools
+
+TYPE_OF_STUDIES = Profile::TYPE_OF_STUDIES
+
+TYPE_OF_STUDIES_MAP = TYPE_OF_STUDIES.each_with_object({}) do |tos, hash|
+  hash[tos.to_s.strip.downcase] = tos
+end
+
+class TypeOfStudiesNotFoundError < StandardError; end
+
+def type_of_studies_to_string(type_of_studies)
+  if type_of_studies.blank?
+    return ""
+  end
+
+  # Use the Profile model's method for translation
+  begin
+    Profile.human_type_of_studies_name(type_of_studies)
+  rescue => e
+    # Fallback to the type itself if translation fails
+    Rails.logger.warn("Could not translate type_of_studies '#{type_of_studies}': #{e.message}")
+    type_of_studies
+  end
+end
+
+def string_to_type_of_studies(string)
+  if string.blank?
+    return nil
+  end
+
+  normalized = string.to_s.strip.downcase
+
+  # First try direct match (e.g., "ba", "ma", "phd", "cas_other")
+  if TYPE_OF_STUDIES_MAP.keys.include?(normalized)
+    return TYPE_OF_STUDIES_MAP[normalized]
+  end
+
+  # Try to find a matching type by comparing translations
+  TYPE_OF_STUDIES.each do |type_of_studies|
+    translated = Profile.human_type_of_studies_name(type_of_studies)
+    if translated.to_s.strip.downcase == normalized
+      return type_of_studies
+    end
+  end
+
+  # If no match found, raise error
+  raise TypeOfStudiesNotFoundError, "Type of studies '#{string}' not found. Valid values: #{TYPE_OF_STUDIES.join(', ')}"
+end

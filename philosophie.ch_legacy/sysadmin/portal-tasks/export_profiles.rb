@@ -190,7 +190,7 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
         _title: "",
         type_of_affiliation: type_of_affiliation_to_string(user.profile.type_of_affiliation),
         other_type_of_affiliation: user.profile.other_type_of_affiliation,
-        _type_of_studies: "",
+        type_of_studies: type_of_studies_to_string(user.profile.type_of_studies),
         _function_title: "",
         _function_standardised: "",
 
@@ -282,7 +282,7 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
       _title: "",
       type_of_affiliation: "",
       other_type_of_affiliation: "",
-      _type_of_studies: "",
+      type_of_studies: "",
       _function_title: "",
       _function_standardised: "",
       country: "",
