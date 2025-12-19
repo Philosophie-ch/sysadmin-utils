@@ -1,41 +1,8 @@
 require_relative 'utils'
+require_relative 'tag_tools'
 
-def tag_columns_to_array(row)
-  col_tag_page_type = row.fetch(:tag_page_type, '')
-  tag_page_type = col_tag_page_type.empty? ? [] : ["page type: #{col_tag_page_type}"]
-
-  col_tag_media = row.fetch(:tag_media, '')
-  tag_media = col_tag_media.empty? ? [] : ["media: #{col_tag_media}"]
-
-  col_tag_content_type = row.fetch(:tag_content_type, '')
-  tag_content_type = col_tag_content_type.empty? ? [] : ["content type: #{col_tag_content_type}"]
-
-  col_tag_language = row.fetch(:tag_language, '')
-  tag_language = col_tag_language.empty? ? [] : ["language: #{col_tag_language}"]
-
-  col_tag_institution = row.fetch(:tag_institution, '')
-  tag_institution = col_tag_institution.empty? ? [] : ["institution: #{col_tag_institution}"]
-
-  col_tag_canton = row.fetch(:tag_canton, '')
-  tag_canton = col_tag_canton.empty? ? [] : ["canton: #{col_tag_canton}"]
-
-  col_tag_project = row.fetch(:tag_project, '')
-  tag_project = col_tag_project.empty? ? [] : ["project: #{col_tag_project}"]
-
-  col_tag_public = row.fetch(:tag_public, '')
-  tag_public = col_tag_public.empty? ? [] : ["public: #{col_tag_public}"]
-
-  col_tag_references = row.fetch(:tag_references, '')
-  tag_references = col_tag_references.empty? ? [] : ["references?: #{col_tag_references}"]
-
-  col_tag_footnotes = row.fetch(:tag_footnotes, '')
-  tag_footnotes = col_tag_footnotes.empty? ? [] : ["footnotes?: #{col_tag_footnotes}"]
-
-  col_tag_others = row.fetch(:tag_others, '')
-  tag_others = col_tag_others.empty? ? [] : col_tag_others.split(',').map(&:strip)
-
-  return tag_page_type + tag_media + tag_content_type + tag_language + tag_institution + tag_canton + tag_project + tag_public + tag_references + tag_footnotes + tag_others
-end
+# Tag handling functions (tag_columns_to_array, tag_array_to_columns)
+# are now in lib/tag_tools.rb for sharing between pages and publications
 
 def forced_intro_element(page)
   intro_element = page.intro_element
@@ -53,37 +20,6 @@ def forced_intro_element(page)
     return intro_element
   end
 
-end
-
-
-def tag_array_to_columns(tag_names)
-  tag_page_type = tag_names.find { |tag| tag.start_with?('page type: ') }&.gsub('page type: ', '') || ''
-  tag_media = tag_names.find { |tag| tag.start_with?('media: ') }&.gsub('media: ', '') || ''
-  tag_content_type = tag_names.find { |tag| tag.start_with?('content type: ') }&.gsub('content type: ', '') || ''
-  tag_language = tag_names.find { |tag| tag.start_with?('language: ') }&.gsub('language: ', '') || ''
-  tag_institution = tag_names.find { |tag| tag.start_with?('institution: ') }&.gsub('institution: ', '') || ''
-  tag_canton = tag_names.find { |tag| tag.start_with?('canton: ') }&.gsub('canton: ', '') || ''
-  tag_project = tag_names.find { |tag| tag.start_with?('project: ') }&.gsub('project: ', '') || ''
-  tag_public = tag_names.find { |tag| tag.start_with?('public: ') }&.gsub('public: ', '') || ''
-  tag_references = tag_names.find { |tag| tag.start_with?('references?: ') }&.gsub('references? ', '') || ''
-  tag_footnotes = tag_names.find { |tag| tag.start_with?('footnotes?:') }&.gsub('footnotes? ', '') || ''
-  tag_others_arr = tag_names.select { |tag| !tag.start_with?('page type: ', 'media: ', 'content type: ', 'language: ', 'institution: ', 'canton: ', 'project: ', 'public: ', 'references? ', 'footnotes? ') }
-  tag_others = tag_others_arr.blank? ? '' : tag_others_arr.join(', ')
-
-
-  return {
-    tag_page_type: tag_page_type,
-    tag_media: tag_media,
-    tag_content_type: tag_content_type,
-    tag_language: tag_language,
-    tag_institution: tag_institution,
-    tag_canton: tag_canton,
-    tag_project: tag_project,
-    tag_public: tag_public,
-    tag_references: tag_references,
-    tag_footnotes: tag_footnotes,
-    tag_others: tag_others
-  }
 end
 
 
