@@ -149,10 +149,16 @@ def check_asset_urls_resolve(processed_urls)
           next
         end
 
-        response = fetch_with_redirect(url)
+        # Use AssetUrlService.generate() which:
+        # - Returns signed URL for assets.philosophie.ch URLs (handles 403 auth)
+        # - Passes through external URLs unchanged
+        # - Returns nil for blank input
+        url_to_check = AssetUrlService.generate(url) || url
+
+        response = fetch_with_redirect(url_to_check)
 
         unless response.is_a?(Net::HTTPSuccess)
-          error_urls << url
+          error_urls << url  # Report original URL, not signed one
         end
 
       rescue => e
