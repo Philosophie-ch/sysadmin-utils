@@ -14,19 +14,13 @@ end
 
 
 def get_assigned_articles(user)
-  all_articles = Alchemy::Page.where(page_layout: 'article')
-  all_intro_elements = all_articles.map do |article|
-    article.elements.where(name: 'intro').first
-  end; nil
-  creator_essences = all_intro_elements.map do |intro_element|
-    intro_element&.content_by_name(:creator)&.essence
-  end; nil
-  creator_essences.compact!
-  user_creator_essences = creator_essences.select do |creator_essence|
-    creator_essence.alchemy_users.map(&:login).include?(user.login)
-  end; nil
+  return [] unless user.profile
 
-  user_creator_essences.map(&:page)
+  # Use new AlchemyPageAuthor system
+  Alchemy::Page
+    .joins(:page_authors)
+    .where(page_layout: 'article')
+    .where(alchemy_page_authors: { profile_id: user.profile.id })
 end
 
 

@@ -43,25 +43,19 @@ def main(csv_file, log_level = 'info')
 
   Rails.logger.info("Precomputing article assignments for all users...")
 
-  # Build a mapping of user_login => [articles]
-  # This prevents calling get_assigned_articles() multiple times which queries ALL articles each time
+  # Build a mapping of user_login => [page_ids] using new AlchemyPageAuthor system
   user_articles_map = {}
 
-  all_articles = Alchemy::Page.where(page_layout: 'article')
-                              .includes(elements: { contents: :essence })
+  # Query all article-author relationships efficiently via the new join table
+  article_authors = AlchemyPageAuthor
+    .joins(:page, :profile)
+    .joins("INNER JOIN alchemy_users ON alchemy_users.profile_id = profiles.id")
+    .where(alchemy_pages: { page_layout: 'article' })
+    .pluck('alchemy_users.login', 'alchemy_pages.id')
 
-  all_articles.each do |article|
-    intro_element = article.elements.find { |e| e.name == 'intro' }
-    next unless intro_element
-
-    creator_content = intro_element.content_by_name(:creator)
-    next unless creator_content&.essence
-
-    author_logins = creator_content.essence.alchemy_users.map(&:login)
-    author_logins.each do |login|
-      user_articles_map[login] ||= []
-      user_articles_map[login] << article
-    end
+  article_authors.each do |login, page_id|
+    user_articles_map[login] ||= []
+    user_articles_map[login] << page_id
   end
 
   Rails.logger.info("Precomputed article assignments for #{user_articles_map.keys.length} users")
