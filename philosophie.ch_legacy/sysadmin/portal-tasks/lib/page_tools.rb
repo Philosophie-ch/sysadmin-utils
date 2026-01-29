@@ -507,28 +507,8 @@ def get_assigned_authors(page)
     return ""
   end
 
-  if page_is_article || page_is_info
-
-    intro_element = forced_intro_element(page)
-    return "" if intro_element.nil?
-
-    creator_content = intro_element.content_by_name(:creator)
-    creator_essence = creator_content&.essence
-
-    unless creator_essence
-      return ""
-    end
-
-    return creator_essence.alchemy_users.map(&:login).join(', ')
-
-  elsif page_is_note
-
-    return page.authors.map(&:slug).join(', ')
-
-  end
-
-  return ""
-
+  # Use new AlchemyPageAuthor system for all page types
+  page.authors.map(&:slug).join(', ')
 end
 
 
@@ -558,31 +538,8 @@ def update_assigned_authors(page, authors_str)
   begin
     Rails.logger.debug("\tPage is an article or info or note. Proceeding...")
 
-    unless page_is_note
-      intro_element = forced_intro_element(page)
-
-      if intro_element.nil?
-        Rails.logger.error("\tIntro element not found. Skipping...")
-        result[:status] = 'error'
-        result[:error_message] = "Intro element not found"
-        result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
-        return result
-      end
-
-      creator_essence = intro_element.content_by_name(:creator)&.essence
-
-      unless creator_essence
-        Rails.logger.error("\tCreator essence not found. Skipping...")
-        result[:status] = 'error'
-        result[:error_message] = "Creator essence not found"
-        result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
-        return result
-      end
-
-    end
-
     author_list = authors_str.to_s.split(',').map(&:strip)
-    users = []
+    profiles = []
 
     flag = true
     user_error_message = "Users with the following logins not found: "
@@ -592,13 +549,16 @@ def update_assigned_authors(page, authors_str)
       if user.nil?
         user_error_message += "'#{author}', "
         flag = false
+      elsif user.profile.nil?
+        user_error_message += "'#{author}' (no profile), "
+        flag = false
       else
-        users << user
+        profiles << user.profile
       end
     end
 
     if !flag
-      Rails.logger.error("\tUsers with the following logins not found: #{user_error_message}")
+      Rails.logger.error("\t#{user_error_message}")
       result[:status] = 'error'
       user_error_message = user_error_message[0..-3] unless user_error_message.nil? || user_error_message.empty?
       result[:error_message] = user_error_message unless user_error_message.nil? || user_error_message.empty?
@@ -606,24 +566,9 @@ def update_assigned_authors(page, authors_str)
       return result
     end
 
-    if page_is_article || page_is_info
-      creator_essence.alchemy_users = users.uniq.compact
-      creator_essence.save!
-
-    elsif page_is_note
-
-      # For notes, we set the authors directly on the page
-      profiles = users.map { |user| user.profile }.uniq.compact
-      page.authors = profiles
-      page.save!
-
-    else
-      Rails.logger.error("\tPage is not an article or info or note. Skipping...")
-      result[:status] = 'error'
-      result[:error_message] = "Page is not an article or info or note"
-      result[:error_trace] = "pages_tasks.rb::update_assigned_authors"
-      return result
-    end
+    # Use new AlchemyPageAuthor system for all page types
+    page.authors = profiles.uniq.compact
+    page.save!
 
     Rails.logger.debug("\tAssigned authors updated successfully")
     result[:status] = 'success'
