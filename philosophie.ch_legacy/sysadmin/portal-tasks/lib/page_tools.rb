@@ -536,7 +536,7 @@ def update_assigned_authors(page, authors_str)
   }
 
   begin
-    Rails.logger.debug("\tPage is an article or info or note. Proceeding...")
+    Rails.logger.debug("\tPage is an article or event or info or note. Proceeding...")
 
     author_list = authors_str.to_s.split(',').map(&:strip)
     profiles = []
