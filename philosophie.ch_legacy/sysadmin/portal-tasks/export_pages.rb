@@ -395,6 +395,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         :language,
         :creator,
         :updater,
+        :authors,
         elements: :contents
       )
       .find_each(batch_size: 100, &process_page)
