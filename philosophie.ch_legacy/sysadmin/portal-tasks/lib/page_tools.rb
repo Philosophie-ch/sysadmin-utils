@@ -542,7 +542,7 @@ def update_assigned_authors(page, authors_str)
     profiles = []
 
     flag = true
-    user_error_message = "Users with the following logins not found: "
+    user_error_message = "Users not found or missing profiles: "
     for author in author_list
       user = Alchemy::User.find_by(login: author)
 
