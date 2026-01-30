@@ -25,30 +25,7 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
   # PRECOMPUTE EXPENSIVE LOOKUPS
   ############
 
-  Rails.logger.info("Precomputing article assignments for all users...")
-
-  # Build a mapping of user_login => [page_ids] using new AlchemyPageAuthor system
-  user_articles_map = {}
-
-  # Query all article-author relationships efficiently via the new join table
-  article_author_pairs = AlchemyPageAuthor
-    .joins(:page, :profile)
-    .joins("INNER JOIN alchemy_users ON alchemy_users.profile_id = profiles.id")
-    .where(alchemy_pages: { page_layout: 'article' })
-    .pluck('alchemy_users.login', 'alchemy_pages.id')
-
-  # Bulk-load all referenced pages and map id -> page to avoid per-row queries
-  page_ids = article_author_pairs.map { |_, page_id| page_id }.uniq
-  pages_by_id = Alchemy::Page.where(id: page_ids).includes(:language).index_by(&:id)
-
-  article_author_pairs.each do |login, page_id|
-    page = pages_by_id[page_id]
-    next unless page
-    user_articles_map[login] ||= []
-    user_articles_map[login] << page
-  end
-
-  Rails.logger.info("Precomputed article assignments for #{user_articles_map.keys.length} users")
+  user_articles_map = precompute_user_articles_map
 
 
   ############
