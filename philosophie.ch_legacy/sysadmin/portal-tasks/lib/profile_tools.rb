@@ -14,7 +14,7 @@ end
 
 
 def get_assigned_articles(user)
-  return [] unless user.profile
+  return Alchemy::Page.none unless user.profile
 
   # Use new AlchemyPageAuthor system
   Alchemy::Page
