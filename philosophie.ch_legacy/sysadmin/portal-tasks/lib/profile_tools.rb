@@ -537,6 +537,14 @@ def get_potential_duplicates(user)
     return ""
   end
 
+  missing_fields = []
+  missing_fields << "firstname" if user.firstname.blank?
+  missing_fields << "lastname" if user.lastname.blank?
+
+  unless missing_fields.empty?
+    return "WARNING: cannot compute potential duplicates because #{missing_fields.join(' and ')} #{missing_fields.length > 1 ? 'are' : 'is'} empty for user '#{user.login}' (id: #{user.id})"
+  end
+
   suggester = UsernameSuggester.new(
     raw_firstname: user.firstname,
     raw_lastname: user.lastname

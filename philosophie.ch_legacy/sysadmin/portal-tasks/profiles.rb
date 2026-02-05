@@ -308,8 +308,8 @@ def main(csv_file, log_level = 'info')
       if req == "DELETE"
         profile = user.profile
         profile_id = profile.id
-        user.delete
-        profile.delete
+        user.destroy!
+        profile.destroy!
 
         if Alchemy::User.find_by(login: login).present? || Profile.find_by(id: profile_id).present?
           Rails.logger.error("User '#{login}' not deleted for an unknown reason!")
