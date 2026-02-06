@@ -263,13 +263,12 @@ def transfer_profile_picture(user)
     end
 
     user.profile.avatar.open do |tempfile|
-      result = ImageCompressor.compress(tempfile.path)
+      result = ImageCompressor.compress(tempfile.path, candidate_threshold: "1KB")
       begin
         remote_path = "people-#{user.login}.webp"
         uploaded_path = FilebrowserClient.upload(result.webp_path, remote_path)
 
-        user.profile.profile_picture_url = uploaded_path
-        user.profile.save!
+        user.profile.update_column(:profile_picture_url, uploaded_path)
 
         user.profile.avatar.purge
 

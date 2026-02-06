@@ -594,8 +594,10 @@ def main(csv_file, log_level = 'info')
         transfer_report = transfer_profile_picture(user)
         if transfer_report[:status] != 'success'
           subreport[:status] = 'error'
+          subreport[:_request] = "#{req} ERROR"
           subreport[:error_message] += " --- #{transfer_report[:error_message]}"
           subreport[:error_trace] += " --- #{transfer_report[:error_trace]}"
+          next
         end
       end
 
@@ -670,6 +672,12 @@ def main(csv_file, log_level = 'info')
         end
 
         subreport[:changes_made] = changes.join(' ;;; ')
+      end
+
+      if req == "TRANSFER PIC"
+        subreport[:status] = 'success'
+        subreport[:_request] = "#{req} SUCCESS"
+        next
       end
 
       subreport[:status] = "success"

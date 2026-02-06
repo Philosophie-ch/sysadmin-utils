@@ -375,7 +375,7 @@ def transfer_intro_image(page)
 
     source_path = picture.image_file.path
 
-    result = ImageCompressor.compress(source_path)
+    result = ImageCompressor.compress(source_path, candidate_threshold: "1KB")
     begin
       remote_path = "#{page.urlname}.webp"
       uploaded_path = FilebrowserClient.upload(result.webp_path, remote_path)

@@ -819,8 +819,10 @@ def main(csv_file, log_level = 'info')
         transfer_report = transfer_intro_image(page)
         if transfer_report[:status] != 'success'
           subreport[:status] = 'error'
+          subreport[:_request] = "#{req} ERROR"
           subreport[:error_message] += " --- #{transfer_report[:error_message]}"
           subreport[:error_trace] += " --- #{transfer_report[:error_trace]}"
+          next
         end
       end
 
@@ -896,6 +898,12 @@ def main(csv_file, log_level = 'info')
         themetags_structural: themetags_hashmap[:structural],
       })
 
+
+      if req == 'TRANSFER INTRO PIC'
+        subreport[:status] = 'success'
+        subreport[:_request] = "#{req} SUCCESS"
+        next
+      end
 
       ############
       # COMPLEX TASKS ON UPDATE AND POST
