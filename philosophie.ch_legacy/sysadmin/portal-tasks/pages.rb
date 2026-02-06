@@ -138,7 +138,7 @@ def main(csv_file, log_level = 'info')
 
       # Control
       Rails.logger.info("Processing page: Control")
-      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH']
+      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH', 'TRANSFER INTRO PIC']
 
       req = subreport[:_request].strip
 
@@ -330,7 +330,7 @@ def main(csv_file, log_level = 'info')
           end
         end
 
-      elsif ['UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH'].include?(req)
+      elsif ['UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH', 'TRANSFER INTRO PIC'].include?(req)
         unless id.blank?
           page = Alchemy::Page.find(id)
         else
@@ -809,6 +809,19 @@ def main(csv_file, log_level = 'info')
 
       if req == 'AD HOC'
         Rails.logger.info("\t...AD HOC: '#{page_identifier}': No AD HOC tasks")
+      end
+
+      #######
+      # TRANSFER INTRO PIC
+      #######
+
+      if req == 'TRANSFER INTRO PIC'
+        transfer_report = transfer_intro_image(page)
+        if transfer_report[:status] != 'success'
+          subreport[:status] = 'error'
+          subreport[:error_message] += " --- #{transfer_report[:error_message]}"
+          subreport[:error_trace] += " --- #{transfer_report[:error_trace]}"
+        end
       end
 
 

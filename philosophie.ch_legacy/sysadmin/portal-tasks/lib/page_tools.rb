@@ -348,6 +348,67 @@ def update_intro_image_portal(page, image_file_name)
 end
 
 
+# Transfer portal-managed intro image to assets server
+def transfer_intro_image(page)
+  report = { status: 'not started', error_message: '', error_trace: '' }
+  begin
+    intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro', 'note_intro']
+    picture = nil
+    essence_picture_content = nil
+
+    page.elements.each do |element|
+      next unless intro_elements.include?(element.name)
+      content = element.contents&.find { |c| c.essence.is_a?(Alchemy::EssencePicture) }
+      if content&.essence&.picture.present?
+        picture = content.essence.picture
+        essence_picture_content = content
+        break
+      end
+    end
+
+    unless picture
+      report[:status] = 'error'
+      report[:error_message] = "Page '#{page.urlname}' has no intro picture to transfer"
+      report[:error_trace] = "page_tools.rb::transfer_intro_image"
+      return report
+    end
+
+    source_path = picture.image_file.path
+
+    result = ImageCompressor.compress(source_path)
+    begin
+      remote_path = "#{page.urlname}.webp"
+      uploaded_path = FilebrowserClient.upload(result.webp_path, remote_path)
+
+      intro_element = forced_intro_element(page)
+      url_content = intro_element.contents.find { |c| c.name == "picture_asset_url" }
+      if url_content&.essence
+        url_content.essence.update!(body: uploaded_path)
+      else
+        new_essence = Alchemy::EssenceText.create!(body: uploaded_path)
+        intro_element.contents.create!(name: "picture_asset_url", essence: new_essence)
+      end
+
+      picture_id = picture.id
+      Alchemy::EssencePicture.where(picture_id: picture_id).update_all(picture_id: nil)
+      picture.destroy!
+
+      page.publish!
+
+      report[:status] = 'success'
+    ensure
+      result.cleanup!
+    end
+
+    report
+  rescue => e
+    report[:status] = 'error'
+    report[:error_message] = "#{e.class} :: #{e.message}"
+    report[:error_trace] = e.backtrace.join(" ::: ")
+    report
+  end
+end
+
 
 ############
 # Portal assets

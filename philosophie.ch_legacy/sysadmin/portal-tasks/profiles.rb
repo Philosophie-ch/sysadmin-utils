@@ -152,7 +152,7 @@ def main(csv_file, log_level = 'info')
       end
 
       Rails.logger.info("Processing user '#{login}'")
-      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'UPDATE LINKS', 'UPDATE PASSWORD', 'AD HOC']
+      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'UPDATE LINKS', 'UPDATE PASSWORD', 'AD HOC', 'TRANSFER PIC']
       unless supported_requests.include?(req)
         if req.blank?
           subreport[:_request] = req + " ERROR"
@@ -257,7 +257,7 @@ def main(csv_file, log_level = 'info')
       if req == "POST"
           user = Alchemy::User.new()
 
-      elsif req == "UPDATE" || req == "GET" || req == "DELETE" || req == "UPDATE LINKS" || req == "UPDATE PASSWORD" || req == "AD HOC"
+      elsif req == "UPDATE" || req == "GET" || req == "DELETE" || req == "UPDATE LINKS" || req == "UPDATE PASSWORD" || req == "AD HOC" || req == "TRANSFER PIC"
 
         unless id.blank?
           user = Alchemy::User.find(id)
@@ -589,6 +589,15 @@ def main(csv_file, log_level = 'info')
         user.profile.save!
       end
       ##
+
+      if req == "TRANSFER PIC"
+        transfer_report = transfer_profile_picture(user)
+        if transfer_report[:status] != 'success'
+          subreport[:status] = 'error'
+          subreport[:error_message] += " --- #{transfer_report[:error_message]}"
+          subreport[:error_trace] += " --- #{transfer_report[:error_trace]}"
+        end
+      end
 
       # Update report
       Rails.logger.info("Processing user '#{login}': Updating report")

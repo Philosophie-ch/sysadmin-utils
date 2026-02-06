@@ -251,6 +251,44 @@ def set_profile_picture_asset(user, new_asset_name)
 end
 
 
+# Transfer portal-managed avatar to assets server
+def transfer_profile_picture(user)
+  report = { status: 'not started', error_message: '', error_trace: '' }
+  begin
+    unless user.profile&.avatar&.attached?
+      report[:status] = 'error'
+      report[:error_message] = "User '#{user.login}' has no portal-managed avatar attached"
+      report[:error_trace] = "profile_tools.rb::transfer_profile_picture"
+      return report
+    end
+
+    user.profile.avatar.open do |tempfile|
+      result = ImageCompressor.compress(tempfile.path)
+      begin
+        remote_path = "people-#{user.login}.webp"
+        uploaded_path = FilebrowserClient.upload(result.webp_path, remote_path)
+
+        user.profile.profile_picture_url = uploaded_path
+        user.profile.save!
+
+        user.profile.avatar.purge
+
+        report[:status] = 'success'
+      ensure
+        result.cleanup!
+      end
+    end
+
+    report
+  rescue => e
+    report[:status] = 'error'
+    report[:error_message] = "#{e.class} :: #{e.message}"
+    report[:error_trace] = e.backtrace.join(" ::: ")
+    report
+  end
+end
+
+
 # Portal asset
 def get_profile_picture_file_name(user)
   profile_picture = user.profile&.avatar&.attached? ? user&.profile&.avatar&.filename.to_s : ''
