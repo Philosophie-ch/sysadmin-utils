@@ -8,6 +8,38 @@ require_relative 'lib/page_tools'
 require_relative 'lib/export_utils'
 require_relative 'lib/bulk_media_migration_tools'
 
+MigrationRollbackNeeded = Class.new(StandardError) unless defined?(MigrationRollbackNeeded)
+
+ALLOWED_PAGE_LAYOUTS = %w[article note info standard].freeze unless defined?(ALLOWED_PAGE_LAYOUTS)
+BATCH_SIZE = 100 unless defined?(BATCH_SIZE)
+
+def report_file_path(entity_name)
+  base_folder = 'portal-tasks-reports'
+  FileUtils.mkdir_p(base_folder) unless Dir.exist?(base_folder)
+  "#{base_folder}/#{Time.now.strftime('%y%m%d')}_#{entity_name}_tasks_report.csv"
+end
+
+def append_to_report(file_path, rows)
+  return if rows.empty?
+
+  headers = rows.first.keys
+  write_header = !File.exist?(file_path)
+
+  CSV.open(file_path, 'a') do |csv|
+    csv << headers if write_header
+    rows.each { |row| csv << headers.map { |h| row[h] } }
+  end
+end
+
+def prompt_continue(batch_num, total_batches, file_path)
+  puts "\n--- Batch #{batch_num}/#{total_batches} complete. Report updated: #{file_path} ---"
+  return true if batch_num >= total_batches
+
+  print "Continue? (Y/n): "
+  $stdout.flush
+  answer = $stdin.gets&.strip
+  answer.nil? || answer.empty? || answer.casecmp('y').zero?
+end
 
 def bulk_media_migration(mode, log_level = 'info')
 
@@ -27,18 +59,20 @@ def bulk_media_migration(mode, log_level = 'info')
 
   report = []
   scan_results = []
+  csv_path = report_file_path("bulk_media_migration")
 
 
   ############
   # PHASE 1: SCAN
   ############
 
-  Rails.logger.info("--- Phase 1: Scanning ---")
+  Rails.logger.info("--- Phase 1: Scanning (layouts: #{ALLOWED_PAGE_LAYOUTS.join(', ')}) ---")
 
+  page_scope = Alchemy::Page.where(page_layout: ALLOWED_PAGE_LAYOUTS)
   page_count = 0
-  total_pages = Alchemy::Page.count
+  total_pages = page_scope.count
 
-  Alchemy::Page
+  page_scope
     .includes(elements: { contents: :essence })
     .find_each(batch_size: 100) do |page|
       page_count += 1
@@ -145,6 +179,9 @@ def bulk_media_migration(mode, log_level = 'info')
     end
   end
 
+  # Write cleanup entries to CSV
+  append_to_report(csv_path, report) unless report.empty?
+
 
   ############
   # PHASE 3: MIGRATE
@@ -154,22 +191,35 @@ def bulk_media_migration(mode, log_level = 'info')
 
   migrate_entries = scan_results.select { |r| r[:action] == 'migrate' }
   entries_by_page = migrate_entries.group_by { |r| r[:page_id] }
-  Rails.logger.info("Migrating media on #{entries_by_page.size} pages (#{migrate_entries.size} elements total)...")
+  page_batches = entries_by_page.each_slice(BATCH_SIZE).to_a
+  total_batches = page_batches.size
+  Rails.logger.info("Migrating media on #{entries_by_page.size} pages (#{migrate_entries.size} elements) in #{total_batches} batch(es) of #{BATCH_SIZE}...")
 
   migrated_page_count = 0
-  entries_by_page.each do |page_id, entries|
-    migrated_page_count += 1
-    ExportUtils.log_progress(migrated_page_count, entries_by_page.size, "pages (migrate)")
 
-    begin
-      page = Alchemy::Page.includes(elements: { contents: :essence }).find(page_id)
+  page_batches.each_with_index do |batch, batch_index|
+    batch_report = []
 
-      ActiveRecord::Base.transaction do
-        entries.each do |entry|
-          element = page.elements.find { |el| el.id == entry[:element_id] }
+    batch.each do |page_id, entries|
+      migrated_page_count += 1
+      ExportUtils.log_progress(migrated_page_count, entries_by_page.size, "pages (migrate)")
 
-          unless element
-            report << {
+      begin
+        page = Alchemy::Page.includes(elements: { contents: :essence }).find(page_id)
+        uploaded_files = []
+        page_reports = []
+
+        ActiveRecord::Base.transaction do
+          entries.each do |entry|
+            element = page.elements.find { |el| el.id == entry[:element_id] }
+
+            unless element
+              raise MigrationRollbackNeeded, "Element #{entry[:element_id]} not found on page #{page_id}"
+            end
+
+            migration_report = BulkMediaMigrationTools.migrate_media_element(element, entry[:target_filename])
+
+            page_reports << {
               entity_type: 'page',
               entity_id: page_id,
               entity_identifier: entry[:urlname],
@@ -177,16 +227,37 @@ def bulk_media_migration(mode, log_level = 'info')
               source_info: "attachment_id=#{entry[:attachment_id]}",
               target_filename: entry[:target_filename],
               action: 'migrate',
-              status: 'error',
-              error_message: "Element #{entry[:element_id]} not found on page",
-              error_trace: '',
+              status: migration_report[:status],
+              error_message: migration_report[:error_message],
+              error_trace: migration_report[:error_trace],
             }
-            next
+
+            if migration_report[:status] == 'success'
+              uploaded_files << migration_report[:uploaded_path] if migration_report[:uploaded_path]
+            else
+              raise MigrationRollbackNeeded, "Migration failed for element #{entry[:element_id]}: #{migration_report[:error_message]}"
+            end
           end
 
-          migration_report = BulkMediaMigrationTools.migrate_media_element(element, entry[:target_filename])
+          page.publish!
+        end
 
-          report << {
+        # Transaction committed successfully
+        batch_report.concat(page_reports)
+        Rails.logger.debug("Migrated page #{page_id} (#{entries.size} media elements)")
+      rescue StandardError => e
+        Rails.logger.error("Migration failed for page #{page_id}: #{e.message}")
+
+        # Clean up orphaned uploads from the failed transaction
+        uploaded_files.each do |path|
+          FilebrowserClient.delete(path)
+        rescue StandardError
+          nil
+        end
+
+        # Mark all entries for this page as errors
+        entries.each do |entry|
+          batch_report << {
             entity_type: 'page',
             entity_id: page_id,
             entity_identifier: entry[:urlname],
@@ -194,40 +265,22 @@ def bulk_media_migration(mode, log_level = 'info')
             source_info: "attachment_id=#{entry[:attachment_id]}",
             target_filename: entry[:target_filename],
             action: 'migrate',
-            status: migration_report[:status],
-            error_message: migration_report[:error_message],
-            error_trace: migration_report[:error_trace],
+            status: 'error',
+            error_message: "#{e.class} :: #{e.message}",
+            error_trace: e.backtrace&.join(" ::: ") || '',
           }
-
-          if migration_report[:status] != 'success'
-            raise ActiveRecord::Rollback, "Migration failed for element #{entry[:element_id]}: #{migration_report[:error_message]}"
-          end
         end
-
-        page.publish!
       end
+    end
 
-      Rails.logger.debug("Migrated page #{page_id} (#{entries.size} media elements)")
-    rescue StandardError => e
-      Rails.logger.error("Migration failed for page #{page_id}: #{e.message}")
+    # Append batch results to CSV and accumulate in main report
+    append_to_report(csv_path, batch_report)
+    report.concat(batch_report)
 
-      already_reported = report.select { |r| r[:entity_id] == page_id && r[:action] == 'migrate' }.map { |r| r[:target_filename] }
-      entries.each do |entry|
-        next if already_reported.include?(entry[:target_filename])
-
-        report << {
-          entity_type: 'page',
-          entity_id: page_id,
-          entity_identifier: entry[:urlname],
-          element_type: entry[:element_name],
-          source_info: "attachment_id=#{entry[:attachment_id]}",
-          target_filename: entry[:target_filename],
-          action: 'migrate',
-          status: 'error',
-          error_message: "#{e.class} :: #{e.message}",
-          error_trace: e.backtrace.join(" ::: "),
-        }
-      end
+    unless prompt_continue(batch_index + 1, total_batches, csv_path)
+      Rails.logger.info("User aborted after batch #{batch_index + 1}.")
+      puts "Aborted. Partial report saved to #{csv_path}"
+      break
     end
   end
 
@@ -245,7 +298,7 @@ def bulk_media_migration(mode, log_level = 'info')
   puts ""
 
   if report.any?
-    generate_csv_report(report, "bulk_media_migration")
+    puts "Full report saved to #{csv_path}"
   else
     Rails.logger.info("No actions taken, no report to generate.")
     puts "No actions taken."

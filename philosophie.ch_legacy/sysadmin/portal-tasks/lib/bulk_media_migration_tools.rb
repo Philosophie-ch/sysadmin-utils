@@ -73,15 +73,28 @@ module BulkMediaMigrationTools
 
     # Get file path via Dragonfly and upload
     source_path = attachment.file.path
+
+    unless source_path && File.exist?(source_path)
+      report[:status] = 'error'
+      report[:error_message] = "Attachment file not found on disk (Dragonfly path: #{source_path.inspect}) for element #{element.id}"
+      return report
+    end
+
     uploaded_path = FilebrowserClient.upload(source_path, target_filename)
 
     # Set asset_url on the element
     set_element_media_url(element, config[:url_content], uploaded_path)
 
-    # Nullify legacy association (do not destroy the Attachment record)
+    # Nullify legacy association
     Alchemy::EssenceFile.where(id: essence.id).update_all(attachment_id: nil)
 
+    # Destroy orphaned attachment record (Dragonfly removes file from disk)
+    if Alchemy::EssenceFile.where(attachment_id: attachment.id).none?
+      attachment.destroy
+    end
+
     report[:status] = 'success'
+    report[:uploaded_path] = uploaded_path
     report
   rescue StandardError => e
     report[:status] = 'error'
@@ -90,8 +103,8 @@ module BulkMediaMigrationTools
     report
   end
 
-  # Cleanup for already-migrated media elements: nullify EssenceFile.attachment_id.
-  # Does NOT destroy the Alchemy::Attachment record.
+  # Cleanup for already-migrated media elements: nullify EssenceFile.attachment_id
+  # and destroy orphaned Attachment records (removes files from disk).
   # Returns a report hash.
   def self.cleanup_media_association(element)
     report = { status: 'not started', error_message: '', error_trace: '' }
@@ -114,6 +127,11 @@ module BulkMediaMigrationTools
     end
 
     Alchemy::EssenceFile.where(id: essence.id).update_all(attachment_id: nil)
+
+    # Destroy orphaned attachment record (Dragonfly removes file from disk)
+    if Alchemy::EssenceFile.where(attachment_id: attachment_id).none?
+      Alchemy::Attachment.find_by(id: attachment_id)&.destroy
+    end
 
     report[:status] = 'success'
     report

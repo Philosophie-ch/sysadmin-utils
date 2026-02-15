@@ -2,7 +2,7 @@
 
 module BulkImageMigrationTools
 
-  INTRO_ELEMENT_NAMES = %w[intro event_intro call_for_papers_intro job_intro note_intro].freeze
+  INTRO_ELEMENT_NAMES = %w[intro note_intro].freeze
   PIC_ELEMENT_NAMES = %w[picture_block text_and_picture].freeze
 
   # Scans a page for all image-bearing elements.
@@ -62,6 +62,12 @@ module BulkImageMigrationTools
     picture = essence_picture_content.essence.picture
     source_path = picture.image_file.path
 
+    unless source_path && File.exist?(source_path)
+      report[:status] = 'error'
+      report[:error_message] = "Image file not found on disk (path: #{source_path.inspect}) for element #{element.id}"
+      return report
+    end
+
     result = ImageCompressor.compress(source_path, candidate_threshold: "1KB")
     begin
       uploaded_path = FilebrowserClient.upload(result.webp_path, target_filename)
@@ -69,11 +75,16 @@ module BulkImageMigrationTools
       # Set asset_url on the element
       set_element_asset_url(element, uploaded_path)
 
-      # Nullify legacy EssencePicture association (do not destroy the Picture record)
-      picture_id = picture.id
-      Alchemy::EssencePicture.where(picture_id: picture_id).update_all(picture_id: nil)
+      # Nullify legacy EssencePicture association
+      Alchemy::EssencePicture.where(id: essence_picture_content.essence.id).update_all(picture_id: nil)
+
+      # Destroy orphaned picture record (Dragonfly removes file from disk)
+      if Alchemy::EssencePicture.where(picture_id: picture.id).none?
+        picture.destroy
+      end
 
       report[:status] = 'success'
+      report[:uploaded_path] = uploaded_path
     ensure
       result.cleanup!
     end
@@ -119,8 +130,8 @@ module BulkImageMigrationTools
     report
   end
 
-  # Cleanup for already-migrated page elements: nullify EssencePicture association.
-  # Does NOT destroy the Alchemy::Picture record.
+  # Cleanup for already-migrated page elements: nullify EssencePicture association
+  # and destroy orphaned Picture records (removes files from disk).
   # Returns a report hash.
   def self.cleanup_legacy_picture(element)
     report = { status: 'not started', error_message: '', error_trace: '' }
@@ -133,9 +144,12 @@ module BulkImageMigrationTools
     end
 
     picture = essence_picture_content.essence.picture
-    picture_id = picture.id
+    Alchemy::EssencePicture.where(id: essence_picture_content.essence.id).update_all(picture_id: nil)
 
-    Alchemy::EssencePicture.where(picture_id: picture_id).update_all(picture_id: nil)
+    # Destroy orphaned picture record (Dragonfly removes file from disk)
+    if Alchemy::EssencePicture.where(picture_id: picture.id).none?
+      picture.destroy
+    end
 
     report[:status] = 'success'
     report

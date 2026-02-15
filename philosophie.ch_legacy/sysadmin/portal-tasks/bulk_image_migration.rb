@@ -8,6 +8,41 @@ require_relative 'lib/page_tools'
 require_relative 'lib/export_utils'
 require_relative 'lib/bulk_image_migration_tools'
 
+# Re-attach ActiveStorage avatar for migration (removed from model but records still exist)
+Profile.has_one_attached :avatar unless Profile.reflect_on_attachment(:avatar)
+
+MigrationRollbackNeeded = Class.new(StandardError)
+
+ALLOWED_PAGE_LAYOUTS = %w[article note info standard].freeze
+BATCH_SIZE = 100
+
+def report_file_path(entity_name)
+  base_folder = 'portal-tasks-reports'
+  FileUtils.mkdir_p(base_folder) unless Dir.exist?(base_folder)
+  "#{base_folder}/#{Time.now.strftime('%y%m%d')}_#{entity_name}_tasks_report.csv"
+end
+
+def append_to_report(file_path, rows)
+  return if rows.empty?
+
+  headers = rows.first.keys
+  write_header = !File.exist?(file_path)
+
+  CSV.open(file_path, 'a') do |csv|
+    csv << headers if write_header
+    rows.each { |row| csv << headers.map { |h| row[h] } }
+  end
+end
+
+def prompt_continue(batch_num, total_batches, file_path)
+  puts "\n--- Batch #{batch_num}/#{total_batches} complete. Report updated: #{file_path} ---"
+  return true if batch_num >= total_batches
+
+  print "Continue? (Y/n): "
+  $stdout.flush
+  answer = $stdin.gets&.strip
+  answer.nil? || answer.empty? || answer.casecmp('y').zero?
+end
 
 def bulk_image_migration(mode, log_level = 'info', entity_filter = nil)
 
@@ -33,6 +68,7 @@ def bulk_image_migration(mode, log_level = 'info', entity_filter = nil)
 
   report = []
   scan_results = { pages: [], profiles: [] }
+  csv_path = report_file_path("bulk_image_migration")
 
 
   ############
@@ -43,11 +79,12 @@ def bulk_image_migration(mode, log_level = 'info', entity_filter = nil)
 
   # Scan pages
   if entity_filter.nil? || entity_filter == 'pages'
-    Rails.logger.info("Scanning pages...")
+    Rails.logger.info("Scanning pages (layouts: #{ALLOWED_PAGE_LAYOUTS.join(', ')})...")
+    page_scope = Alchemy::Page.where(page_layout: ALLOWED_PAGE_LAYOUTS)
     page_count = 0
-    total_pages = Alchemy::Page.count
+    total_pages = page_scope.count
 
-    Alchemy::Page
+    page_scope
       .includes(elements: { contents: :essence })
       .find_each(batch_size: 100) do |page|
         page_count += 1
@@ -256,6 +293,9 @@ def bulk_image_migration(mode, log_level = 'info', entity_filter = nil)
     end
   end
 
+  # Write cleanup entries to CSV
+  append_to_report(csv_path, report) unless report.empty?
+
 
   ############
   # PHASE 3: MIGRATE
@@ -269,22 +309,35 @@ def bulk_image_migration(mode, log_level = 'info', entity_filter = nil)
 
     # Group by page_id so we can do per-page transactions
     entries_by_page = migrate_entries.group_by { |r| r[:page_id] }
-    Rails.logger.info("Migrating images on #{entries_by_page.size} pages (#{migrate_entries.size} elements total)...")
+    page_batches = entries_by_page.each_slice(BATCH_SIZE).to_a
+    total_batches = page_batches.size
+    Rails.logger.info("Migrating images on #{entries_by_page.size} pages (#{migrate_entries.size} elements) in #{total_batches} batch(es) of #{BATCH_SIZE}...")
 
     migrated_page_count = 0
-    entries_by_page.each do |page_id, entries|
-      migrated_page_count += 1
-      ExportUtils.log_progress(migrated_page_count, entries_by_page.size, "pages (migrate)")
 
-      begin
-        page = Alchemy::Page.includes(elements: { contents: :essence }).find(page_id)
+    page_batches.each_with_index do |batch, batch_index|
+      batch_report = []
 
-        ActiveRecord::Base.transaction do
-          entries.each do |entry|
-            element = page.elements.find { |el| el.id == entry[:element_id] }
+      batch.each do |page_id, entries|
+        migrated_page_count += 1
+        ExportUtils.log_progress(migrated_page_count, entries_by_page.size, "pages (migrate)")
 
-            unless element
-              report << {
+        begin
+          page = Alchemy::Page.includes(elements: { contents: :essence }).find(page_id)
+          uploaded_files = []
+          page_reports = []
+
+          ActiveRecord::Base.transaction do
+            entries.each do |entry|
+              element = page.elements.find { |el| el.id == entry[:element_id] }
+
+              unless element
+                raise MigrationRollbackNeeded, "Element #{entry[:element_id]} not found on page #{page_id}"
+              end
+
+              migration_report = BulkImageMigrationTools.migrate_page_image(page, element, entry[:target_filename])
+
+              page_reports << {
                 entity_type: 'page',
                 entity_id: page_id,
                 entity_identifier: entry[:urlname],
@@ -292,16 +345,36 @@ def bulk_image_migration(mode, log_level = 'info', entity_filter = nil)
                 source_info: "picture_id=#{entry[:picture_id]}",
                 target_filename: entry[:target_filename],
                 action: 'migrate',
-                status: 'error',
-                error_message: "Element #{entry[:element_id]} not found on page",
-                error_trace: '',
+                status: migration_report[:status],
+                error_message: migration_report[:error_message],
+                error_trace: migration_report[:error_trace],
               }
-              next
+
+              if migration_report[:status] == 'success'
+                uploaded_files << migration_report[:uploaded_path] if migration_report[:uploaded_path]
+              else
+                raise MigrationRollbackNeeded, "Migration failed for element #{entry[:element_id]}: #{migration_report[:error_message]}"
+              end
             end
 
-            migration_report = BulkImageMigrationTools.migrate_page_image(page, element, entry[:target_filename])
+            page.publish!
+          end
 
-            report << {
+          # Transaction committed successfully
+          batch_report.concat(page_reports)
+          Rails.logger.debug("Migrated page #{page_id} (#{entries.size} elements)")
+        rescue StandardError => e
+          Rails.logger.error("Migration failed for page #{page_id}: #{e.message}")
+
+          # Clean up orphaned uploads from the failed transaction
+          uploaded_files.each do |path|
+            FilebrowserClient.delete(path)
+          rescue StandardError
+            nil
+          end
+
+          entries.each do |entry|
+            batch_report << {
               entity_type: 'page',
               entity_id: page_id,
               entity_identifier: entry[:urlname],
@@ -309,35 +382,88 @@ def bulk_image_migration(mode, log_level = 'info', entity_filter = nil)
               source_info: "picture_id=#{entry[:picture_id]}",
               target_filename: entry[:target_filename],
               action: 'migrate',
+              status: 'error',
+              error_message: "#{e.class} :: #{e.message}",
+              error_trace: e.backtrace&.join(" ::: ") || '',
+            }
+          end
+        end
+      end
+
+      # Append batch results to CSV and accumulate in main report
+      append_to_report(csv_path, batch_report)
+      report.concat(batch_report)
+
+      unless prompt_continue(batch_index + 1, total_batches, csv_path)
+        Rails.logger.info("User aborted after batch #{batch_index + 1}.")
+        puts "Aborted. Partial report saved to #{csv_path}"
+        break
+      end
+    end
+  end
+
+  # Migrate profiles
+  if entity_filter.nil? || entity_filter == 'profiles'
+    migrate_entries = scan_results[:profiles].select { |r| r[:action] == 'migrate' }
+    profile_batches = migrate_entries.each_slice(BATCH_SIZE).to_a
+    total_profile_batches = profile_batches.size
+    Rails.logger.info("Migrating #{migrate_entries.size} profile avatars in #{total_profile_batches} batch(es) of #{BATCH_SIZE}...")
+
+    migrated_profile_count = 0
+
+    profile_batches.each_with_index do |batch, batch_index|
+      batch_report = []
+
+      batch.each do |entry|
+        migrated_profile_count += 1
+        ExportUtils.log_progress(migrated_profile_count, migrate_entries.size, "profiles (migrate)")
+
+        begin
+          profile = Profile.includes(:avatar_attachment, :avatar_blob, :user).find(entry[:profile_id])
+          user = profile.user
+
+          unless user
+            batch_report << {
+              entity_type: 'profile',
+              entity_id: entry[:profile_id],
+              entity_identifier: entry[:user_login],
+              element_type: 'avatar',
+              source_info: 'ActiveStorage avatar',
+              target_filename: entry[:target_filename],
+              action: 'migrate',
+              status: 'error',
+              error_message: 'User not found for profile',
+              error_trace: '',
+            }
+            next
+          end
+
+          ActiveRecord::Base.transaction do
+            migration_report = BulkImageMigrationTools.migrate_profile_image(profile, user)
+
+            batch_report << {
+              entity_type: 'profile',
+              entity_id: entry[:profile_id],
+              entity_identifier: entry[:user_login],
+              element_type: 'avatar',
+              source_info: 'ActiveStorage avatar',
+              target_filename: entry[:target_filename],
+              action: 'migrate',
               status: migration_report[:status],
               error_message: migration_report[:error_message],
               error_trace: migration_report[:error_trace],
             }
-
-            if migration_report[:status] != 'success'
-              raise ActiveRecord::Rollback, "Migration failed for element #{entry[:element_id]}: #{migration_report[:error_message]}"
-            end
           end
 
-          page.publish!
-        end
-
-        Rails.logger.debug("Migrated page #{page_id} (#{entries.size} elements)")
-      rescue StandardError => e
-        Rails.logger.error("Migration failed for page #{page_id}: #{e.message}")
-
-        # If the transaction was rolled back, mark remaining entries as errors
-        already_reported = report.select { |r| r[:entity_id] == page_id && r[:action] == 'migrate' }.map { |r| r[:element_type] + r[:target_filename] }
-        entries.each do |entry|
-          key = entry[:element_type] + entry[:target_filename]
-          next if already_reported.include?(key)
-
-          report << {
-            entity_type: 'page',
-            entity_id: page_id,
-            entity_identifier: entry[:urlname],
-            element_type: entry[:element_type],
-            source_info: "picture_id=#{entry[:picture_id]}",
+          Rails.logger.debug("Migrated profile for #{entry[:user_login]}")
+        rescue StandardError => e
+          Rails.logger.error("Migration failed for profile #{entry[:profile_id]}: #{e.message}")
+          batch_report << {
+            entity_type: 'profile',
+            entity_id: entry[:profile_id],
+            entity_identifier: entry[:user_login],
+            element_type: 'avatar',
+            source_info: 'ActiveStorage avatar',
             target_filename: entry[:target_filename],
             action: 'migrate',
             status: 'error',
@@ -346,71 +472,15 @@ def bulk_image_migration(mode, log_level = 'info', entity_filter = nil)
           }
         end
       end
-    end
-  end
 
-  # Migrate profiles
-  if entity_filter.nil? || entity_filter == 'profiles'
-    migrate_entries = scan_results[:profiles].select { |r| r[:action] == 'migrate' }
-    Rails.logger.info("Migrating #{migrate_entries.size} profile avatars...")
+      # Append batch results to CSV and accumulate in main report
+      append_to_report(csv_path, batch_report)
+      report.concat(batch_report)
 
-    migrated_profile_count = 0
-    migrate_entries.each do |entry|
-      migrated_profile_count += 1
-      ExportUtils.log_progress(migrated_profile_count, migrate_entries.size, "profiles (migrate)")
-
-      begin
-        profile = Profile.includes(:avatar_attachment, :avatar_blob, :user).find(entry[:profile_id])
-        user = profile.user
-
-        unless user
-          report << {
-            entity_type: 'profile',
-            entity_id: entry[:profile_id],
-            entity_identifier: entry[:user_login],
-            element_type: 'avatar',
-            source_info: 'ActiveStorage avatar',
-            target_filename: entry[:target_filename],
-            action: 'migrate',
-            status: 'error',
-            error_message: 'User not found for profile',
-            error_trace: '',
-          }
-          next
-        end
-
-        ActiveRecord::Base.transaction do
-          migration_report = BulkImageMigrationTools.migrate_profile_image(profile, user)
-
-          report << {
-            entity_type: 'profile',
-            entity_id: entry[:profile_id],
-            entity_identifier: entry[:user_login],
-            element_type: 'avatar',
-            source_info: 'ActiveStorage avatar',
-            target_filename: entry[:target_filename],
-            action: 'migrate',
-            status: migration_report[:status],
-            error_message: migration_report[:error_message],
-            error_trace: migration_report[:error_trace],
-          }
-        end
-
-        Rails.logger.debug("Migrated profile for #{entry[:user_login]}")
-      rescue StandardError => e
-        Rails.logger.error("Migration failed for profile #{entry[:profile_id]}: #{e.message}")
-        report << {
-          entity_type: 'profile',
-          entity_id: entry[:profile_id],
-          entity_identifier: entry[:user_login],
-          element_type: 'avatar',
-          source_info: 'ActiveStorage avatar',
-          target_filename: entry[:target_filename],
-          action: 'migrate',
-          status: 'error',
-          error_message: "#{e.class} :: #{e.message}",
-          error_trace: e.backtrace.join(" ::: "),
-        }
+      unless prompt_continue(batch_index + 1, total_profile_batches, csv_path)
+        Rails.logger.info("User aborted after profile batch #{batch_index + 1}.")
+        puts "Aborted. Partial report saved to #{csv_path}"
+        break
       end
     end
   end
@@ -422,16 +492,14 @@ def bulk_image_migration(mode, log_level = 'info', entity_filter = nil)
 
   Rails.logger.info("--- Phase 4: Report ---")
 
-  # Print summary
   puts "\n=== Migration Summary ==="
   report_actions = report.group_by { |r| [r[:action], r[:status]] }.transform_values(&:count)
   report_actions.each { |(action, status), count| puts "  #{action}/#{status}: #{count}" }
   puts "Total entries: #{report.size}"
   puts ""
 
-  # Write CSV report
   if report.any?
-    generate_csv_report(report, "bulk_image_migration")
+    puts "Full report saved to #{csv_path}"
   else
     Rails.logger.info("No actions taken, no report to generate.")
     puts "No actions taken."
