@@ -91,6 +91,36 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
       processed_count += 1
       ExportUtils.log_progress(processed_count, total_pages, "pages")
 
+      # Check if page exists (nil when ID not found in DB)
+      unless page
+        Rails.logger.warn("Page ID not found in database - skipping (row #{processed_count})")
+        error_data = {
+          _to_do: "", _sort: "", id: "", published: "", name: "", pre_headline: "",
+          title: "", lead_text: "", embedded_html_base_name: "", language_code: "",
+          urlname: "", slug: "", link: "", _request: "", bibkey: "", how_to_cite: "",
+          pure_html_asset: "", pure_pdf_asset: "", doi: "", metadata_json: "",
+          created_at: "", page_layout: "", created_by: "", last_updated_by: "",
+          last_updated_date: "", replies_to: "", replied_by: "",
+          tag_page_type: "", tag_media: "", tag_content_type: "", tag_language: "",
+          tag_institution: "", tag_canton: "", tag_project: "", tag_public: "",
+          tag_references: "", tag_footnotes: "", ref_bib_keys: "", _ref_people: "",
+          references_asset_url: "", _further_refs: "", further_references_asset_url: "",
+          _depends_on: "", _presentation_of: "", _link: "", _abstract: "",
+          assigned_authors: "", anon: "", intro_image_asset: "", intro_image_portal: "",
+          audio_assets: "", audios_portal: "", video_assets: "", videos_portal: "",
+          pdf_assets: "", pdfs_portal: "", picture_assets: "", pictures_portal: "",
+          text_and_picture_assets: "", text_and_pictures_portal: "", box_assets: "",
+          embed_blocks: "", _attachment_links_assets: "", attachment_links_portal: "",
+          has_html_header_tags: "", themetags_discipline: "", themetags_focus: "",
+          themetags_badge: "", themetags_structural: "",
+          status: 'error', changes_made: '',
+          error_message: "Page ID not found in database",
+          error_trace: '', result_order: processed_count,
+        }
+        report << error_data
+        return
+      end
+
       # Track if page has intro-related issues
       partial_success = false
       partial_error_messages = []

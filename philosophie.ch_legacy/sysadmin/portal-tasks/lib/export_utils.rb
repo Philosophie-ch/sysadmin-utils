@@ -89,16 +89,16 @@ module ExportUtils
     # Fetch all records at once
     records = model_class.where(id: ids).index_by(&:id)
 
-    # Check for missing IDs
+    # Warn about missing IDs (don't abort — callers handle nil gracefully)
     missing_ids = ids - records.keys
     unless missing_ids.empty?
-      raise "The following IDs were not found in the database: #{missing_ids.join(', ')}"
+      Rails.logger.warn("The following IDs were not found in the database (will appear as error rows): #{missing_ids.join(', ')}")
     end
 
-    # Return records in the original order
+    # Return records in the original order (nil for missing IDs)
     ordered_records = ids.map { |id| records[id] }
 
-    Rails.logger.info("All #{ids.length} IDs validated successfully")
+    Rails.logger.info("Validated #{ids.length} IDs (#{missing_ids.size} missing)")
     ordered_records
   end
 
@@ -115,7 +115,7 @@ module ExportUtils
     csv_data = nil
     begin
       csv_data = CSV.read(csv_file, headers: true, encoding: 'UTF-8')
-    rescue ArgumentError, Encoding::InvalidByteSequenceError
+    rescue ArgumentError, Encoding::InvalidByteSequenceError, CSV::MalformedCSVError
       Rails.logger.info("UTF-8 parsing failed, trying UTF-16...")
       csv_data = CSV.read(csv_file, headers: true, encoding: 'UTF-16')
     end
@@ -150,7 +150,7 @@ module ExportUtils
     csv_data = nil
     begin
       csv_data = CSV.read(csv_file, headers: true, encoding: 'UTF-8')
-    rescue ArgumentError, Encoding::InvalidByteSequenceError
+    rescue ArgumentError, Encoding::InvalidByteSequenceError, CSV::MalformedCSVError
       Rails.logger.info("UTF-8 parsing failed, trying UTF-16...")
       csv_data = CSV.read(csv_file, headers: true, encoding: 'UTF-16')
     end

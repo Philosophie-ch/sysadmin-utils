@@ -94,6 +94,15 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
       processed_count += 1
       ExportUtils.log_progress(processed_count, total_users, "profiles")
 
+      # Check if user exists (nil when ID not found in DB)
+      unless user
+        Rails.logger.warn("User ID not found in database - skipping (row #{processed_count})")
+        error_data = build_error_profile_data(nil, "User ID not found in database")
+        error_data[:result_order] = processed_count
+        report << error_data
+        return
+      end
+
       # Check if user has a profile
       unless user.profile
         Rails.logger.warn("User #{user.id} (#{user.login}) has no profile - skipping")
