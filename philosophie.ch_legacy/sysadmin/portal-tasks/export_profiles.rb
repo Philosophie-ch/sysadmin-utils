@@ -181,7 +181,6 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
         _projects: "",
         societies: user.profile.societies.map(&:name).join(', '),
         cms_public_email_toggle: user.profile.cms_public_email_toggle,
-        profile_picture: get_profile_picture_file_name(user),
         profile_picture_asset: get_profile_picture_asset_name(user),
         facebook_profile: user.profile.facebook_profile,
 
@@ -271,7 +270,6 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
       _projects: "",
       societies: "",
       cms_public_email_toggle: "",
-      profile_picture: "",
       profile_picture_asset: "",
       facebook_profile: "",
       status: 'unhandled error',

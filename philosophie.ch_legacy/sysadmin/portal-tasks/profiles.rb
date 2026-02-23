@@ -115,7 +115,6 @@ def main(csv_file, log_level = 'info')
       _projects: row["_projects"] || "",
       societies: row["societies"] || "",
       cms_public_email_toggle: row["cms_public_email_toggle"] || "",
-      profile_picture: row["profile_picture"] || "",
       profile_picture_asset: row["profile_picture_asset"] || "",
       facebook_profile: row["facebook_profile"] || "",
 
@@ -152,7 +151,7 @@ def main(csv_file, log_level = 'info')
       end
 
       Rails.logger.info("Processing user '#{login}'")
-      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'UPDATE LINKS', 'UPDATE PASSWORD', 'AD HOC', 'TRANSFER PIC']
+      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'UPDATE LINKS', 'UPDATE PASSWORD', 'AD HOC']
       unless supported_requests.include?(req)
         if req.blank?
           subreport[:_request] = req + " ERROR"
@@ -257,7 +256,7 @@ def main(csv_file, log_level = 'info')
       if req == "POST"
           user = Alchemy::User.new()
 
-      elsif req == "UPDATE" || req == "GET" || req == "DELETE" || req == "UPDATE LINKS" || req == "UPDATE PASSWORD" || req == "AD HOC" || req == "TRANSFER PIC"
+      elsif req == "UPDATE" || req == "GET" || req == "DELETE" || req == "UPDATE LINKS" || req == "UPDATE PASSWORD" || req == "AD HOC"
 
         unless id.blank?
           user = Alchemy::User.find(id)
@@ -394,7 +393,6 @@ def main(csv_file, log_level = 'info')
           _projects: subreport[:_projects],
           societies: user.profile.societies.map(&:name).join(', '),
           cms_public_email_toggle: user.profile.cms_public_email_toggle,
-          profile_picture: get_profile_picture_file_name(user),
           facebook_profile: user.profile.facebook_profile,
 
           status: '',
@@ -590,17 +588,6 @@ def main(csv_file, log_level = 'info')
       end
       ##
 
-      if req == "TRANSFER PIC"
-        transfer_report = transfer_profile_picture(user)
-        if transfer_report[:status] != 'success'
-          subreport[:status] = 'error'
-          subreport[:_request] = "#{req} ERROR"
-          subreport[:error_message] += " --- #{transfer_report[:error_message]}"
-          subreport[:error_trace] += " --- #{transfer_report[:error_trace]}"
-          next
-        end
-      end
-
       # Update report
       Rails.logger.info("Processing user '#{login}': Updating report")
 
@@ -635,7 +622,6 @@ def main(csv_file, log_level = 'info')
         cms_public_email_toggle: user.profile.cms_public_email_toggle,
         bibliography_asset_url: bibliography_asset_url_recovered,
         bibliography_further_references_asset_url: bibliography_further_asset_url_recovered,
-        profile_picture: get_profile_picture_file_name(user),
         profile_picture_asset: get_profile_picture_asset_name(user),
         facebook_profile: user.profile.facebook_profile,
 
@@ -672,12 +658,6 @@ def main(csv_file, log_level = 'info')
         end
 
         subreport[:changes_made] = changes.join(' ;;; ')
-      end
-
-      if req == "TRANSFER PIC"
-        subreport[:status] = 'success'
-        subreport[:_request] = "#{req} SUCCESS"
-        next
       end
 
       subreport[:status] = "success"

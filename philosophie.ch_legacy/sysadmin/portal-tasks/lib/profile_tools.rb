@@ -251,8 +251,8 @@ def set_profile_picture_asset(user, new_asset_name)
 end
 
 
-# Transfer portal-managed avatar to assets server
-def transfer_profile_picture(user)
+# Deprecated: avatar attachment removed from Profile model. Used only by bulk_image_migration.
+def transfer_profile_picture_deprecated(user)
   report = { status: 'not started', error_message: '', error_trace: '' }
   begin
     unless user.profile&.avatar&.attached?
@@ -288,10 +288,15 @@ def transfer_profile_picture(user)
 end
 
 
-# Portal asset
-def get_profile_picture_file_name(user)
+# Deprecated: avatar attachment removed from Profile model. Used only by bulk_image_migration.
+def get_profile_picture_file_name_deprecated(user)
   profile_picture = user.profile&.avatar&.attached? ? user&.profile&.avatar&.filename.to_s : ''
   return profile_picture
+end
+
+# Portal asset (avatar removed from Profile model — always returns empty)
+def get_profile_picture_file_name(user)
+  ''
 end
 
 
@@ -307,7 +312,7 @@ def get_last_updated_date(user)
 end
 
 
-# Deprecated
+# Deprecated: avatar attachment removed from Profile model. Used only by bulk_image_migration.
 def _set_profile_picture(user, new_filename)
 
   set_profile_picture_report = {
