@@ -251,6 +251,94 @@ def set_profile_picture_asset(user, new_asset_name)
 end
 
 
+NON_WEBP_IMAGE_EXTENSIONS = %w[.jpg .jpeg .png .gif .bmp .tiff .tif].freeze
+
+# Optimize profile picture to webp if it's a non-webp image on the assets server.
+# Downloads the original, compresses to webp, uploads, updates the DB, verifies,
+# and renames the original to TO-DELETE-{filename} for manual cleanup.
+def optimize_profile_picture_to_webp(user)
+  report = { status: 'not started', error_message: '', error_trace: '', changes_made: '' }
+  compression_result = nil
+
+  begin
+    current_url = user.profile&.profile_picture_url
+    if current_url.blank?
+      report[:status] = 'skipped'
+      report[:error_message] = "No profile_picture_url set"
+      return report
+    end
+
+    # Extract relative path and extension
+    original_relative_path = current_url.gsub('https://assets.philosophie.ch/', '')
+    ext = File.extname(original_relative_path).downcase
+
+    unless NON_WEBP_IMAGE_EXTENSIONS.include?(ext)
+      report[:status] = 'skipped'
+      report[:error_message] = "Already webp or not a recognized image extension (#{ext})"
+      return report
+    end
+
+    # Compute webp target path
+    webp_relative_path = original_relative_path.sub(/#{Regexp.escape(ext)}$/i, '.webp')
+    original_filename = File.basename(original_relative_path)
+
+    Rails.logger.info("Optimizing profile picture for '#{user.login}': #{original_relative_path} -> #{webp_relative_path}")
+
+    # Download original image to temp file
+    download_url = AssetUrlService.generate(current_url)
+    response = fetch_with_redirect(download_url)
+
+    unless response.is_a?(Net::HTTPSuccess)
+      report[:status] = 'error'
+      report[:error_message] = "Failed to download original image: HTTP #{response.code}"
+      report[:error_trace] = "profile_tools.rb::optimize_profile_picture_to_webp::download"
+      return report
+    end
+
+    tmpdir = Dir.mktmpdir('profile_pic_optimize')
+    tmp_source_path = File.join(tmpdir, original_filename)
+    File.open(tmp_source_path, 'wb') { |f| f.write(response.body) }
+
+    # Compress to webp
+    compression_result = ImageCompressor.compress(tmp_source_path, candidate_threshold: "1KB")
+
+    # Upload webp to assets server
+    uploaded_path = FilebrowserClient.upload(compression_result.webp_path, webp_relative_path)
+
+    # Update DB to point to new webp
+    user.profile.update!(profile_picture_url: uploaded_path)
+
+    # Verify the new URL resolves
+    verify_result = check_asset_urls_resolve([uploaded_path])
+    unless verify_result[:status] == 'success'
+      # Rollback: restore original URL
+      user.profile.update!(profile_picture_url: current_url)
+      report[:status] = 'error'
+      report[:error_message] = "Webp uploaded but URL verification failed: #{verify_result[:error_message]}. Rolled back to original."
+      report[:error_trace] = "profile_tools.rb::optimize_profile_picture_to_webp::verify"
+      return report
+    end
+
+    # All good — rename original for manual cleanup
+    rename_target = "TO-DELETE-#{original_filename}"
+    FilebrowserClient.rename(original_relative_path, rename_target)
+
+    report[:status] = 'success'
+    report[:changes_made] = "profile_picture_url: #{original_relative_path} => #{uploaded_path} (original renamed to #{rename_target})"
+    report
+
+  rescue => e
+    report[:status] = 'error'
+    report[:error_message] = "#{e.class} :: #{e.message}"
+    report[:error_trace] = e.backtrace.join(" ::: ")
+    report
+  ensure
+    compression_result&.cleanup!
+    FileUtils.rm_rf(tmpdir) if defined?(tmpdir) && tmpdir && Dir.exist?(tmpdir)
+  end
+end
+
+
 # Deprecated: avatar attachment removed from Profile model. Used only by bulk_image_migration.
 def transfer_profile_picture_deprecated(user)
   report = { status: 'not started', error_message: '', error_trace: '' }
