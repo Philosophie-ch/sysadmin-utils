@@ -808,7 +808,16 @@ def main(csv_file, log_level = 'info')
       #######
 
       if req == 'AD HOC'
-        Rails.logger.info("\t...AD HOC: '#{page_identifier}': No AD HOC tasks")
+        # AD HOC: Optimize all page images to webp if needed
+        webp_report = optimize_page_images_to_webp(page)
+        if webp_report[:changes_made].present?
+          subreport[:changes_made] = subreport[:changes_made].to_s + " --- #{webp_report[:changes_made]}"
+        end
+        if webp_report[:error_message].present?
+          subreport[:status] = webp_report[:status] == 'error' ? 'partial success' : webp_report[:status]
+          subreport[:error_message] = subreport[:error_message].to_s + " --- #{webp_report[:error_message]}"
+          subreport[:error_trace] = subreport[:error_trace].to_s + " --- #{webp_report[:error_trace]}"
+        end
       end
 
       #######
@@ -909,7 +918,7 @@ def main(csv_file, log_level = 'info')
       # COMPLEX TASKS ON UPDATE AND POST
       ############
 
-      subreport[:status] = 'success'
+      subreport[:status] = 'success' unless subreport[:status] == 'partial success'
 
       if req == "UPDATE" || req == "POST"
         Rails.logger.info("Processing page '#{page_identifier}': Complex tasks")
@@ -1106,7 +1115,12 @@ def main(csv_file, log_level = 'info')
             end
           end
         end
-        subreport[:changes_made] = changes.join(' ;;; ')
+        field_changes = changes.join(' ;;; ')
+        if subreport[:changes_made].present?
+          subreport[:changes_made] = subreport[:changes_made].to_s + " --- #{field_changes}" if field_changes.present?
+        else
+          subreport[:changes_made] = field_changes
+        end
       end
 
       Rails.logger.info("Processing page '#{subreport[:urlname]}': Success!")

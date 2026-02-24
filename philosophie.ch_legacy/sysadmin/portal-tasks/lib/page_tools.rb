@@ -410,6 +410,171 @@ def transfer_intro_image(page)
 end
 
 
+NON_WEBP_IMAGE_EXTENSIONS = %w[.jpg .jpeg .png .gif .bmp .tiff .tif].freeze
+
+IMAGE_ELEMENT_TYPES = %w[intro picture_block text_and_picture box].freeze
+
+# Optimize all non-webp image assets on a page to webp.
+# Iterates intro, picture_block, text_and_picture, and box elements.
+# For each non-webp image: download → compress → upload webp → update essence → verify → rename original.
+# Returns a report hash with status, error_message, error_trace, changes_made.
+def optimize_page_images_to_webp(page)
+  report = { status: 'not started', error_message: '', error_trace: '', changes_made: '' }
+  changes = []
+  errors = []
+  page_modified = false
+
+  IMAGE_ELEMENT_TYPES.each do |element_name|
+    url_field_name = "picture_asset_url"
+
+    begin
+      blocks = _get_asset_blocks(page, element_name, url_field_name)
+    rescue => e
+      errors << "#{element_name}: failed to get blocks: #{e.message}"
+      next
+    end
+
+    blocks.each do |block|
+      compression_result = nil
+      tmpdir = nil
+
+      begin
+        # Read current asset URL from the element's essence
+        url_content = block.contents.find { |c| c.name == url_field_name }
+        current_url = url_content&.essence&.body
+
+        if current_url.blank?
+          next
+        end
+
+        original_relative_path = current_url.gsub('https://assets.philosophie.ch/', '')
+        ext = File.extname(original_relative_path).downcase
+
+        unless NON_WEBP_IMAGE_EXTENSIONS.include?(ext)
+          next
+        end
+
+        original_filename = File.basename(original_relative_path)
+        webp_relative_path = original_relative_path.sub(/#{Regexp.escape(ext)}$/i, '.webp')
+
+        Rails.logger.info("Optimizing page image: #{original_relative_path} -> #{webp_relative_path} (element #{block.id}, type #{element_name})")
+
+        webp_full_url = "https://assets.philosophie.ch/#{webp_relative_path}"
+
+        # Download original
+        download_url = AssetUrlService.generate(current_url)
+        download_failed = false
+        begin
+          response = fetch_with_redirect(download_url)
+          unless response.is_a?(Net::HTTPSuccess)
+            download_failed = true
+          end
+        rescue => dl_err
+          Rails.logger.warn("Download failed for #{original_relative_path}: #{dl_err.message}")
+          download_failed = true
+        end
+
+        if download_failed
+          # Original non-webp not found — check if a .webp version already exists
+          # (happens when multiple pages share the same image and a previous pass already converted it)
+          webp_check = check_asset_urls_resolve([webp_full_url])
+          if webp_check[:status] == 'success'
+            url_content.essence.update!(body: webp_full_url)
+            changes << "#{element_name}[#{block.id}]: #{original_relative_path} => #{webp_full_url} (webp already existed, reused)"
+            page_modified = true
+            next
+          else
+            errors << "#{element_name}[#{block.id}]: download failed and no existing .webp at #{webp_relative_path}"
+            next
+          end
+        end
+
+        tmpdir = Dir.mktmpdir('page_pic_optimize')
+        tmp_source_path = File.join(tmpdir, original_filename)
+        File.open(tmp_source_path, 'wb') { |f| f.write(response.body) }
+
+        # Compress to webp
+        begin
+          compression_result = ImageCompressor.compress(tmp_source_path, candidate_threshold: "1KB")
+        rescue => comp_err
+          Rails.logger.warn("Compression failed for #{original_relative_path}: #{comp_err.message}")
+          # Compression failed — check if a .webp version already exists on the assets server
+          webp_check = check_asset_urls_resolve([webp_full_url])
+          if webp_check[:status] == 'success'
+            url_content.essence.update!(body: webp_full_url)
+            rename_target = "TO-DELETE-#{original_filename}"
+            FilebrowserClient.rename(original_relative_path, rename_target)
+            changes << "#{element_name}[#{block.id}]: #{original_relative_path} => #{webp_full_url} (compression failed, webp already existed, original renamed to #{rename_target})"
+            page_modified = true
+            next
+          else
+            errors << "#{element_name}[#{block.id}]: compression failed (#{comp_err.class} :: #{comp_err.message}) and no existing .webp at #{webp_relative_path}"
+            next
+          end
+        end
+
+        # Upload webp
+        uploaded_path = FilebrowserClient.upload(compression_result.webp_path, webp_relative_path)
+
+        # Update essence
+        url_content.essence.update!(body: uploaded_path)
+
+        # Verify
+        verify_result = check_asset_urls_resolve([uploaded_path])
+        unless verify_result[:status] == 'success'
+          # Rollback
+          url_content.essence.update!(body: current_url)
+          errors << "#{element_name}[#{block.id}]: webp uploaded but verification failed for #{webp_relative_path}. Rolled back."
+          next
+        end
+
+        # Rename original for manual cleanup
+        rename_target = "TO-DELETE-#{original_filename}"
+        FilebrowserClient.rename(original_relative_path, rename_target)
+
+        changes << "#{element_name}[#{block.id}]: #{original_relative_path} => #{uploaded_path} (original renamed to #{rename_target})"
+        page_modified = true
+
+      rescue => e
+        errors << "#{element_name}[#{block.id}]: #{e.class} :: #{e.message}"
+      ensure
+        compression_result&.cleanup!
+        FileUtils.rm_rf(tmpdir) if tmpdir && Dir.exist?(tmpdir)
+      end
+    end
+  end
+
+  # Publish page if any changes were made
+  if page_modified
+    begin
+      page.publish!
+    rescue => e
+      errors << "page.publish! failed: #{e.class} :: #{e.message}"
+    end
+  end
+
+  # Build final report
+  if errors.empty? && changes.empty?
+    report[:status] = 'skipped'
+    report[:error_message] = 'No non-webp images found'
+  elsif errors.empty?
+    report[:status] = 'success'
+    report[:changes_made] = changes.join(' ;; ')
+  elsif changes.empty?
+    report[:status] = 'error'
+    report[:error_message] = errors.join(' ;; ')
+    report[:error_trace] = "page_tools.rb::optimize_page_images_to_webp"
+  else
+    report[:status] = 'partial success'
+    report[:changes_made] = changes.join(' ;; ')
+    report[:error_message] = errors.join(' ;; ')
+    report[:error_trace] = "page_tools.rb::optimize_page_images_to_webp"
+  end
+
+  report
+end
+
+
 ############
 # Portal assets
 ############

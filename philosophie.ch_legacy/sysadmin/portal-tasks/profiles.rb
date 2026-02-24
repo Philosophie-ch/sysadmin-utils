@@ -576,15 +576,17 @@ def main(csv_file, log_level = 'info')
 
       ## Ad hoc actions
       if req == "AD HOC"
-        # AD HOC: Update bibliography_asset_url and bibliography_further_references_asset_url ONLY
-        # (skip if raw input is blank)
-        unless bibliography_asset_url.blank?
-          user.profile.bibliography_asset_url = bibliography_asset_full_url
+
+        # AD HOC: Optimize profile picture to webp if needed
+        webp_report = optimize_profile_picture_to_webp(user)
+        if webp_report[:status] == 'success' && webp_report[:changes_made].present?
+          subreport[:changes_made] = subreport[:changes_made].to_s + " --- #{webp_report[:changes_made]}"
+        elsif webp_report[:status] == 'error'
+          subreport[:status] = 'partial success'
+          subreport[:error_message] = subreport[:error_message].to_s + " --- #{webp_report[:error_message]}"
+          subreport[:error_trace] = subreport[:error_trace].to_s + " --- #{webp_report[:error_trace]}"
         end
-        unless bibliography_further_references_asset_url.blank?
-          user.profile.bibliography_further_references_asset_url = bibliography_further_references_asset_full_url
-        end
-        user.profile.save!
+        # status 'skipped' is fine — means already webp or no picture set
       end
       ##
 
@@ -657,11 +659,16 @@ def main(csv_file, log_level = 'info')
           end
         end
 
-        subreport[:changes_made] = changes.join(' ;;; ')
+        field_changes = changes.join(' ;;; ')
+        if subreport[:changes_made].present?
+          subreport[:changes_made] = subreport[:changes_made].to_s + " --- #{field_changes}" if field_changes.present?
+        else
+          subreport[:changes_made] = field_changes
+        end
       end
 
-      subreport[:status] = "success"
-      subreport[:_request] = "#{req} SUCCESS"
+      subreport[:status] = "success" unless subreport[:status] == 'partial success'
+      subreport[:_request] = "#{req} #{subreport[:status] == 'partial success' ? 'PARTIAL SUCCESS' : 'SUCCESS'}"
       Rails.logger.info("Processing user '#{login}': Done")
 
 

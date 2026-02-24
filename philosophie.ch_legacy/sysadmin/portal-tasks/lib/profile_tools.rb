@@ -286,13 +286,35 @@ def optimize_profile_picture_to_webp(user)
 
     # Download original image to temp file
     download_url = AssetUrlService.generate(current_url)
-    response = fetch_with_redirect(download_url)
+    download_failed = false
+    begin
+      response = fetch_with_redirect(download_url)
+      unless response.is_a?(Net::HTTPSuccess)
+        download_failed = true
+      end
+    rescue => e
+      Rails.logger.warn("Download failed for #{original_relative_path}: #{e.message}")
+      download_failed = true
+    end
 
-    unless response.is_a?(Net::HTTPSuccess)
-      report[:status] = 'error'
-      report[:error_message] = "Failed to download original image: HTTP #{response.code}"
-      report[:error_trace] = "profile_tools.rb::optimize_profile_picture_to_webp::download"
-      return report
+    if download_failed
+      # Original non-webp not found — check if a .webp version already exists
+      # (happens when multiple profiles share the same image and a previous pass already converted it)
+      webp_full_url = "https://assets.philosophie.ch/#{webp_relative_path}"
+      webp_check = check_asset_urls_resolve([webp_full_url])
+
+      if webp_check[:status] == 'success'
+        # Webp already exists — just update the DB to point to it
+        user.profile.update!(profile_picture_url: webp_full_url)
+        report[:status] = 'success'
+        report[:changes_made] = "profile_picture_url: #{original_relative_path} => #{webp_full_url} (webp already existed, reused)"
+        return report
+      else
+        report[:status] = 'error'
+        report[:error_message] = "Original image not found and no existing .webp version at #{webp_relative_path}"
+        report[:error_trace] = "profile_tools.rb::optimize_profile_picture_to_webp::download"
+        return report
+      end
     end
 
     tmpdir = Dir.mktmpdir('profile_pic_optimize')
