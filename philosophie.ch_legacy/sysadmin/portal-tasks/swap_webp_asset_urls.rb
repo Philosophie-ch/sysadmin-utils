@@ -50,15 +50,16 @@ def swap_webp_asset_urls(csv_file, log_level = 'info')
   # MAIN PROCESSING LOOP
   ############
 
-  pages.each do |page|
+  ids.zip(pages).each do |original_id, page|
     begin
       processed_count += 1
       ExportUtils.log_progress(processed_count, total_pages, "pages")
 
       # Handle missing pages (nil when ID not found in DB)
       unless page
-        Rails.logger.warn("Page ID not found in database - skipping (row #{processed_count})")
+        Rails.logger.warn("Page ID #{original_id} not found in database - skipping (row #{processed_count})")
         error_data = build_empty_page_row(processed_count)
+        error_data[:id] = original_id
         error_data[:status] = 'error'
         error_data[:error_message] = "Page ID not found in database"
         report << error_data
