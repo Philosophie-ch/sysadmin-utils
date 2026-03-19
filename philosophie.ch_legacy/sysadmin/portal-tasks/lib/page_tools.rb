@@ -1438,6 +1438,10 @@ def get_published(page)
   end
 end
 
+def get_hidden(page)
+  page.hidden? ? "TRUE" : "FALSE"
+end
+
 def get_creator(page)
   creator_id = page.creator_id
   creator = Alchemy::User.find_by(id: creator_id)

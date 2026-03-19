@@ -294,6 +294,7 @@ def build_page_report_row(page, all_attachments_with_pages, result_order)
     _sort: "",
     id: page.id,
     published: published_status,
+    hidden: get_hidden(page),
     name: page.name,
     pre_headline: pre_headline,
     title: page.title,
@@ -381,7 +382,7 @@ end
 
 def build_empty_page_row(result_order)
   {
-    _to_do: "", _sort: "", id: "", published: "", name: "", pre_headline: "",
+    _to_do: "", _sort: "", id: "", published: "", hidden: "", name: "", pre_headline: "",
     title: "", lead_text: "", embedded_html_base_name: "", language_code: "",
     urlname: "", slug: "", link: "", _request: "", bibkey: "", how_to_cite: "",
     pure_html_asset: "", pure_pdf_asset: "", doi: "", metadata_json: "",
@@ -412,7 +413,7 @@ end
 def build_error_page_row(page, result_order)
   {
     _to_do: "", _sort: "",
-    id: page&.id || "", published: "", name: page&.name || "",
+    id: page&.id || "", published: "", hidden: "", name: page&.name || "",
     pre_headline: "", title: page&.title || "", lead_text: "",
     embedded_html_base_name: "", language_code: page&.language_code || "",
     urlname: page&.urlname || "", slug: "", link: "", _request: "",

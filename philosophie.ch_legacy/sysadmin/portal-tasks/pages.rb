@@ -54,6 +54,7 @@ def main(csv_file, log_level = 'info')
       _sort: row['_sort'] || "",
       id: row['id'] || "",  # page
       published: row['published'] || "",  # page
+      hidden: row['hidden'] || "",  # page
       name: row['name'] || "",  # page
       pre_headline: row['pre_headline'] || "",  # intro element
       title: row['title'] || "",  # page
@@ -195,6 +196,8 @@ def main(csv_file, log_level = 'info')
       name = subreport[:name].strip
       published_raw = subreport[:published].strip.downcase
       published = true ? ['true', 'yes', '1', 'published'].include?(published_raw) : false
+      hidden_raw = subreport[:hidden].strip.downcase
+      hidden = ['true', 'yes', '1'].include?(hidden_raw)
       pre_headline = subreport[:pre_headline].strip
       title = subreport[:title].strip
       lead_text = subreport[:lead_text].strip
@@ -455,6 +458,7 @@ def main(csv_file, log_level = 'info')
           _to_do: subreport[:_to_do],
           _sort: subreport[:_sort],
           published: get_published(page),
+          hidden: get_hidden(page),
           id: page.id,
           name: page.name,
           pre_headline: get_pre_headline(page),
@@ -542,6 +546,7 @@ def main(csv_file, log_level = 'info')
         page.name = name
         page.title = title
         page.bibkey = bibkey
+        page.hidden = hidden
 
         if req == "UPDATE"
           # Handle moving pages across trees
@@ -854,6 +859,7 @@ def main(csv_file, log_level = 'info')
 
       subreport.merge!({
         id: page.id,
+        hidden: get_hidden(page),
         name: page.name,
         pre_headline: get_pre_headline(page),
         title: page.title,

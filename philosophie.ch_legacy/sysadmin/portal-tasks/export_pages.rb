@@ -95,7 +95,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
       unless page
         Rails.logger.warn("Page ID not found in database - skipping (row #{processed_count})")
         error_data = {
-          _to_do: "", _sort: "", id: "", published: "", name: "", pre_headline: "",
+          _to_do: "", _sort: "", id: "", published: "", hidden: "", name: "", pre_headline: "",
           title: "", lead_text: "", embedded_html_base_name: "", language_code: "",
           urlname: "", slug: "", link: "", _request: "", bibkey: "", how_to_cite: "",
           pure_html_asset: "", pure_pdf_asset: "", doi: "", metadata_json: "",
@@ -246,6 +246,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         _sort: "",
         id: page.id,
         published: published_status,
+        hidden: get_hidden(page),
         name: page.name,
         pre_headline: pre_headline,
         title: page.title,
@@ -335,6 +336,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         _sort: "",
         id: page&.id || "",
         published: "",
+        hidden: "",
         name: page&.name || "",
         pre_headline: "",
         title: page&.title || "",
