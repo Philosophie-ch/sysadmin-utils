@@ -813,16 +813,18 @@ def main(csv_file, log_level = 'info')
       #######
 
       if req == 'AD HOC'
-        # AD HOC: Optimize all page images to webp if needed
-        webp_report = optimize_page_images_to_webp(page)
-        if webp_report[:changes_made].present?
-          subreport[:changes_made] = subreport[:changes_made].to_s + " --- #{webp_report[:changes_made]}"
+        # AD HOC: Only update the hidden field
+        hidden_raw = subreport[:hidden].strip.downcase
+        new_hidden = ['true', 'yes', '1'].include?(hidden_raw)
+        old_hidden = page.hidden?
+        page.hidden = new_hidden
+        page.save!
+        subreport[:status] = 'success'
+        subreport[:hidden] = get_hidden(page)
+        if old_hidden != new_hidden
+          subreport[:changes_made] = "hidden: {{ #{old_hidden ? 'TRUE' : 'FALSE'} }} => {{ #{new_hidden ? 'TRUE' : 'FALSE'} }}"
         end
-        if webp_report[:error_message].present?
-          subreport[:status] = webp_report[:status] == 'error' ? 'partial success' : webp_report[:status]
-          subreport[:error_message] = subreport[:error_message].to_s + " --- #{webp_report[:error_message]}"
-          subreport[:error_trace] = subreport[:error_trace].to_s + " --- #{webp_report[:error_trace]}"
-        end
+        next
       end
 
       #######
