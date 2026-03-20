@@ -543,7 +543,18 @@ def main(csv_file, log_level = 'info')
       #######
 
       if req == 'AD HOC'
-
+        # AD HOC: Only update the hidden field
+        hidden_raw = subreport[:hidden].strip.downcase
+        new_hidden = ['true', 'yes', '1'].include?(hidden_raw)
+        old_hidden = entity.hidden?
+        entity.hidden = new_hidden
+        entity.save!
+        subreport[:status] = 'success'
+        subreport[:hidden] = entity.hidden? ? 'TRUE' : 'FALSE'
+        if old_hidden != new_hidden
+          subreport[:changes_made] = "hidden: {{ #{old_hidden ? 'TRUE' : 'FALSE'} }} => {{ #{new_hidden ? 'TRUE' : 'FALSE'} }}"
+        end
+        next
       end
 
 
