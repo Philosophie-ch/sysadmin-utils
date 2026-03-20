@@ -136,12 +136,12 @@ def _set_asset_blocks(page, asset_urls, element_name, url_field_name)
     # Main body's elements first, top to bottom, then aside column's elements, top to bottom
     asset_blocks = _get_asset_blocks(page, element_name, url_field_name)
 
-    if asset_urls.length != asset_blocks.length
-      raise AssetBlocksAndUrlsMismatch, "Number of #{element_name}s and number of URLs do not match. Found #{asset_blocks.length} #{element_name} blocks but #{asset_urls.length} URLs/asset names."
+    if asset_blocks == [] && asset_urls.all? { |url| url.to_s.strip.empty? }
+      return 'success'
     end
 
-    if asset_blocks == []
-      return 'success'
+    if asset_urls.length != asset_blocks.length
+      raise AssetBlocksAndUrlsMismatch, "Number of #{element_name}s and number of URLs do not match. Found #{asset_blocks.length} #{element_name} blocks but #{asset_urls.length} URLs/asset names."
     end
 
     asset_blocks.zip(asset_urls).each do |asset_block, asset_url|
@@ -920,9 +920,8 @@ def set_themetags(page, themetag_names)
 
     intro_element = forced_intro_element(page)
     if intro_element.nil?
-      report[:status] = 'error'
-      report[:error_message] = "Intro element not found for page layout '#{page.page_layout}'"
-      report[:error_trace] = "pages_tools.rb::set_themetags"
+      # Page layout has no intro element (e.g. course) — nothing to set, skip gracefully
+      report[:status] = 'success'
       return report
     end
 
@@ -991,6 +990,12 @@ def set_references_bib_keys(page, bibkeys)
     references = page.elements.named(:references).first
 
     unless references
+      # Don't create a references element if there's nothing to set
+      if bibkeys.to_s.strip.empty?
+        result[:status] = 'success'
+        return result
+      end
+
       Rails.logger.warn("References element not found. Creating...")
       # Create the references element
       page.elements.create!(name: "references", page_id: page.id, parent_element_id: nil, public: true)
