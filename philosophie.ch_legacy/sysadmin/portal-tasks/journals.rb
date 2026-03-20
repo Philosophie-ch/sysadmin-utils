@@ -62,6 +62,7 @@ def main(csv_file, log_level = 'info')
 
       request: row['request'] || '',
       id: row['id'] || '',
+      hidden: row['hidden'] || '',
       KEY => row[KEY_NAME] || '',
 
       _biblio_full_name: row['_biblio_full_name'] || '',
@@ -157,6 +158,9 @@ def main(csv_file, log_level = 'info')
 
       # Parsing
       Rails.logger.info("Processing #{ENTITY_NAME} '#{entity_display_name}': Parsing")
+
+      hidden_raw = subreport[:hidden].strip.downcase
+      hidden = ['true', 'yes', '1'].include?(hidden_raw)
 
       presentation_page_language_code = subreport[:presentation_page_language_code].strip
       presentation_page_urlname = subreport[:presentation_page_urlname].strip
@@ -306,6 +310,7 @@ def main(csv_file, log_level = 'info')
 
           request: subreport[:request],
           id: subreport[:id],
+          hidden: entity.hidden? ? 'TRUE' : 'FALSE',
           KEY => old_entity_key,
 
           _biblio_full_name: subreport[:_biblio_full_name],
@@ -343,6 +348,7 @@ def main(csv_file, log_level = 'info')
       if req == "UPDATE" || req == "POST"
 
         entity[KEY] = entity_key
+        entity.hidden = hidden
         entity.name = name
 
         entity.presentation_page_id = presentation_page&.id
@@ -395,6 +401,7 @@ def main(csv_file, log_level = 'info')
 
       subreport.merge!({
         id: "#{updated_entity.id}".strip,
+        hidden: updated_entity.hidden? ? 'TRUE' : 'FALSE',
         KEY => updated_entity[KEY].strip,
 
         name: updated_entity.name,

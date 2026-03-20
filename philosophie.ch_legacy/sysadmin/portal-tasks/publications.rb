@@ -59,6 +59,7 @@ def main(csv_file, log_level = 'info')
       _sort: row['_sort'] || '',
       id: row['id'] || '',
       published: row['published'] || '',
+      hidden: row['hidden'] || '',
       name: row['name'] || '',
       pre_headline: row['pre_headline'] || '',
       title: row['title'] || '',
@@ -194,6 +195,10 @@ def main(csv_file, log_level = 'info')
           published = ['TRUE', '1', 'YES', 'T'].include?(published_str)
         end
       end
+
+      # Parse hidden field as boolean
+      hidden_raw = subreport[:hidden].strip.downcase
+      hidden = ['true', 'yes', '1'].include?(hidden_raw)
 
       # Parse url_prefix
       url_prefix = subreport[:url_prefix].strip
@@ -409,6 +414,7 @@ def main(csv_file, log_level = 'info')
           _sort: subreport[:_sort],
           id: subreport[:id],
           published: entity.published ? 'PUBLISHED' : 'UNPUBLISHED',
+          hidden: entity.hidden? ? 'TRUE' : 'FALSE',
           name: entity.name || '',
           pre_headline: entity.pre_headline || '',
           title: entity.title || '',
@@ -461,6 +467,7 @@ def main(csv_file, log_level = 'info')
 
         entity[KEY] = entity_key
         entity.published = published unless published.nil?
+        entity.hidden = hidden
         entity.url_prefix = url_prefix
         entity.name = subreport[:name].to_s.strip
         entity.pre_headline = subreport[:pre_headline].to_s.strip
@@ -567,6 +574,7 @@ def main(csv_file, log_level = 'info')
         pub_type: updated_entity.pub_type.to_s.strip || '',
 
         published: updated_entity.published ? 'PUBLISHED' : 'UNPUBLISHED',
+        hidden: updated_entity.hidden? ? 'TRUE' : 'FALSE',
         name: updated_entity.name.to_s.strip || '',
         pre_headline: updated_entity.pre_headline.to_s.strip || '',
         title: updated_entity.title.to_s.strip || '',
