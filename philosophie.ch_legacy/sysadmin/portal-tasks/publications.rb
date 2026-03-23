@@ -73,27 +73,11 @@ def main(csv_file, log_level = 'info')
       _request: row['_request'] || '',
       bibkey: row['bibkey'] || '',
       how_to_cite: row['how_to_cite'] || '',
+      pure_html_asset: row['pure_html_asset'] || '',
       doi: row['doi'] || '',
       metadata_json: row['metadata_json'] || '',
       aside_column: row['aside_column'] || '',
       created_at: row['created_at'] || '',
-      ref_bib_keys: row['ref_bib_keys'] || '',
-      references_asset_url: row['references_asset_url'] || '',
-      _further_refs: row['_further_refs'] || '',
-      further_references_asset_url: row['further_references_asset_url'] || '',
-      _depends_on: row['_depends_on'] || '',
-      external_link: row['external_link'] || '',
-      abstract: row['abstract'] || '',
-      assigned_authors: row['assigned_authors'] || '',
-      cover_picture_asset: row['cover_picture_asset'] || '',
-      pdf_asset: row['pdf_asset'] || '',
-      pdf_availability: row['pdf_availability'] || '',
-      themetags_discipline: row['themetags_discipline'] || '',
-      themetags_focus: row['themetags_focus'] || '',
-      themetags_badge: row['themetags_badge'] || '',
-      themetags_structural: row['themetags_structural'] || '',
-      additional_material: row['additional_material'] || '',
-      _refs_in_xml: row['_refs_in_xml'] || '',
 
       # Tags (shared with pages via tag_tools.rb)
       tag_page_type: row['tag_page_type'] || '',
@@ -106,6 +90,32 @@ def main(csv_file, log_level = 'info')
       tag_public: row['tag_public'] || '',
       tag_references: row['tag_references'] || '',
       tag_footnotes: row['tag_footnotes'] || '',
+
+      ref_bib_keys: row['ref_bib_keys'] || '',
+      references_asset_url: row['references_asset_url'] || '',
+      _further_refs: row['_further_refs'] || '',
+      further_references_asset_url: row['further_references_asset_url'] || '',
+      _depends_on: row['_depends_on'] || '',
+      external_link: row['external_link'] || '',
+      abstract: row['abstract'] || '',
+      assigned_authors: row['assigned_authors'] || '',
+      cover_picture_asset: row['cover_picture_asset'] || '',
+      pdf1_asset: row['pdf1_asset'] || '',
+      pdf1_availability: row['pdf1_availability'] || '',
+      pdf2_asset: row['pdf2_asset'] || '',
+      pdf2_availability: row['pdf2_availability'] || '',
+      pdf3_asset: row['pdf3_asset'] || '',
+      pdf3_availability: row['pdf3_availability'] || '',
+      themetags_discipline: row['themetags_discipline'] || '',
+      themetags_focus: row['themetags_focus'] || '',
+      themetags_badge: row['themetags_badge'] || '',
+      themetags_structural: row['themetags_structural'] || '',
+      additional_material: row['additional_material'] || '',
+      _refs_in_xml: row['_refs_in_xml'] || '',
+      _as_jrn_key: row['_as_jrn_key'] || '',
+      _as_jrn_vol: row['_as_jrn_vol'] || '',
+      _as_jrn_issue: row['_as_jrn_issue'] || '',
+      _as_jrn_pos: row['_as_jrn_pos'] || '',
 
       status: '',
       changes_made: '',
@@ -280,29 +290,40 @@ def main(csv_file, log_level = 'info')
         pub_type = pub_type_str
       end
 
-      # Parse pdf_availability field - validate against MODEL::PDF_AVAILABILITY_TYPES constant
-      pdf_availability_str = subreport[:pdf_availability].strip
-      pdf_availability = nil
-      unless pdf_availability_str.blank?
-        # Check if the provided pdf_availability is valid
-        unless MODEL::PDF_AVAILABILITY_TYPES.include?(pdf_availability_str)
-          subreport[:_request] = req_err
-          subreport[:status] = "error"
-          subreport[:error_message] = "Invalid pdf_availability '#{pdf_availability_str}'. Must be one of: #{MODEL::PDF_AVAILABILITY_TYPES.join(', ')}"
-          subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::pdf_availability"
-          next
+      # Parse pdf_availability fields - validate against MODEL::PDF_AVAILABILITY_TYPES constant
+      pdf_availabilities = {}
+      [1, 2, 3].each do |n|
+        avail_str = subreport[:"pdf#{n}_availability"].strip
+        pdf_availabilities[n] = nil
+        unless avail_str.blank?
+          unless MODEL::PDF_AVAILABILITY_TYPES.include?(avail_str)
+            subreport[:_request] = req_err
+            subreport[:status] = "error"
+            subreport[:error_message] = "Invalid pdf#{n}_availability '#{avail_str}'. Must be one of: #{MODEL::PDF_AVAILABILITY_TYPES.join(', ')}"
+            subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::pdf#{n}_availability"
+            next
+          end
+          pdf_availabilities[n] = avail_str
         end
-        pdf_availability = pdf_availability_str
       end
 
       # Setup
       Rails.logger.info("Processing #{ENTITY_NAME} '#{entity_display_name}': Setup")
 
+      raw_pure_html_asset = subreport[:pure_html_asset].strip
+      pure_html_asset = raw_pure_html_asset.blank? ? 'empty' : raw_pure_html_asset
+
       raw_cover_picture_asset = subreport[:cover_picture_asset].strip
       cover_picture_asset = raw_cover_picture_asset.blank? ? 'empty' : raw_cover_picture_asset
 
-      raw_pdf_asset = subreport[:pdf_asset].strip
-      pdf_asset = raw_pdf_asset.blank? ? 'empty' : raw_pdf_asset
+      raw_pdf1_asset = subreport[:pdf1_asset].strip
+      pdf1_asset = raw_pdf1_asset.blank? ? 'empty' : raw_pdf1_asset
+
+      raw_pdf2_asset = subreport[:pdf2_asset].strip
+      pdf2_asset = raw_pdf2_asset.blank? ? 'empty' : raw_pdf2_asset
+
+      raw_pdf3_asset = subreport[:pdf3_asset].strip
+      pdf3_asset = raw_pdf3_asset.blank? ? 'empty' : raw_pdf3_asset
 
       raw_references_asset_url = subreport[:references_asset_url].strip
       references_asset_url = raw_references_asset_url.blank? ? 'empty' : raw_references_asset_url
@@ -311,8 +332,11 @@ def main(csv_file, log_level = 'info')
       further_references_asset_url = raw_further_references_asset_url.blank? ? 'empty' : raw_further_references_asset_url
 
       unprocessed_assets = [
+        pure_html_asset,
         cover_picture_asset,
-        pdf_asset,
+        pdf1_asset,
+        pdf2_asset,
+        pdf3_asset,
         references_asset_url,
         further_references_asset_url
       ].join(',').strip
@@ -332,8 +356,11 @@ def main(csv_file, log_level = 'info')
 
       end
 
+      processed_pure_html_asset = process_asset_urls(pure_html_asset).first.to_s.strip
       processed_cover_picture_asset = process_asset_urls(cover_picture_asset).first.to_s.strip
-      processed_pdf_asset = process_asset_urls(pdf_asset).first.to_s.strip
+      processed_pdf1_asset = process_asset_urls(pdf1_asset).first.to_s.strip
+      processed_pdf2_asset = process_asset_urls(pdf2_asset).first.to_s.strip
+      processed_pdf3_asset = process_asset_urls(pdf3_asset).first.to_s.strip
       processed_references_asset_url = process_asset_urls(references_asset_url).first.to_s.strip
       processed_further_references_asset_url = process_asset_urls(further_references_asset_url).first.to_s.strip
 
@@ -428,10 +455,14 @@ def main(csv_file, log_level = 'info')
           _request: subreport[:_request],
           bibkey: entity.bibkey || '',
           how_to_cite: entity.how_to_cite || '',
+          pure_html_asset: entity.pure_html_asset || '',
           doi: entity.doi || '',
           metadata_json: entity.academic_metadata.blank? ? '' : entity.academic_metadata.to_json,
           aside_column: entity.aside_column || '',
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
+
+          # Tags (from entity via tag_tools.rb)
+        }.merge(tag_array_to_columns(entity.tag_names)).merge({
           ref_bib_keys: entity.ref_bib_keys || '',
           references_asset_url: entity.references_asset_url || '',
           _further_refs: subreport[:_further_refs],
@@ -441,17 +472,22 @@ def main(csv_file, log_level = 'info')
           abstract: entity.abstract || '',
           assigned_authors: old_authors,
           cover_picture_asset: entity.cover_picture_asset || '',
-          pdf_asset: entity.pdf_asset || '',
-          pdf_availability: subreport[:pdf_availability],
+          pdf1_asset: entity.pdf1_asset || '',
+          pdf1_availability: entity.pdf1_availability || 'missing',
+          pdf2_asset: entity.pdf2_asset || '',
+          pdf2_availability: entity.pdf2_availability || 'missing',
+          pdf3_asset: entity.pdf3_asset || '',
+          pdf3_availability: entity.pdf3_availability || 'missing',
           themetags_discipline: subreport[:themetags_discipline],
           themetags_focus: subreport[:themetags_focus],
           themetags_badge: subreport[:themetags_badge],
           themetags_structural: subreport[:themetags_structural],
           additional_material: subreport[:additional_material],
           _refs_in_xml: subreport[:_refs_in_xml],
-
-          # Tags (from entity via tag_tools.rb)
-        }.merge(tag_array_to_columns(entity.tag_names)).merge({
+          _as_jrn_key: subreport[:_as_jrn_key],
+          _as_jrn_vol: subreport[:_as_jrn_vol],
+          _as_jrn_issue: subreport[:_as_jrn_issue],
+          _as_jrn_pos: subreport[:_as_jrn_pos],
           status: '',
           changes_made: '',
           error_message: '',
@@ -477,6 +513,7 @@ def main(csv_file, log_level = 'info')
 
         entity.bibkey = subreport[:bibkey].to_s.strip
         entity.how_to_cite = subreport[:how_to_cite].to_s.strip
+        entity.pure_html_asset = processed_pure_html_asset
         entity.doi = subreport[:doi].to_s.strip
         entity.open_access = open_access unless open_access.nil?
         entity.pub_type = pub_type unless pub_type.nil?
@@ -489,7 +526,12 @@ def main(csv_file, log_level = 'info')
         entity.external_link = external_link
 
         entity.cover_picture_asset = processed_cover_picture_asset
-        entity.pdf_asset = processed_pdf_asset
+        entity.pdf1_asset = processed_pdf1_asset
+        entity.pdf1_availability = pdf_availabilities[1] unless pdf_availabilities[1].nil?
+        entity.pdf2_asset = processed_pdf2_asset
+        entity.pdf2_availability = pdf_availabilities[2] unless pdf_availabilities[2].nil?
+        entity.pdf3_asset = processed_pdf3_asset
+        entity.pdf3_availability = pdf_availabilities[3] unless pdf_availabilities[3].nil?
 
         # Set tags from CSV columns (shared with pages via tag_tools.rb)
         tag_columns = {
@@ -571,11 +613,20 @@ def main(csv_file, log_level = 'info')
       unprocessed_references_asset_url = updated_entity.references_asset_url.blank? ? 'empty' : updated_entity.references_asset_url
       unprocessed_further_references_asset_url = updated_entity.further_references_asset_url.blank? ? 'empty' : updated_entity.further_references_asset_url
 
+      pure_html_url = updated_entity.pure_html_asset.to_s.strip || ''
+      unprocessed_pure_html_asset = pure_html_url.blank? ? 'empty' : unprocess_asset_urls([pure_html_url]).strip
+
       cover_pic_url = updated_entity.cover_picture_asset.to_s.strip || ''
       unprocessed_cover_picture_asset = cover_pic_url.blank? ? 'empty' : unprocess_asset_urls([cover_pic_url]).strip
 
-      pdf_url = updated_entity.pdf_asset.to_s.strip || ''
-      unprocessed_pdf_asset = pdf_url.blank? ? 'empty' : unprocess_asset_urls([pdf_url]).strip
+      pdf1_url = updated_entity.pdf1_asset.to_s.strip || ''
+      unprocessed_pdf1_asset = pdf1_url.blank? ? 'empty' : unprocess_asset_urls([pdf1_url]).strip
+
+      pdf2_url = updated_entity.pdf2_asset.to_s.strip || ''
+      unprocessed_pdf2_asset = pdf2_url.blank? ? 'empty' : unprocess_asset_urls([pdf2_url]).strip
+
+      pdf3_url = updated_entity.pdf3_asset.to_s.strip || ''
+      unprocessed_pdf3_asset = pdf3_url.blank? ? 'empty' : unprocess_asset_urls([pdf3_url]).strip
 
       subreport.merge!({
         id: "#{updated_entity.id}".strip,
@@ -595,6 +646,7 @@ def main(csv_file, log_level = 'info')
 
         bibkey: updated_entity.bibkey.to_s.strip || '',
         how_to_cite: updated_entity.how_to_cite.to_s.strip || '',
+        pure_html_asset: unprocessed_pure_html_asset,
         doi: updated_entity.doi.to_s.strip || '',
         metadata_json: updated_entity.academic_metadata.blank? ? '' : updated_entity.academic_metadata.to_json,
         aside_column: updated_entity.aside_column.to_s.strip || '',
@@ -609,8 +661,12 @@ def main(csv_file, log_level = 'info')
 
         assigned_authors: current_authors,
         cover_picture_asset: unprocessed_cover_picture_asset,
-        pdf_asset: unprocessed_pdf_asset,
-        pdf_availability: subreport[:pdf_availability],
+        pdf1_asset: unprocessed_pdf1_asset,
+        pdf1_availability: updated_entity.pdf1_availability || 'missing',
+        pdf2_asset: unprocessed_pdf2_asset,
+        pdf2_availability: updated_entity.pdf2_availability || 'missing',
+        pdf3_asset: unprocessed_pdf3_asset,
+        pdf3_availability: updated_entity.pdf3_availability || 'missing',
 
       })
 
