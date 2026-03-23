@@ -130,7 +130,7 @@ def fetch_with_redirect(url, limit = 20)
 end
 
 
-def check_asset_urls_resolve(processed_urls)
+def check_asset_urls_resolve(processed_urls, asset_type: nil)
   report = {
     status: 'not started',
     error_message: '',
@@ -153,7 +153,10 @@ def check_asset_urls_resolve(processed_urls)
         # - Returns signed URL for assets.philosophie.ch URLs (handles 403 auth)
         # - Passes through external URLs unchanged
         # - Returns nil for blank input
-        url_to_check = AssetUrlService.generate(url) || url
+        # - Appends default extension when asset_type is provided and path has no extension
+        generate_opts = {}
+        generate_opts[:asset_type] = asset_type if asset_type
+        url_to_check = AssetUrlService.generate(url, **generate_opts) || url
 
         response = fetch_with_redirect(url_to_check)
 

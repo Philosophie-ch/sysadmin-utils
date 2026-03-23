@@ -76,6 +76,7 @@ def main(csv_file, log_level = 'info')
       pure_html_asset: row['pure_html_asset'] || '',
       doi: row['doi'] || '',
       metadata_json: row['metadata_json'] || '',
+      embedded_content_asset_url: row['embedded_content_asset_url'] || '',
       aside_column: row['aside_column'] || '',
       created_at: row['created_at'] || '',
 
@@ -310,59 +311,55 @@ def main(csv_file, log_level = 'info')
       # Setup
       Rails.logger.info("Processing #{ENTITY_NAME} '#{entity_display_name}': Setup")
 
-      raw_pure_html_asset = subreport[:pure_html_asset].strip
-      pure_html_asset = raw_pure_html_asset.blank? ? 'empty' : raw_pure_html_asset
+      # Asset fields with their asset_type — must match portal's AssetUrlService.generate calls
+      # See portal/legacy/app/controllers/publications_controller.rb
+      asset_fields = {
+        pure_html_asset:              { raw: subreport[:pure_html_asset].strip,              asset_type: :html },
+        cover_picture_asset:          { raw: subreport[:cover_picture_asset].strip,          asset_type: :image },
+        pdf1_asset:                   { raw: subreport[:pdf1_asset].strip,                   asset_type: :pdf },
+        pdf2_asset:                   { raw: subreport[:pdf2_asset].strip,                   asset_type: :pdf },
+        pdf3_asset:                   { raw: subreport[:pdf3_asset].strip,                   asset_type: :pdf },
+        references_asset_url:         { raw: subreport[:references_asset_url].strip,         asset_type: :html },
+        further_references_asset_url: { raw: subreport[:further_references_asset_url].strip, asset_type: :html },
+      }
 
-      raw_cover_picture_asset = subreport[:cover_picture_asset].strip
-      cover_picture_asset = raw_cover_picture_asset.blank? ? 'empty' : raw_cover_picture_asset
-
-      raw_pdf1_asset = subreport[:pdf1_asset].strip
-      pdf1_asset = raw_pdf1_asset.blank? ? 'empty' : raw_pdf1_asset
-
-      raw_pdf2_asset = subreport[:pdf2_asset].strip
-      pdf2_asset = raw_pdf2_asset.blank? ? 'empty' : raw_pdf2_asset
-
-      raw_pdf3_asset = subreport[:pdf3_asset].strip
-      pdf3_asset = raw_pdf3_asset.blank? ? 'empty' : raw_pdf3_asset
-
-      raw_references_asset_url = subreport[:references_asset_url].strip
-      references_asset_url = raw_references_asset_url.blank? ? 'empty' : raw_references_asset_url
-
-      raw_further_references_asset_url = subreport[:further_references_asset_url].strip
-      further_references_asset_url = raw_further_references_asset_url.blank? ? 'empty' : raw_further_references_asset_url
-
-      unprocessed_assets = [
-        pure_html_asset,
-        cover_picture_asset,
-        pdf1_asset,
-        pdf2_asset,
-        pdf3_asset,
-        references_asset_url,
-        further_references_asset_url
-      ].join(',').strip
+      # Process each asset field: 'empty' sentinel for blank, else keep raw value
+      asset_fields.each do |key, info|
+        info[:unprocessed] = info[:raw].blank? ? 'empty' : info[:raw]
+      end
 
       if ['POST', 'UPDATE', 'AD HOC'].include?(req)
 
-        processed_assets = process_asset_urls(unprocessed_assets)
-        urls_check = check_asset_urls_resolve(processed_assets)
+        # Check each asset URL resolves using the same asset_type the portal uses
+        error_urls = []
+        asset_fields.each do |key, info|
+          next if info[:unprocessed] == 'empty'
 
-        if urls_check[:status] != 'success'
+          processed_url = process_asset_urls(info[:unprocessed]).first.to_s.strip
+          check = check_asset_urls_resolve([processed_url], asset_type: info[:asset_type])
+
+          if check[:status] != 'success'
+            error_urls << "#{key}: #{info[:unprocessed]}"
+          end
+        end
+
+        if error_urls.any?
           subreport[:_request] = req_err
           subreport[:status] = "error"
-          subreport[:error_message] = urls_check[:error_message]
-          subreport[:error_trace] = urls_check[:error_trace]
+          subreport[:error_message] = "The following asset URLs could not be resolved (with portal-matching asset_type): #{error_urls.join(', ')}"
+          subreport[:error_trace] = "#{FILE_NAME}::main::Setup::asset_url_check"
           next
         end
 
       end
 
-      processed_pure_html_asset = process_asset_urls(pure_html_asset).first.to_s.strip
-      processed_cover_picture_asset = process_asset_urls(cover_picture_asset).first.to_s.strip
-      processed_pdf1_asset = process_asset_urls(pdf1_asset).first.to_s.strip
-      processed_pdf2_asset = process_asset_urls(pdf2_asset).first.to_s.strip
-      processed_pdf3_asset = process_asset_urls(pdf3_asset).first.to_s.strip
-      processed_references_asset_url = process_asset_urls(references_asset_url).first.to_s.strip
-      processed_further_references_asset_url = process_asset_urls(further_references_asset_url).first.to_s.strip
+      processed_pure_html_asset = process_asset_urls(asset_fields[:pure_html_asset][:unprocessed]).first.to_s.strip
+      processed_cover_picture_asset = process_asset_urls(asset_fields[:cover_picture_asset][:unprocessed]).first.to_s.strip
+      processed_pdf1_asset = process_asset_urls(asset_fields[:pdf1_asset][:unprocessed]).first.to_s.strip
+      processed_pdf2_asset = process_asset_urls(asset_fields[:pdf2_asset][:unprocessed]).first.to_s.strip
+      processed_pdf3_asset = process_asset_urls(asset_fields[:pdf3_asset][:unprocessed]).first.to_s.strip
+      processed_references_asset_url = process_asset_urls(asset_fields[:references_asset_url][:unprocessed]).first.to_s.strip
+      processed_further_references_asset_url = process_asset_urls(asset_fields[:further_references_asset_url][:unprocessed]).first.to_s.strip
 
 
       entity = nil
@@ -458,6 +455,7 @@ def main(csv_file, log_level = 'info')
           pure_html_asset: entity.pure_html_asset || '',
           doi: entity.doi || '',
           metadata_json: entity.academic_metadata.blank? ? '' : entity.academic_metadata.to_json,
+          embedded_content_asset_url: entity.embedded_content_asset_url || '',
           aside_column: entity.aside_column || '',
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
 
@@ -517,6 +515,7 @@ def main(csv_file, log_level = 'info')
         entity.doi = subreport[:doi].to_s.strip
         entity.open_access = open_access unless open_access.nil?
         entity.pub_type = pub_type unless pub_type.nil?
+        entity.embedded_content_asset_url = subreport[:embedded_content_asset_url].to_s.strip
         entity.aside_column = subreport[:aside_column].to_s.strip
 
         entity.ref_bib_keys = subreport[:ref_bib_keys].to_s.strip
@@ -613,6 +612,7 @@ def main(csv_file, log_level = 'info')
       unprocessed_references_asset_url = updated_entity.references_asset_url.blank? ? 'empty' : updated_entity.references_asset_url
       unprocessed_further_references_asset_url = updated_entity.further_references_asset_url.blank? ? 'empty' : updated_entity.further_references_asset_url
 
+
       pure_html_url = updated_entity.pure_html_asset.to_s.strip || ''
       unprocessed_pure_html_asset = pure_html_url.blank? ? 'empty' : unprocess_asset_urls([pure_html_url]).strip
 
@@ -649,6 +649,7 @@ def main(csv_file, log_level = 'info')
         pure_html_asset: unprocessed_pure_html_asset,
         doi: updated_entity.doi.to_s.strip || '',
         metadata_json: updated_entity.academic_metadata.blank? ? '' : updated_entity.academic_metadata.to_json,
+        embedded_content_asset_url: updated_entity.embedded_content_asset_url.to_s.strip,
         aside_column: updated_entity.aside_column.to_s.strip || '',
 
         created_at: updated_entity.created_at.nil? ? '' : updated_entity.created_at.strftime('%Y-%m-%d'),
