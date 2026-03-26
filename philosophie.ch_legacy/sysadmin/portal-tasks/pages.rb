@@ -139,7 +139,7 @@ def main(csv_file, log_level = 'info')
 
       # Control
       Rails.logger.info("Processing page: Control")
-      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH', 'TRANSFER INTRO PIC']
+      supported_requests = ['POST', 'UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH', 'TRANSFER INTRO PIC', 'REMOVE-REDIRECTIONS']
 
       req = subreport[:_request].strip
 
@@ -178,7 +178,7 @@ def main(csv_file, log_level = 'info')
         end
       end
 
-      if ['UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH'].include?(req)
+      if ['UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH', 'REMOVE-REDIRECTIONS'].include?(req)
         if id.blank? && (language_code.blank? || urlname.blank?)
           subreport[:_request] += " ERROR"
           subreport[:status] = "error"
@@ -333,7 +333,7 @@ def main(csv_file, log_level = 'info')
           end
         end
 
-      elsif ['UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH', 'TRANSFER INTRO PIC'].include?(req)
+      elsif ['UPDATE', 'GET', 'DELETE', 'GET RAW FILENAMES', 'EMBED-HTML', 'DL-RN', 'AD HOC', 'REFS URLS', 'PUBLISH', 'UNPUBLISH', 'TRANSFER INTRO PIC', 'REMOVE-REDIRECTIONS'].include?(req)
         unless id.blank?
           page = Alchemy::Page.find(id)
         else
@@ -411,6 +411,13 @@ def main(csv_file, log_level = 'info')
           subreport[:changes_made] = "PAGE WAS UNPUBLISHED"
           subreport[:published] = "UNPUBLISHED"
         end
+        next
+      end
+
+      if req == 'REMOVE-REDIRECTIONS'
+        page.legacy_urls.destroy_all
+        subreport[:status] = "success"
+        subreport[:changes_made] = "ALL REDIRECTIONS TO THIS PAGE WERE REMOVED"
         next
       end
 
