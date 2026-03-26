@@ -37,6 +37,7 @@ def process_publication_authors(publication, author_slugs)
 
   warnings = []
   errors = []
+  added_slugs = []
 
   publication.publication_authors.destroy_all
 
@@ -48,12 +49,17 @@ def process_publication_authors(publication, author_slugs)
           profile: profile,
           position: index
         )
+        added_slugs << slug
       rescue => e
         errors << "Failed to add author '#{slug}' at position #{index}: #{e.message}"
       end
     else
       warnings << "Profile with slug '#{slug}' not found"
     end
+  end
+
+  if errors.empty? && added_slugs.any?
+    Rails.logger.warn("Re-added authors: #{added_slugs.join(', ')}")
   end
 
   {
