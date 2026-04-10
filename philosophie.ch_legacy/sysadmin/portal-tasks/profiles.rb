@@ -62,6 +62,7 @@ def main(csv_file, log_level = 'info')
       _status_wrt_association: row["_status_wrt_association"] || "",
       membership_wanted: row["membership_wanted"] || "",
       id: row["id"] || "",
+      famous: row["famous"] || "",
       _role_wrt_portal: row["_role_wrt_portal"] || "",
       _biblio_name: row["_biblio_name"] || "",
       _biblio_full_name: row["_biblio_full_name"] || "",
@@ -196,6 +197,7 @@ def main(csv_file, log_level = 'info')
 
       alchemy_roles_str = subreport[:alchemy_roles].strip  # user
       id = subreport[:id].strip  # user
+      famous = subreport[:famous].strip.downcase == 'true' ? true : false  # profile
       membership_wanted = subreport[:membership_wanted].strip  # profile
       profile_name = subreport[:profile_name].strip  # profile
       firstname = subreport[:firstname].strip # user
@@ -341,6 +343,7 @@ def main(csv_file, log_level = 'info')
           _status_wrt_association: subreport[:_status_wrt_association],
           membership_wanted: subreport[:membership_wanted],
           id: user.id,
+          famous: user.profile.famous,
           _role_wrt_portal: subreport[:_role_wrt_portal],
           _biblio_name: subreport[:_biblio_name],
           _biblio_full_name: subreport[:_biblio_full_name],
@@ -475,6 +478,7 @@ def main(csv_file, log_level = 'info')
           # type_of_studies: uses model validation directly - will fail if invalid
           user.profile.type_of_studies = string_to_type_of_studies(type_of_studies)
 
+          user.profile.famous = famous
           user.profile.public = public_field
           user.profile.other_personal_information = other_personal_information
 
@@ -599,6 +603,7 @@ def main(csv_file, log_level = 'info')
 
       subreport.merge!({
         id: user.id,
+        famous: user.profile.famous,
         login: user.login,
         _link: "https://www.philosophie.ch/profil/#{user.login}",
         membership_wanted: user.profile.membership_wanted,
