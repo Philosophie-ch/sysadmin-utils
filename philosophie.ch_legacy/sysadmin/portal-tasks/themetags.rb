@@ -56,6 +56,8 @@ def main(csv_file, log_level = 'info')
       color_theme: row['color_theme'] || '',
       page_language_code: row['page_language_code'] || '',
       page_urlname: row['page_urlname'] || '',
+      conceptual_group: row['conceptual_group'] || '',
+      language_code: row['language_code'] || '',
       url: row['url'] || '',
 
       status: '',
@@ -137,6 +139,10 @@ def main(csv_file, log_level = 'info')
         end
 
         page_urlname = subreport[:page_urlname].strip
+        conceptual_group_raw = subreport[:conceptual_group].strip
+        conceptual_group_val = conceptual_group_raw.blank? ? nil : conceptual_group_raw.to_i
+        language_code_val = subreport[:language_code].strip
+        language_code_val = nil if language_code_val.blank?
 
         page = Alchemy::Page.find_by(urlname: page_urlname, language_code: page_language_code)  # this combination is unique
 
@@ -248,6 +254,9 @@ def main(csv_file, log_level = 'info')
           themetag.page_id = page.id
         end
 
+        themetag.conceptual_group = conceptual_group_val
+        themetag.language_code = language_code_val
+
         themetag.save!
       end
 
@@ -261,6 +270,8 @@ def main(csv_file, log_level = 'info')
           color_theme: color_theme,
           page_language_code: page_language_code,
           page_urlname: page_urlname,
+          conceptual_group: subreport[:conceptual_group],
+          language_code: subreport[:language_code],
           url: url,
 
           status: '',
@@ -278,6 +289,9 @@ def main(csv_file, log_level = 'info')
         if themetag.interest_type == "badge"
           themetag.color_theme = color_theme
         end
+
+        themetag.conceptual_group = conceptual_group_val
+        themetag.language_code = language_code_val
 
         if page.present?
           themetag.page_id = page.id
@@ -331,6 +345,8 @@ def main(csv_file, log_level = 'info')
         color_theme: updated_themetag.color_theme,
         page_language_code: queried_page_language_code,
         page_urlname: queried_page_urlname,
+        conceptual_group: updated_themetag.conceptual_group.to_s,
+        language_code: updated_themetag.language_code.to_s,
         url: new_url,
       })
 
