@@ -80,6 +80,15 @@ def main(csv_file, log_level = 'info')
       aside_column: row['aside_column'] || '',
       created_at: row['created_at'] || '',
 
+      _kw_level1: row['_kw_level1'] || '',
+      _kw_level2: row['_kw_level2'] || '',
+      _kw_level3: row['_kw_level3'] || '',
+      _epoch: row['_epoch'] || '',
+      _person: row['_person'] || '',
+      _comm_for_profile_bib: row['_comm_for_profile_bib'] || '',
+      _langid: row['_langid'] || '',
+      _lang_der: row['_lang_der'] || '',
+
       ref_bib_keys: row['ref_bib_keys'] || '',
       references_asset_url: row['references_asset_url'] || '',
       _further_refs: row['_further_refs'] || '',
@@ -438,6 +447,15 @@ def main(csv_file, log_level = 'info')
           embedded_content_asset_url: entity.embedded_content_asset_url || '',
           aside_column: entity.aside_column || '',
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
+
+          _kw_level1: subreport[:_kw_level1],
+          _kw_level2: subreport[:_kw_level2],
+          _kw_level3: subreport[:_kw_level3],
+          _epoch: subreport[:_epoch],
+          _person: subreport[:_person],
+          _comm_for_profile_bib: subreport[:_comm_for_profile_bib],
+          _langid: subreport[:_langid],
+          _lang_der: subreport[:_lang_der],
 
           ref_bib_keys: entity.ref_bib_keys || '',
           references_asset_url: entity.references_asset_url || '',
