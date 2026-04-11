@@ -1,5 +1,3 @@
-require_relative 'tag_tools'
-
 def get_entity_link(entity_key, url_prefix)
   if entity_key.blank?
     return ""

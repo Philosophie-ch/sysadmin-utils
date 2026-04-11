@@ -80,18 +80,6 @@ def main(csv_file, log_level = 'info')
       aside_column: row['aside_column'] || '',
       created_at: row['created_at'] || '',
 
-      # Tags (shared with pages via tag_tools.rb)
-      tag_page_type: row['tag_page_type'] || '',
-      tag_media: row['tag_media'] || '',
-      tag_content_type: row['tag_content_type'] || '',
-      tag_language: row['tag_language'] || '',
-      tag_institution: row['tag_institution'] || '',
-      tag_canton: row['tag_canton'] || '',
-      tag_project: row['tag_project'] || '',
-      tag_public: row['tag_public'] || '',
-      tag_references: row['tag_references'] || '',
-      tag_footnotes: row['tag_footnotes'] || '',
-
       ref_bib_keys: row['ref_bib_keys'] || '',
       references_asset_url: row['references_asset_url'] || '',
       _further_refs: row['_further_refs'] || '',
@@ -451,8 +439,6 @@ def main(csv_file, log_level = 'info')
           aside_column: entity.aside_column || '',
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
 
-          # Tags (from entity via tag_tools.rb)
-        }.merge(tag_array_to_columns(entity.tag_names)).merge({
           ref_bib_keys: entity.ref_bib_keys || '',
           references_asset_url: entity.references_asset_url || '',
           _further_refs: subreport[:_further_refs],
@@ -515,21 +501,6 @@ def main(csv_file, log_level = 'info')
         entity.pdf2_availability = pdf_availabilities[2] unless pdf_availabilities[2].nil?
         entity.pdf3_asset = processed_pdf3_asset
         entity.pdf3_availability = pdf_availabilities[3] unless pdf_availabilities[3].nil?
-
-        # Set tags from CSV columns (shared with pages via tag_tools.rb)
-        tag_columns = {
-          tag_page_type: subreport[:tag_page_type],
-          tag_media: subreport[:tag_media],
-          tag_content_type: subreport[:tag_content_type],
-          tag_language: subreport[:tag_language],
-          tag_institution: subreport[:tag_institution],
-          tag_canton: subreport[:tag_canton],
-          tag_project: subreport[:tag_project],
-          tag_public: subreport[:tag_public],
-          tag_references: subreport[:tag_references],
-          tag_footnotes: subreport[:tag_footnotes],
-        }
-        entity.tag_names = tag_columns_to_array(tag_columns)
 
         # Set academic metadata from JSON string if provided
         unless metadata_json_str.blank?
@@ -654,9 +625,6 @@ def main(csv_file, log_level = 'info')
         pdf3_availability: updated_entity.pdf3_availability || 'missing',
 
       })
-
-      # Merge tag columns from entity (shared with pages via tag_tools.rb)
-      subreport.merge!(tag_array_to_columns(updated_entity.tag_names))
 
       subreport[:status] = 'success'
 
