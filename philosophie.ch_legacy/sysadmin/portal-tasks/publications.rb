@@ -481,7 +481,7 @@ def main(csv_file, log_level = 'info')
           warning_messages: '',
           original_order: '',
           result_order: '',
-        })
+        }
 
       end
 
