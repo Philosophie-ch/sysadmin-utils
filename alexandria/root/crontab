@@ -1,0 +1,3 @@
+# m h  dom mon dow   command
+# Daily Alexandria DB dump at 01:00 (offset from portal's 00:00 to avoid I/O contention)
+0 1 * * * /root/dump-alexandria-db.sh >> /var/log/alexandria-backup.log 2>&1
