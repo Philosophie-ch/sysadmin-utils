@@ -75,7 +75,7 @@ chown "${SYSADMIN_USERNAME}:${SYSADMIN_USERNAME}" "${dump_full}" "${dump_data}"
 chmod 640 "${dump_full}" "${dump_data}"
 
 echo "Removing dumps older than ${RETENTION_DAYS} days..."
-find "${BACKUP_DIR}" -name "alexandria_*.sql.gz" -mtime +"${RETENTION_DAYS}" -delete
+find "${BACKUP_DIR}" -name "alexandria_*.sql" -mtime +"${RETENTION_DAYS}" -delete
 echo "Retention cleanup done."
 
 echo "Finished dump!"
