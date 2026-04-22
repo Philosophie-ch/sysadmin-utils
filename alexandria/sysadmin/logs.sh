@@ -31,5 +31,6 @@ fi
 
 # MAIN
 
+echo "=> Target: PROD (direct SSH to ${SERVER_USER_AT_IP})"
 echo "=> Streaming Alexandria logs (last ${tail_lines} lines, Ctrl-C to stop)..."
 ssh -p "${SERVER_PORT}" "${SERVER_USER_AT_IP}" "docker logs alexandria --tail ${tail_lines} -f"
