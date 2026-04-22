@@ -27,7 +27,18 @@ fi
 
 # MAIN
 
-echo "=> Opening SSH tunnel: localhost:${ALEXANDRIA_LOCAL_PORT} -> server:8080"
-echo "=> Swagger UI: http://localhost:${ALEXANDRIA_LOCAL_PORT}/docs"
+local_port="${ALEXANDRIA_LOCAL_PORT}"
+
+if lsof -iTCP:"${local_port}" -sTCP:LISTEN -t &>/dev/null; then
+  echo "=> Port ${local_port} is already in use."
+  read -r -p "=> Enter a different local port to use: " local_port
+  if ! [[ "$local_port" =~ ^[0-9]+$ ]] || [ "$local_port" -lt 1 ] || [ "$local_port" -gt 65535 ]; then
+    echo "=> Invalid port. Exiting."
+    exit 1
+  fi
+fi
+
+echo "=> Opening SSH tunnel: localhost:${local_port} -> server:8080"
+echo "=> Swagger UI: http://localhost:${local_port}/docs"
 echo "=> Press Ctrl-C to close the tunnel"
-ssh -NL "${ALEXANDRIA_LOCAL_PORT}:localhost:8080" -p "${SERVER_PORT}" "${SERVER_USER_AT_IP}"
+ssh -NL "${local_port}:localhost:8080" -p "${SERVER_PORT}" "${SERVER_USER_AT_IP}"
