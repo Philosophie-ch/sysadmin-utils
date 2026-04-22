@@ -28,7 +28,7 @@ fi
 API="${ALEXANDRIA_API_URL}/api/v1"
 KEY="${ALEXANDRIA_API_KEY}"
 DIR="${ALEXANDRIA_DATA_DIR}"
-OUT="${SCRIPT_DIR}/reports/$(date +%Y%m%d_%H%M%S)_report"
+OUT="${DIR}/reports/$(date +%Y%m%d_%H%M%S)_report"
 
 mkdir -p "$OUT"
 

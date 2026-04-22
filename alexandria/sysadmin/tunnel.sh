@@ -32,6 +32,7 @@ local_port="${ALEXANDRIA_LOCAL_PORT}"
 if nc -z -w1 localhost "${local_port}" 2>/dev/null; then
   echo "=> Port ${local_port} is already in use."
   read -r -p "=> Enter a different local port to use: " local_port
+  local_port="${local_port//$'\r'/}"
   if ! [[ "$local_port" =~ ^[0-9]+$ ]] || [ "$local_port" -lt 1 ] || [ "$local_port" -gt 65535 ]; then
     echo "=> Invalid port. Exiting."
     exit 1

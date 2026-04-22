@@ -9,7 +9,7 @@ unset _tunnel_port_file
 
 print_target_banner() {
   local port="$1"
-  if pgrep -f "ssh.*NL.*${port}:" &>/dev/null; then
+  if pgrep -fa "ssh" 2>/dev/null | grep -qE "\b${port}:localhost"; then
     echo "=> Target: PROD (SSH tunnel active on port ${port})"
   else
     echo "=> INFO: Target is LOCAL DEV — no SSH tunnel on port ${port}"
