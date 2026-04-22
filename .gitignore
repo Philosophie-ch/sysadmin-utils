@@ -184,3 +184,5 @@ cython_debug/
 .pypirc
 
 .claude
+
+data/*
