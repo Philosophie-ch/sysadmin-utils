@@ -36,8 +36,12 @@ if [ ! -f "$csv_file" ]; then
   exit 1
 fi
 
+# shellcheck source=lib.sh
+source "$(dirname "$0")/lib.sh"
+
 # MAIN
 
+print_target_banner "${ALEXANDRIA_LOCAL_PORT}"
 echo "=> Step 1/2: Importing entities from CSV (authors, journals, publishers, etc.)..."
 curl -sf -X POST \
   -H "Authorization: Bearer ${ALEXANDRIA_API_KEY}" \

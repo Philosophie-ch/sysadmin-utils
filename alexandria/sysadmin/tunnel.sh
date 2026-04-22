@@ -29,7 +29,7 @@ fi
 
 local_port="${ALEXANDRIA_LOCAL_PORT}"
 
-if lsof -iTCP:"${local_port}" -sTCP:LISTEN -t &>/dev/null; then
+if nc -z -w1 localhost "${local_port}" 2>/dev/null; then
   echo "=> Port ${local_port} is already in use."
   read -r -p "=> Enter a different local port to use: " local_port
   if ! [[ "$local_port" =~ ^[0-9]+$ ]] || [ "$local_port" -lt 1 ] || [ "$local_port" -gt 65535 ]; then
@@ -37,6 +37,9 @@ if lsof -iTCP:"${local_port}" -sTCP:LISTEN -t &>/dev/null; then
     exit 1
   fi
 fi
+
+echo "${local_port}" > "$(dirname "$0")/.tunnel-port"
+trap 'rm -f "$(dirname "$0")/.tunnel-port"' EXIT
 
 echo "=> Opening SSH tunnel: localhost:${local_port} -> server:8080"
 echo "=> Swagger UI: http://localhost:${local_port}/docs"

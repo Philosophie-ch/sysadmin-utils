@@ -24,7 +24,11 @@ if [ -n "$var_err_msg" ]; then
   exit 1
 fi
 
+# shellcheck source=lib.sh
+source "$(dirname "$0")/lib.sh"
+
 # MAIN
 
+print_target_banner "${ALEXANDRIA_LOCAL_PORT}"
 echo "=> Checking Alexandria health..."
-curl -sf "http://localhost:${ALEXANDRIA_LOCAL_PORT}/health" && echo "" || echo "=> Alexandria is not reachable (is the tunnel open?)"
+curl -sf "http://localhost:${ALEXANDRIA_LOCAL_PORT}/health" && echo "" || echo "=> Alexandria is not reachable"
