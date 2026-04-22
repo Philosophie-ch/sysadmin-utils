@@ -571,12 +571,11 @@ bp_index = build_profile_index(PROFILES_BP)
 
 step_to_source = {
     "01_authors_pr.json": ("portal data - profiles.csv", pr_index),
-    "02_authors_bp1.json": ("portal data - biblio profiles.csv", bp_index),
-    "03_authors_bp2.json": ("portal data - biblio profiles.csv", bp_index),
+    "02_authors_bp.json": ("portal data - biblio profiles.csv", bp_index),
 }
 
 lines = []
-for step_file in ["01_authors_pr.json", "02_authors_bp1.json", "03_authors_bp2.json"]:
+for step_file in ["01_authors_pr.json", "02_authors_bp.json"]:
     d = load_json(step_file)
     source_name, idx = step_to_source[step_file]
     errors = d.get("errors", [])

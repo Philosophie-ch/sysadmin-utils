@@ -58,11 +58,8 @@ echo "========================================="
 import "admin/import/authors" "$DIR/authors_pr.csv" "Profiles (pr)" "$OUT/01_authors_pr.json"
 summary "$OUT/01_authors_pr.json"
 
-import "admin/import/authors" "$DIR/authors_bp_1.csv" "Biblio profiles (bp part 1)" "$OUT/02_authors_bp1.json"
-summary "$OUT/02_authors_bp1.json"
-
-import "admin/import/authors" "$DIR/authors_bp_2.csv" "Biblio profiles (bp part 2)" "$OUT/03_authors_bp2.json"
-summary "$OUT/03_authors_bp2.json"
+import "admin/import/authors" "$DIR/authors_bp.csv" "Biblio profiles (bp)" "$OUT/02_authors_bp.json"
+summary "$OUT/02_authors_bp.json"
 
 echo ""
 echo "========================================="
