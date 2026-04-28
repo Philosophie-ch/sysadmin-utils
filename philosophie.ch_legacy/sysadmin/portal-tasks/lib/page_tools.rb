@@ -236,6 +236,7 @@ def generate_picture_show_url(image_file_url)
 end
 
 
+# deprecated
 def get_intro_image_show_url(page)
   intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
 
@@ -272,6 +273,7 @@ def get_intro_image_portal(page)
   ""
 end
 
+# deprecated
 def get_intro_image_portal_raw_filename(page)
   intro_elements = ['intro', 'event_intro', 'call_for_papers_intro', 'job_intro']
 
@@ -593,6 +595,7 @@ end
 VALID_ASSET_TYPES = ['audio', 'video', 'pdf']
 class InvalidAssetType < StandardError; end
 class InvalidPage < StandardError; end
+# deprecated
 def get_media_blocks_download_urls(page, asset_type)
 
   unless VALID_ASSET_TYPES.include?(asset_type)
@@ -622,6 +625,7 @@ end
 
 VALID_ELEMENT_NAMES = ['picture_block', 'text_and_picture']
 class InvalidElementName < StandardError; end
+# deprecated
 def get_picture_blocks_show_links(page, element_name)
 
   unless page

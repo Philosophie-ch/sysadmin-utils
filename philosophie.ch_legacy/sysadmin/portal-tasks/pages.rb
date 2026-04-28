@@ -104,18 +104,11 @@ def main(csv_file, log_level = 'info')
       anon: row['anon'] || "",
 
       intro_image_asset: row['intro_image_asset'] || "",  # element
-      intro_image_portal: row['intro_image_portal'] || "",  # element
       audio_assets: row['audio_assets'] || "",
-      audios_portal: row['audios_portal'] || "",  # element
       video_assets: row['video_assets'] || "",
-      videos_portal: row['videos_portal'] || "",  # element
       pdf_assets: row['pdf_assets'] || "",
-      pdfs_portal: row['pdfs_portal'] || "",  # element
       picture_assets: row['picture_assets'] || "",
-      pictures_portal: row['pictures_portal'] || "",  # element
       text_and_picture_assets: row['text_and_picture_assets'] || "",  # element
-      text_and_pictures_portal: row['text_and_pictures_portal'] || "",  # element
-      box_assets: row['box_assets'] || "",  # nested element
 
       embed_blocks: row['embed_blocks'] || "",  # element
       _attachment_links_assets: row['_attachment_links_assets'] || "",  # element
@@ -284,7 +277,6 @@ def main(csv_file, log_level = 'info')
       pdf_block_assets = subreport[:pdf_assets].strip
       picture_block_assets = subreport[:picture_assets].strip
       text_and_picture_assets = subreport[:text_and_picture_assets].strip
-      box_assets = subreport[:box_assets].strip
 
       themetags_discipline = subreport[:themetags_discipline].strip
       themetags_focus = subreport[:themetags_focus].strip
@@ -516,18 +508,11 @@ def main(csv_file, log_level = 'info')
           anon: old_anon,
 
           intro_image_asset: subreport[:intro_image_asset],
-          intro_image_portal: subreport[:intro_image_portal],
           audio_assets: subreport[:audio_assets],
-          audios_portal: subreport[:audios_portal],
           video_assets: subreport[:video_assets],
-          videos_portal: subreport[:videos_portal],
           pdf_assets: subreport[:pdf_assets],
-          pdfs_portal: subreport[:pdfs_portal],
           picture_assets: subreport[:picture_assets],
-          pictures_portal: subreport[:pictures_portal],
           text_and_picture_assets: subreport[:text_and_picture_assets],
-          text_and_pictures_portal: subreport[:text_and_pictures_portal],
-          box_assets: subreport[:box_assets],
 
           embed_blocks: subreport[:embed_blocks],
           attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
@@ -635,15 +620,6 @@ def main(csv_file, log_level = 'info')
       Rails.logger.info("Processing page '#{page_identifier}': Updating report")
       tags_to_cols = tag_array_to_columns(page.tag_names)
       retrieved_slug = retrieve_page_slug(page)
-
-      if req == 'GET RAW FILENAMES'
-        retrieved_intro_image_portal = get_intro_image_portal_raw_filename(page)
-      elsif req == 'GET'
-        retrieved_intro_image_portal = get_intro_image_show_url(page)
-      else
-        retrieved_intro_image_portal = get_intro_image_show_url(page)
-      end
-
 
       ############
       # EMBED-HTML
@@ -900,18 +876,11 @@ def main(csv_file, log_level = 'info')
         anon: get_anon(page),
 
         intro_image_asset: get_asset_names(page, "intro", ELEMENT_NAME_AND_URL_FIELD_MAP[:"intro"]),
-        intro_image_portal: retrieved_intro_image_portal,
         audio_assets: get_asset_names(page, "audio_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"audio_block"]),
-        audios_portal: get_media_blocks_download_urls(page, "audio"),
         video_assets: get_asset_names(page, "video_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"video_block"]),
-        videos_portal: get_media_blocks_download_urls(page, "video"),
         pdf_assets: get_asset_names(page, "pdf_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"pdf_block"]),
-        pdfs_portal: get_media_blocks_download_urls(page, "pdf"),
         picture_assets: get_asset_names(page, "picture_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"picture_block"]),
-        pictures_portal: get_picture_blocks_show_links(page, "picture_block"),
         text_and_picture_assets: get_asset_names(page, "text_and_picture", ELEMENT_NAME_AND_URL_FIELD_MAP[:"text_and_picture"]),
-        text_and_pictures_portal: get_picture_blocks_show_links(page, "text_and_picture"),
-        box_assets: get_asset_names(page, "box", ELEMENT_NAME_AND_URL_FIELD_MAP[:"box"]),
 
         embed_blocks: has_embed_blocks(page),
         attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
@@ -1058,7 +1027,6 @@ def main(csv_file, log_level = 'info')
           "pdf_block": pdf_block_assets,
           "picture_block": picture_block_assets,
           "text_and_picture": text_and_picture_assets,
-          "box": box_assets,
         }
 
         ELEMENT_NAME_AND_URL_FIELD_MAP.each do |element_name, url_field_name|
@@ -1085,7 +1053,6 @@ def main(csv_file, log_level = 'info')
         subreport[:pdf_assets] = get_asset_names(page, 'pdf_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'pdf_block'])
         subreport[:picture_assets] = get_asset_names(page, 'picture_block', ELEMENT_NAME_AND_URL_FIELD_MAP[:'picture_block'])
         subreport[:text_and_picture_assets] = get_asset_names(page, 'text_and_picture', ELEMENT_NAME_AND_URL_FIELD_MAP[:'text_and_picture'])
-        subreport[:box_assets] = get_asset_names(page, 'box', ELEMENT_NAME_AND_URL_FIELD_MAP[:'box'])
 
 
         # Saving
