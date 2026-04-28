@@ -796,18 +796,115 @@ def main(csv_file, log_level = 'info')
       #######
 
       if req == 'AD HOC'
-        # AD HOC: Only update the hidden field
-        hidden_raw = subreport[:hidden].strip.downcase
-        new_hidden = ['true', 'yes', '1'].include?(hidden_raw)
-        old_hidden = page.hidden?
-        page.hidden = new_hidden
-        page.save!
-        subreport[:status] = 'success'
-        subreport[:hidden] = get_hidden(page)
-        if old_hidden != new_hidden
-          subreport[:changes_made] = "hidden: {{ #{old_hidden ? 'TRUE' : 'FALSE'} }} => {{ #{new_hidden ? 'TRUE' : 'FALSE'} }}"
+        # AD HOC: Generate Table of Contents text_block in aside_column for Dialectica issue pages.
+        # Creates title_block ("Table of Contents") + text_block (article list) at positions 1-2,
+        # shifting existing aside_column elements down. Matches DltcPublicationPageComponent style.
+        begin
+          # Read volume/issue from the page's top-level academic_metadata element
+          academic_metadata_el = page.elements.named(:academic_metadata).first
+          raise "No academic_metadata element on page #{page.id}" unless academic_metadata_el
+
+          metadata_json_str = academic_metadata_el.content_by_name(:metadata_json)&.essence&.body
+          raise "No metadata_json content in academic_metadata element" unless metadata_json_str.present?
+
+          metadata = JSON.parse(metadata_json_str)
+          raise "Not a journal_issue page (type=#{metadata["type"]})" unless metadata["type"] == "journal_issue"
+
+          volume    = metadata["volume"]
+          issue_num = metadata["issue"]
+          raise "Missing volume or issue in metadata" unless volume.present? && issue_num.present?
+
+          # Find published Dialectica articles for this volume/issue, sorted by start page.
+          # Eager-load authors to avoid N+1.
+          articles = Publication
+            .where(pub_type: "dltc", published: true)
+            .where("academic_metadata @> ?", { type: "article", volume: volume, issue: issue_num }.to_json)
+            .includes(publication_authors: { profile: :user })
+            .order(Arel.sql("CAST(NULLIF(regexp_replace(academic_metadata->>'pages', '[^0-9].*', '', 'g'), '') AS integer) ASC NULLS LAST"))
+
+          if articles.empty?
+            subreport[:status] = 'success'
+            subreport[:changes_made] = "No published articles found for vol #{volume} issue #{issue_num}. Nothing generated."
+            next
+          end
+
+          # Build HTML matching DltcPublicationPageComponent "other articles in this issue" structure.
+          html = %Q(<ul class="dltc-publication-page__issue-articles">\n)
+          articles.each do |pub|
+            pub_path = pub.url_prefix.present? ? "/#{pub.url_prefix}/#{pub.publication_key}" : "/#{pub.publication_key}"
+            title = CGI.escapeHTML(pub.title.presence || pub.name.presence || pub.publication_key)
+
+            author_names = pub.publication_authors.sort_by(&:position).map do |pa|
+              profile = pa.profile
+              user    = profile&.user
+              if user&.firstname.present? || user&.lastname.present?
+                [user.firstname.presence, user.lastname.presence].compact.join(" ")
+              elsif profile&.name.present?
+                profile.name
+              else
+                profile&.slug.to_s
+              end
+            end.reject(&:blank?).join(", ")
+
+            html += "<li>\n"
+            html += "  <div>#{CGI.escapeHTML(author_names)}</div>\n" if author_names.present?
+            html += %Q(  <div class="dltc-publication-page__issue-article-detail"><a href="#{pub_path}" target="_blank" rel="noopener">#{title}</a></div>\n)
+            html += "</li>\n"
+          end
+          html += "</ul>"
+
+          # Get or create aside_column
+          aside_column = get_aside_column(page)
+          if aside_column.blank?
+            page.elements.create!(name: "aside_column", page_id: page.id, parent_element_id: nil, public: true)
+            aside_column = get_aside_column(page)
+            raise "Aside column could not be created" if aside_column.blank?
+          end
+          aside_column.update!(public: true)
+
+          # Idempotency: remove existing TOC pair (title_block at pos 1 containing "Table of Contents").
+          existing_toc_title = aside_column.nested_elements.find do |e|
+            e.name == "title_block" && e.position == 1 &&
+              e.contents.find_by(name: "text")&.essence&.body&.include?("Table of Contents")
+          end
+          if existing_toc_title
+            existing_toc_text = aside_column.nested_elements.find { |e| e.name == "text_block" && e.position == 2 }
+            existing_toc_text&.destroy!
+            existing_toc_title.destroy!
+            aside_column.reload
+          end
+
+          # Create title_block "Table of Contents" at position 1 (pushes existing elements down).
+          toc_title = aside_column.nested_elements.create!(
+            name: "title_block", page_id: page.id, parent_element_id: aside_column.id, public: true
+          )
+          toc_title.contents.find_by(name: "text").essence.update!(body: "Table of Contents")
+          toc_title.update!(position: 1)
+
+          # Create text_block with article list at position 2.
+          toc_text = aside_column.nested_elements.create!(
+            name: "text_block", page_id: page.id, parent_element_id: aside_column.id, public: true
+          )
+          toc_text.contents.find_by(name: "text").essence.update!(body: html)
+          toc_text.update!(position: 2)
+
+          # Reorder and publish.
+          aside_column.reload
+          aside_column.nested_elements = aside_column.nested_elements.reorder("position ASC")
+          aside_column.save!
+          page.reload
+          page.publish!
+
+          subreport[:status] = 'success'
+          subreport[:changes_made] = "Generated TOC: #{articles.size} articles for vol #{volume} issue #{issue_num}"
+          next
+
+        rescue => e
+          subreport[:status] = 'error'
+          subreport[:error_message] = "#{e.class} :: #{e.message}"
+          subreport[:error_trace] = e.backtrace.join(" ::: ")
+          next
         end
-        next
       end
 
       #######
