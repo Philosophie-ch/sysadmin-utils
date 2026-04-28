@@ -72,6 +72,9 @@ def main(csv_file, log_level = 'info')
       doi: row['doi'] || "",  # article
       metadata_json: row['metadata_json'] || "",
       created_at: row['created_at'] || "",  # page
+      presented_entity_type: row['presented_entity_type'] || "",
+      presented_entity_language_code: row['presented_entity_language_code'] || "",
+      presentation_of: row['presentation_of'] || "",
       page_layout: row['page_layout'] || "",  # page
       created_by: row['created_by'] || "",  # page
       last_updated_by: row['last_updated_by'] || "",  # page
@@ -96,7 +99,6 @@ def main(csv_file, log_level = 'info')
       _further_refs: row['_further_refs'] || "",
       further_references_asset_url: row['further_references_asset_url'] || "",  # element
       _depends_on: row['_depends_on'] || "",
-      _presentation_of: row['_presentation_of'] || "",
       _link: row['_link'] || "",
       _abstract: row['_abstract'] || "",
 
@@ -476,6 +478,9 @@ def main(csv_file, log_level = 'info')
           doi: old_doi,
           metadata_json: old_metadata_json,
           created_at: subreport[:created_at],
+          presented_entity_type: subreport[:presented_entity_type],
+          presented_entity_language_code: subreport[:presented_entity_language_code],
+          presentation_of: subreport[:presentation_of],
           page_layout: subreport[:page_layout],
           created_by: created_by,
           last_updated_by: last_updated_by,
@@ -500,7 +505,6 @@ def main(csv_file, log_level = 'info')
           _further_refs: subreport[:_further_refs],
           further_references_asset_url: old_further_references_asset_url,
           _depends_on: subreport[:_depends_on],
-          _presentation_of: subreport[:_presentation_of],
           _link: subreport[:_link],
           _abstract: subreport[:_abstract],
 
