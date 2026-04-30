@@ -1564,6 +1564,138 @@ end
 
 
 
+def ad_hoc_error(subreport)
+  subreport[:status] = 'error'
+  subreport[:error_message] = 'AD HOC not implemented'
+end
+
+
+############
+# Dialectica-specific content generation
+############
+
+def generate_dltc_issue_toc(page)
+  report = {
+    status: 'not started',
+    changes_made: '',
+    error_message: '',
+    error_trace: '',
+  }
+
+  begin
+    academic_metadata_el = page.elements.named(:academic_metadata).first
+    raise "No academic_metadata element on page #{page.id}" unless academic_metadata_el
+
+    metadata_json_str = academic_metadata_el.content_by_name(:metadata_json)&.essence&.body
+    raise "No metadata_json content in academic_metadata element" unless metadata_json_str.present?
+
+    metadata = JSON.parse(metadata_json_str)
+    raise "Not a journal_issue page (type=#{metadata["type"]})" unless metadata["type"] == "journal_issue"
+
+    volume    = metadata["volume"]
+    issue_num = metadata["issue"]
+    raise "Missing volume or issue in metadata" unless volume.present? && issue_num.present?
+
+    articles = Publication
+      .where(pub_type: "dltc", published: true)
+      .where("academic_metadata @> ?", { type: "article", volume: volume, issue: issue_num }.to_json)
+      .includes(publication_authors: { profile: :user })
+      .order(Arel.sql("CAST(NULLIF(regexp_replace(academic_metadata->>'pages', '[^0-9].*', '', 'g'), '') AS integer) ASC NULLS LAST"))
+
+    if articles.empty?
+      report[:status] = 'success'
+      report[:changes_made] = "No published articles found for vol #{volume} issue #{issue_num}. Nothing generated."
+      return report
+    end
+
+    html = %Q(<ul class="dltc-publication-page__issue-articles">\n)
+    articles.each do |pub|
+      pub_path = pub.url_prefix.present? ? "/#{pub.url_prefix}/#{pub.publication_key}" : "/#{pub.publication_key}"
+      title = CGI.escapeHTML(pub.title.presence || pub.name.presence || pub.publication_key)
+
+      author_parts = pub.publication_authors.sort_by(&:position).map do |pa|
+        profile      = pa.profile
+        user         = profile&.user
+        profile_slug = profile&.slug
+        profile_link = profile_slug.present? ? "/profil/#{profile_slug}" : nil
+
+        if user&.lastname.present?
+          firstname_str = user.firstname.present? ? "#{CGI.escapeHTML(user.firstname)} " : ""
+          lastname_html = profile_link \
+            ? %Q(<a href="#{profile_link}" target="_blank" rel="noopener">#{CGI.escapeHTML(user.lastname)}</a>) \
+            : CGI.escapeHTML(user.lastname)
+          "#{firstname_str}#{lastname_html}"
+        elsif user&.firstname.present?
+          profile_link \
+            ? %Q(<a href="#{profile_link}" target="_blank" rel="noopener">#{CGI.escapeHTML(user.firstname)}</a>) \
+            : CGI.escapeHTML(user.firstname)
+        elsif profile&.name.present?
+          profile_link \
+            ? %Q(<a href="#{profile_link}" target="_blank" rel="noopener">#{CGI.escapeHTML(profile.name)}</a>) \
+            : CGI.escapeHTML(profile.name)
+        elsif profile_slug.present?
+          %Q(<a href="#{profile_link}" target="_blank" rel="noopener">#{CGI.escapeHTML(profile_slug)}</a>)
+        end
+      end.compact.reject(&:blank?)
+
+      html += "<li>\n"
+      html += "  <div>#{author_parts.join(", ")}</div>\n" if author_parts.present?
+      html += %Q(  <div class="dltc-publication-page__issue-article-detail"><a href="#{pub_path}" target="_blank" rel="noopener">#{title}</a></div>\n)
+      html += "</li>\n"
+    end
+    html += "</ul>"
+
+    aside_column = get_aside_column(page)
+    if aside_column.blank?
+      page.elements.create!(name: "aside_column", page_id: page.id, parent_element_id: nil, public: true)
+      aside_column = get_aside_column(page)
+      raise "Aside column could not be created" if aside_column.blank?
+    end
+    aside_column.update!(public: true)
+
+    # Idempotency: remove existing TOC pair (title_block at pos 1 containing "Table of Contents").
+    existing_toc_title = aside_column.nested_elements.find do |e|
+      e.name == "title_block" && e.position == 1 &&
+        e.contents.find_by(name: "text")&.essence&.body&.include?("Table of Contents")
+    end
+    if existing_toc_title
+      existing_toc_text = aside_column.nested_elements.find { |e| e.name == "text_block" && e.position == 2 }
+      existing_toc_text&.destroy!
+      existing_toc_title.destroy!
+      aside_column.reload
+    end
+
+    toc_title = aside_column.nested_elements.create!(
+      name: "title_block", page_id: page.id, parent_element_id: aside_column.id, public: true
+    )
+    toc_title.contents.find_by(name: "text").essence.update!(body: "Table of Contents")
+    toc_title.update!(position: 1)
+
+    toc_text = aside_column.nested_elements.create!(
+      name: "text_block", page_id: page.id, parent_element_id: aside_column.id, public: true
+    )
+    toc_text.contents.find_by(name: "text").essence.update!(body: html)
+    toc_text.update!(position: 2)
+
+    aside_column.reload
+    aside_column.nested_elements = aside_column.nested_elements.reorder("position ASC")
+    aside_column.save!
+    page.reload
+    page.publish!
+
+    report[:status] = 'success'
+    report[:changes_made] = "Generated TOC: #{articles.size} articles for vol #{volume} issue #{issue_num}"
+    report
+
+  rescue => e
+    report[:status] = 'error'
+    report[:error_message] = "#{e.class} :: #{e.message}"
+    report[:error_trace] = e.backtrace.join(" ::: ")
+    report
+  end
+end
+
+
 def create_pdf_block(page)
   report = {
     status: 'not started',
