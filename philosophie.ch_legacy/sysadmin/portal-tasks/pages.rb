@@ -3,6 +3,20 @@ require 'csv'
 require_relative 'lib/utils'
 require_relative 'lib/page_tools'
 
+def read_csv_file(file_path)
+  bytes = File.binread(file_path, 3)
+  content = if bytes[0..1].b == "\xFF\xFE".b || bytes[0..1].b == "\xFE\xFF".b
+    File.read(file_path, encoding: 'utf-16')
+  elsif bytes[0..2].b == "\xEF\xBB\xBF".b
+    File.read(file_path, encoding: 'bom|utf-8')
+  else
+    # Mostly UTF-8 but may have stray Latin-1 bytes: re-encode them as Latin-1→UTF-8
+    # so accented characters survive instead of being dropped
+    File.binread(file_path).force_encoding('utf-8').scrub { |b| b.encode('utf-8', 'iso-8859-1') }
+  end
+  CSV.parse(content, col_sep: ',', headers: true)
+end
+
 
 def main(csv_file, log_level = 'info')
 
@@ -35,7 +49,7 @@ def main(csv_file, log_level = 'info')
   report = []
   processed_lines = 0
 
-  csv_data = CSV.read(csv_file, col_sep: ',', headers: true)
+  csv_data = read_csv_file(csv_file)
   total_lines = csv_data.size
 
 
