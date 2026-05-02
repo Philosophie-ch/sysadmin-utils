@@ -14,6 +14,7 @@ source "${SCRIPT_DIR}/.env"
 set +o allexport
 
 required_vars=( "ALEXANDRIA_API_URL" "ALEXANDRIA_API_KEY" "ALEXANDRIA_DATA_DIR" )
+BIBLIO_CSV="${ALEXANDRIA_BIBLIO_CSV}"
 var_err_msg=
 for var in "${required_vars[@]}"; do
   if [ -z "${!var}" ]; then
@@ -53,8 +54,18 @@ print(f'  imported={imp}, updated={upd}, failed={fail}')
 }
 
 echo "========================================="
+echo "Step 0: Convert portal CSVs"
+echo "========================================="
+ALEXANDRIA_BIBLIO_CSV="${BIBLIO_CSV}" python3 "${SCRIPT_DIR}/convert.py"
+
+echo ""
+echo "========================================="
 echo "Step 1: Import profiles as authors"
 echo "========================================="
+echo "--- Wiping dev DB ---"
+curl -sS --fail-with-body -X POST "${API}/admin/wipe?confirm=true" \
+    -H "Authorization: Bearer $KEY" | python3 -m json.tool
+echo ""
 import "admin/import/authors" "$DIR/authors_pr.csv" "Profiles (pr)" "$OUT/01_authors_pr.json"
 summary "$OUT/01_authors_pr.json"
 
@@ -82,7 +93,7 @@ echo ""
 echo "========================================="
 echo "Step 3: Import entities from biblio CSV"
 echo "========================================="
-import "admin/import-entities-from-full-csv" "$DIR/biblio-v11-table.csv" "Biblio entities" "$OUT/06_entities.json"
+import "admin/import-entities-from-full-csv" "$DIR/biblio-processed.csv" "Biblio entities" "$OUT/06_entities.json"
 python3 -c "
 import json
 d = json.load(open('$OUT/06_entities.json'))
@@ -94,7 +105,7 @@ echo ""
 echo "========================================="
 echo "Step 4: Validate biblio CSV"
 echo "========================================="
-import "admin/validate-full-csv" "$DIR/biblio-v11-table.csv" "Validation" "$OUT/07_validate.json"
+import "admin/validate-full-csv" "$DIR/biblio-processed.csv" "Validation" "$OUT/07_validate.json"
 python3 -c "
 import json
 d = json.load(open('$OUT/07_validate.json'))
@@ -111,7 +122,7 @@ echo ""
 echo "========================================="
 echo "Step 5: Import bibitems from full CSV"
 echo "========================================="
-import "admin/import-full-csv?delete_stale=true" "$DIR/biblio-v11-table.csv" "Bibitems" "$OUT/08_import_bibitems.json"
+import "admin/import-full-csv?delete_stale=true" "$DIR/biblio-processed.csv" "Bibitems" "$OUT/08_import_bibitems.json"
 python3 -c "
 import json
 d = json.load(open('$OUT/08_import_bibitems.json'))
@@ -144,3 +155,12 @@ echo "========================================="
 ALEXANDRIA_DATA_DIR="${DIR}" ALEXANDRIA_DB_CONTAINER="${ALEXANDRIA_DB_CONTAINER:-}" \
     python3 "${SCRIPT_DIR}/generate_report.py" "$OUT"
 echo "Done. Report files in $OUT/"
+
+echo ""
+echo "========================================="
+echo "Cleanup: removing intermediate CSVs"
+echo "========================================="
+rm -f "$DIR/authors_pr.csv" "$DIR/authors_bp.csv" \
+      "$DIR/journals.csv" "$DIR/publishers.csv" \
+      "$DIR/biblio-processed.csv"
+echo "Done."
