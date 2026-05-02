@@ -151,6 +151,8 @@ convert_simple(
         "journal_key": "journal_key",
         "_biblio_full_name": "name_latex",
         "name": "name_unicode",
+        "issn_print": "issn_print",
+        "issn_electronic": "issn_electronic",
     },
 )
 
@@ -164,3 +166,44 @@ convert_simple(
         "_biblio_full_name": "name_latex",
     },
 )
+
+
+def preprocess_biblio(src_name, out_name):
+    """Copy the biblio CSV, defaulting empty _langid to 'english'.
+
+    Convention: no langid in the source spreadsheet means the entry is in
+    English. This fills the gap so the DB reflects that rather than storing NULL.
+    """
+    src = os.path.join(SRC, src_name)
+    out = os.path.join(SRC, out_name)
+
+    with open(src, newline="", encoding="utf-8") as fin, \
+         open(out, "w", newline="", encoding="utf-8") as fout:
+
+        reader = csv.reader(fin)
+        headers = next(reader)
+        writer = csv.writer(fout)
+        writer.writerow(headers)
+
+        try:
+            langid_idx = headers.index("_langid")
+        except ValueError:
+            langid_idx = None
+
+        filled = 0
+        for row in reader:
+            if langid_idx is not None:
+                row = list(row)
+                while len(row) <= langid_idx:
+                    row.append("")
+                if not row[langid_idx].strip():
+                    row[langid_idx] = "english"
+                    filled += 1
+            writer.writerow(row)
+
+    print(f"{src_name} -> {out_name}: {filled} rows defaulted to langid=english")
+
+
+# --- Biblio CSV preprocessing ---
+BIBLIO_CSV = os.environ.get("ALEXANDRIA_BIBLIO_CSV", "biblio-v11-table.csv")
+preprocess_biblio(BIBLIO_CSV, "biblio-processed.csv")
