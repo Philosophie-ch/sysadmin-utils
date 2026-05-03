@@ -157,6 +157,7 @@ Direct API/SSH scripts for operating the production Alexandria server. All requi
 | `export.sh <entity> [out]` | Export entity to CSV (authors/journals/bibitems/etc.) |
 | `logs.sh [--tail N]` | Stream prod container logs via SSH |
 | `data-version.sh` | Fetch current data version from prod |
+| `db-schema.sh` | Dump DB tables with column types and row counts |
 | `corpus-rebuild.sh` | Reimport from local corpus clone (wipe + bulk COPY) |
 
 `lib.sh` is sourced by all scripts — reads `.tunnel-port` written by `tunnel.sh` and prints a target banner (prod vs local dev).
