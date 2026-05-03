@@ -93,11 +93,29 @@ echo ""
 echo "========================================="
 echo "Step 3: Import entities from biblio CSV"
 echo "========================================="
+# Institutions, schools, series, and keywords are derived solely from the biblio CSV
+# (not maintained in portal data). We pre-import them from the corpus so their IDs
+# stay stable across wipe+reimport cycles. import-entities-from-full-csv then skips
+# existing entities and only auto-assigns IDs for genuinely new ones.
+if [ -n "${ALEXANDRIA_CORPUS_PATH:-}" ] && [ -d "${ALEXANDRIA_CORPUS_PATH}/data" ]; then
+    echo "--- Pre-importing entities from corpus (stable IDs) ---"
+    import "admin/import/institutions" "${ALEXANDRIA_CORPUS_PATH}/data/institution/all.csv" "Institutions (corpus)" "$OUT/06a_institutions.json"
+    summary "$OUT/06a_institutions.json"
+    import "admin/import/schools" "${ALEXANDRIA_CORPUS_PATH}/data/school/all.csv" "Schools (corpus)" "$OUT/06b_schools.json"
+    summary "$OUT/06b_schools.json"
+    import "admin/import/series" "${ALEXANDRIA_CORPUS_PATH}/data/series/all.csv" "Series (corpus)" "$OUT/06c_series.json"
+    summary "$OUT/06c_series.json"
+    import "admin/import/keywords" "${ALEXANDRIA_CORPUS_PATH}/data/keyword/all.csv" "Keywords (corpus)" "$OUT/06d_keywords.json"
+    summary "$OUT/06d_keywords.json"
+else
+    echo "  (No corpus data found — first run, entities will be auto-assigned IDs)"
+fi
+echo "--- Biblio entities (new only) ---"
 import "admin/import-entities-from-full-csv" "$DIR/biblio-processed.csv" "Biblio entities" "$OUT/06_entities.json"
 python3 -c "
 import json
 d = json.load(open('$OUT/06_entities.json'))
-print(f'  institutions={d[\"created_institutions\"]}, schools={d[\"created_schools\"]}, series={d[\"created_series\"]}, keywords={d[\"created_keywords\"]}')
+print(f'  new: institutions={d[\"created_institutions\"]}, schools={d[\"created_schools\"]}, series={d[\"created_series\"]}, keywords={d[\"created_keywords\"]}')
 print(f'  errors={len(d[\"errors\"])}')
 "
 
