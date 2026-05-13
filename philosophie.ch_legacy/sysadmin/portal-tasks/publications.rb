@@ -80,10 +80,14 @@ def main(csv_file, log_level = 'info')
       work_type: row['work_type'] || '',
       work_type_other: row['work_type_other'] || '',
       institution: row['institution'] || '',
+      institution_other: row['institution_other'] || '',
       supervisors: row['supervisors'] || '',
       supervisors_others: row['supervisors_others'] || '',
+      ects: row['ects'] || '',
+      mark: row['mark'] || '',
+      mark_max: row['mark_max'] || '',
+      distinction: row['distinction'] || '',
       embedded_content_asset_url: row['embedded_content_asset_url'] || '',
-      aside_column: row['aside_column'] || '',
       created_at: row['created_at'] || '',
 
       _kw_level1: row['_kw_level1'] || '',
@@ -94,10 +98,6 @@ def main(csv_file, log_level = 'info')
       _comm_for_profile_bib: row['_comm_for_profile_bib'] || '',
       language: row['language'] || '',
       _lang_der: row['_lang_der'] || '',
-      replies_to: row['replies_to'] || '',
-      reply_to_type: row['reply_to_type'] || '',
-      replied_by: row['replied_by'] || '',
-      replied_by_type: row['replied_by_type'] || '',
 
       ref_bib_keys: row['ref_bib_keys'] || '',
       references_asset_url: row['references_asset_url'] || '',
@@ -116,11 +116,6 @@ def main(csv_file, log_level = 'info')
       pdf3_availability: row['pdf3_availability'] || '',
       additional_material: row['additional_material'] || '',
       _refs_in_xml: row['_refs_in_xml'] || '',
-      ects: row['ects'] || '',
-      mark: row['mark'] || '',
-      mark_max: row['mark_max'] || '',
-      distinction: row['distinction'] || '',
-      institution_other: row['institution_other'] || '',
 
       status: '',
       changes_made: '',
@@ -475,10 +470,14 @@ def main(csv_file, log_level = 'info')
           work_type: entity.work_type || '',
           work_type_other: entity.work_type_other || '',
           institution: entity.institution || '',
+          institution_other: entity.institution_other || '',
           supervisors: resolve_supervisor_ids_to_slugs(entity.supervisor_profile_ids),
           supervisors_others: entity.supervisor_other || '',
+          ects: entity.ects.present? ? entity.ects.to_s : '',
+          mark: entity.mark.present? ? entity.mark.to_s : '',
+          mark_max: entity.mark_max.present? ? entity.mark_max.to_s : '',
+          distinction: entity.distinction || '',
           embedded_content_asset_url: entity.embedded_content_asset_url || '',
-          aside_column: entity.aside_column || '',
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
 
           _kw_level1: subreport[:_kw_level1],
@@ -489,10 +488,6 @@ def main(csv_file, log_level = 'info')
           _comm_for_profile_bib: subreport[:_comm_for_profile_bib],
           language: subreport[:language],
           _lang_der: subreport[:_lang_der],
-          replies_to: subreport[:replies_to],
-          reply_to_type: subreport[:reply_to_type],
-          replied_by: subreport[:replied_by],
-          replied_by_type: subreport[:replied_by_type],
 
           ref_bib_keys: entity.ref_bib_keys || '',
           references_asset_url: entity.references_asset_url || '',
@@ -511,11 +506,6 @@ def main(csv_file, log_level = 'info')
           pdf3_availability: entity.pdf3_availability || 'missing',
           additional_material: subreport[:additional_material],
           _refs_in_xml: subreport[:_refs_in_xml],
-          ects: entity.ects.present? ? entity.ects.to_s : '',
-          mark: entity.mark.present? ? entity.mark.to_s : '',
-          mark_max: entity.mark_max.present? ? entity.mark_max.to_s : '',
-          distinction: entity.distinction || '',
-          institution_other: entity.institution_other || '',
           status: '',
           changes_made: '',
           error_message: '',
@@ -552,7 +542,6 @@ def main(csv_file, log_level = 'info')
         entity.institution = subreport[:institution].to_s.strip
         entity.supervisor_other = subreport[:supervisors_others].to_s.strip
         entity.embedded_content_asset_url = subreport[:embedded_content_asset_url].to_s.strip
-        entity.aside_column = subreport[:aside_column].to_s.strip
 
         entity.ref_bib_keys = subreport[:ref_bib_keys].to_s.strip
         entity.references_asset_url = processed_references_asset_url
@@ -652,19 +641,17 @@ def main(csv_file, log_level = 'info')
 
       subreport.merge!({
         id: "#{updated_entity.id}".strip,
-        KEY => updated_entity[KEY].strip,
-        url_prefix: updated_entity.url_prefix,
-        open_access: updated_entity.open_access ? 'TRUE' : 'FALSE',
-        pub_type: updated_entity.pub_type.to_s.strip || '',
-        date: updated_entity.date.to_s.strip || '',
-
         published: updated_entity.published ? 'PUBLISHED' : 'UNPUBLISHED',
         hidden: updated_entity.hidden? ? 'TRUE' : 'FALSE',
         name: updated_entity.name.to_s.strip || '',
         pre_headline: updated_entity.pre_headline.to_s.strip || '',
         title: updated_entity.title.to_s.strip || '',
         lead_text: updated_entity.lead_text.to_s.strip || '',
-        abstract: updated_entity.abstract.to_s.strip || '',
+        date: updated_entity.date.to_s.strip || '',
+        KEY => updated_entity[KEY].strip,
+        url_prefix: updated_entity.url_prefix,
+        open_access: updated_entity.open_access ? 'TRUE' : 'FALSE',
+        pub_type: updated_entity.pub_type.to_s.strip || '',
         link: new_link,
 
         bibkey: updated_entity.bibkey.to_s.strip || '',
@@ -675,10 +662,14 @@ def main(csv_file, log_level = 'info')
         work_type: updated_entity.work_type.to_s.strip || '',
         work_type_other: updated_entity.work_type_other.to_s.strip || '',
         institution: updated_entity.institution.to_s.strip || '',
+        institution_other: updated_entity.institution_other.to_s.strip || '',
         supervisors: resolve_supervisor_ids_to_slugs(updated_entity.supervisor_profile_ids),
         supervisors_others: updated_entity.supervisor_other.to_s.strip || '',
+        ects: updated_entity.ects.present? ? updated_entity.ects.to_s : '',
+        mark: updated_entity.mark.present? ? updated_entity.mark.to_s : '',
+        mark_max: updated_entity.mark_max.present? ? updated_entity.mark_max.to_s : '',
+        distinction: updated_entity.distinction.to_s.strip || '',
         embedded_content_asset_url: updated_entity.embedded_content_asset_url.to_s.strip,
-        aside_column: updated_entity.aside_column.to_s.strip || '',
 
         created_at: updated_entity.created_at.nil? ? '' : updated_entity.created_at.strftime('%Y-%m-%d'),
 
@@ -687,6 +678,7 @@ def main(csv_file, log_level = 'info')
         further_references_asset_url: unprocessed_further_references_asset_url,
 
         external_link: updated_entity.external_link.to_s.strip || '',
+        abstract: updated_entity.abstract.to_s.strip || '',
 
         assigned_authors: current_authors,
         cover_picture_asset: unprocessed_cover_picture_asset,
@@ -696,11 +688,6 @@ def main(csv_file, log_level = 'info')
         pdf2_availability: updated_entity.pdf2_availability || 'missing',
         pdf3_asset: unprocessed_pdf3_asset,
         pdf3_availability: updated_entity.pdf3_availability || 'missing',
-        ects: updated_entity.ects.present? ? updated_entity.ects.to_s : '',
-        mark: updated_entity.mark.present? ? updated_entity.mark.to_s : '',
-        mark_max: updated_entity.mark_max.present? ? updated_entity.mark_max.to_s : '',
-        distinction: updated_entity.distinction.to_s.strip || '',
-        institution_other: updated_entity.institution_other.to_s.strip || '',
 
       })
 
