@@ -73,8 +73,21 @@ def get_pure_html_asset(entity, pure_links_base_url)
   return full_url.start_with?(pure_links_base_url) ? full_url.gsub(pure_links_base_url, "") : full_url
 end
 
-def get_pure_pdf_asset(entity, pure_links_base_url)
-  full_url = entity.pure_pdf_asset.to_s.strip
-  return "" if full_url.blank?
-  return full_url.start_with?(pure_links_base_url) ? full_url.gsub(pure_links_base_url, "") : full_url
+def resolve_supervisor_slugs_to_ids(slugs)
+  warnings = []
+  ids = []
+  slugs.each do |slug|
+    profile = Profile.find_by(slug: slug)
+    if profile
+      ids << profile.id
+    else
+      warnings << "Supervisor profile with slug '#{slug}' not found"
+    end
+  end
+  { ids: ids, warnings: warnings }
+end
+
+def resolve_supervisor_ids_to_slugs(profile_ids)
+  return '' if profile_ids.blank?
+  profile_ids.map { |pid| Profile.find_by(id: pid)&.slug }.compact.join(',')
 end

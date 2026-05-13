@@ -65,6 +65,7 @@ def main(csv_file, log_level = 'info')
       title: row['title'] || '',
       lead_text: row['lead_text'] || '',
       embedded_html_base_name: row['embedded_html_base_name'] || '',
+      date: row['date'] || '',
       KEY => row[KEY_NAME] || '',
       url_prefix: row['url_prefix'] || '',
       open_access: row['open_access'] || '',
@@ -72,10 +73,15 @@ def main(csv_file, log_level = 'info')
       link: row['link'] || '',
       _request: row['_request'] || '',
       bibkey: row['bibkey'] || '',
-      how_to_cite: row['how_to_cite'] || '',
       pure_html_asset: row['pure_html_asset'] || '',
       doi: row['doi'] || '',
-      metadata_json: row['metadata_json'] || '',
+      spps_type: row['spps_type'] || '',
+      spps_type_other: row['spps_type_other'] || '',
+      work_type: row['work_type'] || '',
+      work_type_other: row['work_type_other'] || '',
+      institution: row['institution'] || '',
+      supervisors: row['supervisors'] || '',
+      supervisors_others: row['supervisors_others'] || '',
       embedded_content_asset_url: row['embedded_content_asset_url'] || '',
       aside_column: row['aside_column'] || '',
       created_at: row['created_at'] || '',
@@ -86,8 +92,12 @@ def main(csv_file, log_level = 'info')
       _epoch: row['_epoch'] || '',
       _person: row['_person'] || '',
       _comm_for_profile_bib: row['_comm_for_profile_bib'] || '',
-      _langid: row['_langid'] || '',
+      language: row['language'] || '',
       _lang_der: row['_lang_der'] || '',
+      replies_to: row['replies_to'] || '',
+      reply_to_type: row['reply_to_type'] || '',
+      replied_by: row['replied_by'] || '',
+      replied_by_type: row['replied_by_type'] || '',
 
       ref_bib_keys: row['ref_bib_keys'] || '',
       references_asset_url: row['references_asset_url'] || '',
@@ -106,6 +116,11 @@ def main(csv_file, log_level = 'info')
       pdf3_availability: row['pdf3_availability'] || '',
       additional_material: row['additional_material'] || '',
       _refs_in_xml: row['_refs_in_xml'] || '',
+      ects: row['ects'] || '',
+      mark: row['mark'] || '',
+      mark_max: row['mark_max'] || '',
+      distinction: row['distinction'] || '',
+      institution_other: row['institution_other'] || '',
 
       status: '',
       changes_made: '',
@@ -239,24 +254,8 @@ def main(csv_file, log_level = 'info')
       # Parse authors list
       assigned_authors = parse_authors_list(subreport[:assigned_authors])
 
-      # Parse and validate metadata_json - required field
-      metadata_json_str = subreport[:metadata_json].to_s.strip
-      if metadata_json_str.blank?
-        subreport[:_request] = req_err
-        subreport[:status] = "error"
-        subreport[:error_message] = "metadata_json is required and cannot be empty"
-        subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::metadata_json"
-        next
-      end
-      begin
-        JSON.parse(metadata_json_str)
-      rescue JSON::ParserError => e
-        subreport[:_request] = req_err
-        subreport[:status] = "error"
-        subreport[:error_message] = "Invalid metadata_json '#{metadata_json_str[0..100]}...'. Must be valid JSON: #{e.message}"
-        subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::metadata_json"
-        next
-      end
+      # Parse supervisors list (comma-separated profile slugs)
+      supervisor_slugs = parse_authors_list(subreport[:supervisors])
 
       # Parse open_access field as boolean for model
       open_access_str = subreport[:open_access].strip.upcase
@@ -278,6 +277,34 @@ def main(csv_file, log_level = 'info')
           next
         end
         pub_type = pub_type_str
+      end
+
+      # Parse spps_type field - validate against MODEL::SPPS_TYPES constant
+      spps_type_str = subreport[:spps_type].strip
+      spps_type = nil
+      unless spps_type_str.blank?
+        unless MODEL::SPPS_TYPES.include?(spps_type_str)
+          subreport[:_request] = req_err
+          subreport[:status] = "error"
+          subreport[:error_message] = "Invalid spps_type '#{spps_type_str}'. Must be one of: #{MODEL::SPPS_TYPES.join(', ')}"
+          subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::spps_type"
+          next
+        end
+        spps_type = spps_type_str
+      end
+
+      # Parse work_type field - validate against MODEL::WORK_TYPES constant
+      work_type_str = subreport[:work_type].strip
+      work_type = nil
+      unless work_type_str.blank?
+        unless MODEL::WORK_TYPES.include?(work_type_str)
+          subreport[:_request] = req_err
+          subreport[:status] = "error"
+          subreport[:error_message] = "Invalid work_type '#{work_type_str}'. Must be one of: #{MODEL::WORK_TYPES.join(', ')}"
+          subreport[:error_trace] = "#{FILE_NAME}::main::Parsing::work_type"
+          next
+        end
+        work_type = work_type_str
       end
 
       # Parse pdf_availability fields - validate against MODEL::PDF_AVAILABILITY_TYPES constant
@@ -433,6 +460,7 @@ def main(csv_file, log_level = 'info')
           title: entity.title || '',
           lead_text: entity.lead_text || '',
           embedded_html_base_name: subreport[:embedded_html_base_name],
+          date: entity.date || '',
           KEY => old_entity_key,
           url_prefix: entity.url_prefix,
           open_access: entity.open_access ? 'TRUE' : 'FALSE',
@@ -440,10 +468,15 @@ def main(csv_file, log_level = 'info')
           link: get_entity_link(old_entity_key, entity.url_prefix),
           _request: subreport[:_request],
           bibkey: entity.bibkey || '',
-          how_to_cite: entity.how_to_cite || '',
           pure_html_asset: entity.pure_html_asset || '',
           doi: entity.doi || '',
-          metadata_json: entity.academic_metadata.blank? ? '' : entity.academic_metadata.to_json,
+          spps_type: entity.spps_type || '',
+          spps_type_other: entity.spps_type_other || '',
+          work_type: entity.work_type || '',
+          work_type_other: entity.work_type_other || '',
+          institution: entity.institution || '',
+          supervisors: resolve_supervisor_ids_to_slugs(entity.supervisor_profile_ids),
+          supervisors_others: entity.supervisor_other || '',
           embedded_content_asset_url: entity.embedded_content_asset_url || '',
           aside_column: entity.aside_column || '',
           created_at: entity.created_at.nil? ? '' : entity.created_at.strftime('%Y-%m-%d'),
@@ -454,8 +487,12 @@ def main(csv_file, log_level = 'info')
           _epoch: subreport[:_epoch],
           _person: subreport[:_person],
           _comm_for_profile_bib: subreport[:_comm_for_profile_bib],
-          _langid: subreport[:_langid],
+          language: subreport[:language],
           _lang_der: subreport[:_lang_der],
+          replies_to: subreport[:replies_to],
+          reply_to_type: subreport[:reply_to_type],
+          replied_by: subreport[:replied_by],
+          replied_by_type: subreport[:replied_by_type],
 
           ref_bib_keys: entity.ref_bib_keys || '',
           references_asset_url: entity.references_asset_url || '',
@@ -474,6 +511,11 @@ def main(csv_file, log_level = 'info')
           pdf3_availability: entity.pdf3_availability || 'missing',
           additional_material: subreport[:additional_material],
           _refs_in_xml: subreport[:_refs_in_xml],
+          ects: entity.ects.present? ? entity.ects.to_s : '',
+          mark: entity.mark.present? ? entity.mark.to_s : '',
+          mark_max: entity.mark_max.present? ? entity.mark_max.to_s : '',
+          distinction: entity.distinction || '',
+          institution_other: entity.institution_other || '',
           status: '',
           changes_made: '',
           error_message: '',
@@ -498,11 +540,17 @@ def main(csv_file, log_level = 'info')
         entity.abstract = subreport[:abstract].to_s.strip
 
         entity.bibkey = subreport[:bibkey].to_s.strip
-        entity.how_to_cite = subreport[:how_to_cite].to_s.strip
         entity.pure_html_asset = processed_pure_html_asset
         entity.doi = subreport[:doi].to_s.strip
         entity.open_access = open_access unless open_access.nil?
         entity.pub_type = pub_type unless pub_type.nil?
+        entity.date = subreport[:date].to_s.strip
+        entity.spps_type = spps_type unless spps_type.nil?
+        entity.spps_type_other = subreport[:spps_type_other].to_s.strip
+        entity.work_type = work_type unless work_type.nil?
+        entity.work_type_other = subreport[:work_type_other].to_s.strip
+        entity.institution = subreport[:institution].to_s.strip
+        entity.supervisor_other = subreport[:supervisors_others].to_s.strip
         entity.embedded_content_asset_url = subreport[:embedded_content_asset_url].to_s.strip
         entity.aside_column = subreport[:aside_column].to_s.strip
 
@@ -520,16 +568,6 @@ def main(csv_file, log_level = 'info')
         entity.pdf3_asset = processed_pdf3_asset
         entity.pdf3_availability = pdf_availabilities[3] unless pdf_availabilities[3].nil?
 
-        # Set academic metadata from JSON string if provided
-        unless metadata_json_str.blank?
-          begin
-            entity.set_academic_metadata_from_json(metadata_json_str)
-          rescue => e
-            Rails.logger.warn("Failed to set academic_metadata: #{e.message}")
-            subreport[:warning_messages] += " ::: Failed to set academic_metadata: #{e.message}"
-          end
-        end
-
         entity.save!
 
         # Process authors after saving the entity
@@ -543,6 +581,17 @@ def main(csv_file, log_level = 'info')
           if authors_result[:errors].any?
             subreport[:status] = "partial error"
             subreport[:error_message] += " ::: Authors: #{authors_result[:errors].join('; ')}"
+          end
+        end
+
+        # Process supervisors after saving the entity
+        if supervisor_slugs.any?
+          supervisors_result = resolve_supervisor_slugs_to_ids(supervisor_slugs)
+          entity.supervisor_profile_ids = supervisors_result[:ids]
+          entity.save!
+
+          if supervisors_result[:warnings].any?
+            subreport[:warning_messages] += " ::: Supervisors: #{supervisors_result[:warnings].join('; ')}"
           end
         end
       end
@@ -607,6 +656,7 @@ def main(csv_file, log_level = 'info')
         url_prefix: updated_entity.url_prefix,
         open_access: updated_entity.open_access ? 'TRUE' : 'FALSE',
         pub_type: updated_entity.pub_type.to_s.strip || '',
+        date: updated_entity.date.to_s.strip || '',
 
         published: updated_entity.published ? 'PUBLISHED' : 'UNPUBLISHED',
         hidden: updated_entity.hidden? ? 'TRUE' : 'FALSE',
@@ -618,10 +668,15 @@ def main(csv_file, log_level = 'info')
         link: new_link,
 
         bibkey: updated_entity.bibkey.to_s.strip || '',
-        how_to_cite: updated_entity.how_to_cite.to_s.strip || '',
         pure_html_asset: unprocessed_pure_html_asset,
         doi: updated_entity.doi.to_s.strip || '',
-        metadata_json: updated_entity.academic_metadata.blank? ? '' : updated_entity.academic_metadata.to_json,
+        spps_type: updated_entity.spps_type.to_s.strip || '',
+        spps_type_other: updated_entity.spps_type_other.to_s.strip || '',
+        work_type: updated_entity.work_type.to_s.strip || '',
+        work_type_other: updated_entity.work_type_other.to_s.strip || '',
+        institution: updated_entity.institution.to_s.strip || '',
+        supervisors: resolve_supervisor_ids_to_slugs(updated_entity.supervisor_profile_ids),
+        supervisors_others: updated_entity.supervisor_other.to_s.strip || '',
         embedded_content_asset_url: updated_entity.embedded_content_asset_url.to_s.strip,
         aside_column: updated_entity.aside_column.to_s.strip || '',
 
@@ -641,6 +696,11 @@ def main(csv_file, log_level = 'info')
         pdf2_availability: updated_entity.pdf2_availability || 'missing',
         pdf3_asset: unprocessed_pdf3_asset,
         pdf3_availability: updated_entity.pdf3_availability || 'missing',
+        ects: updated_entity.ects.present? ? updated_entity.ects.to_s : '',
+        mark: updated_entity.mark.present? ? updated_entity.mark.to_s : '',
+        mark_max: updated_entity.mark_max.present? ? updated_entity.mark_max.to_s : '',
+        distinction: updated_entity.distinction.to_s.strip || '',
+        institution_other: updated_entity.institution_other.to_s.strip || '',
 
       })
 
