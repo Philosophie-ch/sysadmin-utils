@@ -64,6 +64,8 @@ def main(csv_file, log_level = 'info')
       changes_made: '',
       error_message: '',
       error_trace: '',
+      original_order: '',
+      result_order: '',
     }
 
 
@@ -376,7 +378,7 @@ def main(csv_file, log_level = 'info')
       if ['UPDATE', 'GET', 'AD HOC'].include?(req)
         changes = []
         subreport.each do |key, value|
-          if old_themetag[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :request
+          if old_themetag[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :request && key != :original_order && key != :result_order
             # Skip if both old and new values are empty
             unless old_themetag[key].to_s.empty? && value.to_s.empty?
               changes << "#{key}: {{ #{old_themetag[key]} }} => {{ #{value} }}"
@@ -410,6 +412,23 @@ def main(csv_file, log_level = 'info')
   ############
   # REPORT
   ############
+
+  report.each_with_index do |subreport, index|
+    subreport[:original_order] = index + 1
+  end
+
+  status_ordering = {
+    'success' => 1,
+    'error' => 2,
+    'unhandled error' => 3,
+  }
+
+  report.sort_by! { |subreport| status_ordering[subreport[:status]] || 9999 }
+  report.each_with_index do |subreport, index|
+    subreport[:result_order] = index + 1
+  end
+
+  report.sort_by! { |subreport| subreport[:original_order] }
 
   generate_csv_report(report, "themetags")
 

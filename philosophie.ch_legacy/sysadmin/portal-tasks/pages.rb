@@ -87,14 +87,14 @@ def main(csv_file, log_level = 'info')
       metadata_json: row['metadata_json'] || "",
       created_at: row['created_at'] || "",  # page
       presented_entity_type: row['presented_entity_type'] || "",
-      presented_entity_language_code: row['presented_entity_language_code'] || "",
       presentation_of: row['presentation_of'] || "",
       page_layout: row['page_layout'] || "",  # page
       created_by: row['created_by'] || "",  # page
       last_updated_by: row['last_updated_by'] || "",  # page
       last_updated_date: row['last_updated_date'] || "",  # page
-      replies_to: row['replies_to'] || "",  # page
-      replied_by: row['replied_by'] || "",  # page
+      replies_to: row['replies_to'] || "",
+      reply_to_type: row['reply_to_type'] || "",
+      replied_by: row['replied_by'] || "",
 
       tag_page_type: row['tag_page_type'] || "",  # tag
       tag_media: row['tag_media'] || "",  # tag
@@ -140,7 +140,8 @@ def main(csv_file, log_level = 'info')
       changes_made: '',
       error_message: '',
       error_trace: '',
-      result_order: processed_lines + 1,
+      original_order: '',
+      result_order: '',
     }
 
 
@@ -240,6 +241,11 @@ def main(csv_file, log_level = 'info')
       metadata_json_str = subreport[:metadata_json].to_s.strip
       ##
 
+      presented_entity_type = subreport[:presented_entity_type].strip
+      presented_entity_type = nil if presented_entity_type.blank?
+      presentation_of = subreport[:presentation_of].strip
+      presentation_of = nil if presentation_of.blank?
+
       created_at = subreport[:created_at].strip
       page_layout = subreport[:page_layout].strip
 
@@ -247,7 +253,8 @@ def main(csv_file, log_level = 'info')
       last_updated_by = subreport[:last_updated_by].strip
       last_updated_date = subreport[:last_updated_date].strip
       replies_to = subreport[:replies_to].strip
-      replied_by = subreport[:replied_by].strip
+      reply_to_type = subreport[:reply_to_type].strip.downcase
+      reply_to_type = 'page' if reply_to_type.blank? && replies_to.present?
 
       tag_page_type = subreport[:tag_page_type].strip
       tag_media = subreport[:tag_media].strip
@@ -492,15 +499,15 @@ def main(csv_file, log_level = 'info')
           doi: old_doi,
           metadata_json: old_metadata_json,
           created_at: subreport[:created_at],
-          presented_entity_type: subreport[:presented_entity_type],
-          presented_entity_language_code: subreport[:presented_entity_language_code],
-          presentation_of: subreport[:presentation_of],
+          presented_entity_type: page.presented_entity_type || '',
+          presentation_of: page.presented_entity_identifier || '',
           page_layout: subreport[:page_layout],
           created_by: created_by,
           last_updated_by: last_updated_by,
           last_updated_date: last_updated_date,
-          replies_to: replies_to,
-          replied_by: replied_by,
+          replies_to: get_reply_target_id(page),
+          reply_to_type: get_reply_target_type(page),
+          replied_by: get_replied_by(page),
 
           tag_page_type: old_page_tag_columns[:tag_page_type],
           tag_media: old_page_tag_columns[:tag_media],
@@ -557,6 +564,8 @@ def main(csv_file, log_level = 'info')
         page.title = title
         page.bibkey = bibkey
         page.hidden = hidden
+        page.presented_entity_type = presented_entity_type
+        page.presented_entity_identifier = presentation_of
 
         if req == "UPDATE"
           # Handle moving pages across trees
@@ -599,7 +608,7 @@ def main(csv_file, log_level = 'info')
 
         page.urlname = urlname
         page.page_layout = page_layout
-        page.created_at = parse_created_at(created_at)
+        page.created_at = parse_created_at(created_at) unless created_at.blank?
 
 
         tag_columns = {
@@ -862,11 +871,14 @@ def main(csv_file, log_level = 'info')
         slug: retrieved_slug,
         link: page_link,
         created_at: get_created_at(page),
+        presented_entity_type: page.presented_entity_type || '',
+        presentation_of: page.presented_entity_identifier || '',
         page_layout: page.page_layout,
         created_by: get_creator(page),
         last_updated_by: get_last_updater(page),
         last_updated_date: get_last_updated_date(page),
-        replies_to: get_reply_target_urlname(page),
+        replies_to: get_reply_target_id(page),
+        reply_to_type: get_reply_target_type(page),
         replied_by: get_replied_by(page),
 
         tag_page_type: tags_to_cols[:tag_page_type],
@@ -929,13 +941,14 @@ def main(csv_file, log_level = 'info')
 
 
         # Replies to
-        set_reply_target_report = set_reply_target_by_id(page, replies_to)
+        set_reply_target_report = set_reply_target(page, replies_to, reply_to_type)
         unless set_reply_target_report == ""
           subreport[:_request] += " PARTIAL"
           subreport[:status] = 'partial success'
           subreport[:error_message] += set_reply_target_report
         end
-        subreport[:replies_to] = get_reply_target_urlname(page)
+        subreport[:replies_to] = get_reply_target_id(page)
+        subreport[:reply_to_type] = get_reply_target_type(page)
 
 
         # References bibkeys
@@ -1098,7 +1111,7 @@ def main(csv_file, log_level = 'info')
       if req == "UPDATE" || req == "GET" || req == "GET RAW FILENAMES" || req == 'AD HOC' || req == 'REFS URLS'
         changes = []
         subreport.each do |key, value|
-          if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :_request && key != :result_order
+          if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :_request && key != :original_order && key != :result_order
             # Skip if both old and new values are empty
             unless old_page[key].to_s.empty? && value.to_s.empty?
               changes << "#{key}: {{ #{old_page[key]} }} => {{ #{value} }}"
@@ -1134,6 +1147,24 @@ def main(csv_file, log_level = 'info')
   ############
   # REPORT
   ############
+
+  report.each_with_index do |subreport, index|
+    subreport[:original_order] = index + 1
+  end
+
+  status_ordering = {
+    'success' => 1,
+    'partial success' => 2,
+    'error' => 3,
+    'unhandled error' => 4,
+  }
+
+  report.sort_by! { |subreport| status_ordering[subreport[:status]] || 9999 }
+  report.each_with_index do |subreport, index|
+    subreport[:result_order] = index + 1
+  end
+
+  report.sort_by! { |subreport| subreport[:original_order] }
 
   generate_csv_report(report, "pages")
 

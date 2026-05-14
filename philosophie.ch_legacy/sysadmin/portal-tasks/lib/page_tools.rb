@@ -1491,32 +1491,72 @@ def get_latest_comment_login_and_date(page)
 end
 
 
-# Threads
-def get_reply_target_urlname(page)
-  result = Alchemy::Page.find_by(id: page.reply_target_id)
-  return result.blank? ? "" : result.id
+# Threads (via ReplyConnection join table)
+def get_reply_target_id(page)
+  conn = ReplyConnection.from_page(page.id).first
+  return '' if conn.nil?
+  conn.target_page_id || conn.target_publication_id || ''
 end
 
-class SetReplyTargetError < StandardError; end
-def set_reply_target_by_id(page, id_s)
+def get_reply_target_type(page)
+  conn = ReplyConnection.from_page(page.id).first
+  return '' if conn.nil?
+  return 'page' if conn.target_page_id.present?
+  return 'publication' if conn.target_publication_id.present?
+  ''
+end
+
+def set_reply_target(page, target_id_s, target_type)
   begin
-    id_i = id_s.to_i
-    reply_target = Alchemy::Page.find_by(id: id_i)
+    existing = ReplyConnection.from_page(page.id).first
 
-    if reply_target.blank?
-      return ""
-
-    else
-      page.update!(reply_target_id: reply_target.id)
+    if target_id_s.blank?
+      existing&.destroy
       return ""
     end
+
+    target_id = target_id_s.to_i
+
+    if target_type == 'publication'
+      target = Publication.find_by(id: target_id)
+      if target.blank?
+        return "Publication with ID '#{target_id}' not found for reply target"
+      end
+      if existing
+        existing.update!(target_page_id: nil, target_publication_id: target.id)
+      else
+        ReplyConnection.create!(source_page_id: page.id, target_publication_id: target.id)
+      end
+    else
+      target = Alchemy::Page.find_by(id: target_id)
+      if target.blank?
+        return "Page with ID '#{target_id}' not found for reply target"
+      end
+      if existing
+        existing.update!(target_page_id: target.id, target_publication_id: nil)
+      else
+        ReplyConnection.create!(source_page_id: page.id, target_page_id: target.id)
+      end
+    end
+
+    return ""
   rescue => e
-    return "Could not set reply target via 'id'. Details :: #{e.class} :: #{e.message}"
+    return "Could not set reply target. Details :: #{e.class} :: #{e.message}"
   end
 end
 
 def get_replied_by(page)
-  Alchemy::Page.where(reply_target_id: page.id).order('created_at DESC').pluck(:urlname).join(", ")
+  connections = ReplyConnection.targeting_page(page.id)
+  entries = connections.map do |conn|
+    if conn.source_page_id.present?
+      source_page = Alchemy::Page.find_by(id: conn.source_page_id)
+      { slug: source_page&.urlname || '', type: 'page' }
+    elsif conn.source_publication_id.present?
+      source_pub = Publication.find_by(id: conn.source_publication_id)
+      { slug: source_pub&.publication_key || '', type: 'publication' }
+    end
+  end.compact
+  entries.empty? ? '' : entries.to_json
 end
 
 

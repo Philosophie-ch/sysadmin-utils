@@ -118,19 +118,18 @@ def main(csv_file, log_level = 'info')
       cms_public_email_toggle: row["cms_public_email_toggle"] || "",
       profile_picture_asset: row["profile_picture_asset"] || "",
       facebook_profile: row["facebook_profile"] || "",
+      public: row["public"] || "",
+      other_personal_information: row["other_personal_information"] || "",
+      confirmed_at: row["confirmed_at"] || "",
+      potential_duplicates: row["potential_duplicates"] || "",
 
-      # report
       status: '',
       changes_made: '',
       error_message: '',
       error_trace: '',
       update_links_report: '',
-      result_order: processed_lines + 1,
-
-      public: row["public"] || "",
-      other_personal_information: row["other_personal_information"] || "",
-      confirmed_at: row["confirmed_at"] || "",
-      potential_duplicates: row["potential_duplicates"] || "",
+      original_order: '',
+      result_order: '',
 
     }
 
@@ -656,7 +655,7 @@ def main(csv_file, log_level = 'info')
       if req == "UPDATE" || req == "GET" || req == "AD HOC"
         changes = []
         subreport.each do |key, value|
-          if old_user[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :update_links_report && key != :_request && key != :result_order
+          if old_user[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :update_links_report && key != :_request && key != :original_order && key != :result_order
             # Skip if both old and new values are empty
             unless old_user[key].to_s.empty? && value.to_s.empty?
               changes << "#{key}: {{ #{old_user[key]} }} => {{ #{value} }}"
@@ -696,6 +695,24 @@ def main(csv_file, log_level = 'info')
   ############
   # REPORT
   ############
+
+  report.each_with_index do |subreport, index|
+    subreport[:original_order] = index + 1
+  end
+
+  status_ordering = {
+    'success' => 1,
+    'partial success' => 2,
+    'error' => 3,
+    'unhandled error' => 4,
+  }
+
+  report.sort_by! { |subreport| status_ordering[subreport[:status]] || 9999 }
+  report.each_with_index do |subreport, index|
+    subreport[:result_order] = index + 1
+  end
+
+  report.sort_by! { |subreport| subreport[:original_order] }
 
   generate_csv_report(report, "profiles")
 
