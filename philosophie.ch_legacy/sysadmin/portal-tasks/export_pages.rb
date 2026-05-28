@@ -322,6 +322,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         themetags_badge: themetags_hashmap[:badge],
         themetags_structural: themetags_hashmap[:structural],
 
+        aside_column_content: has_aside_column_content(page),
         status: partial_success ? 'partial success' : 'success',
         changes_made: '',
         error_message: partial_error_messages.join(' | '),
@@ -406,6 +407,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         themetags_focus: "",
         themetags_badge: "",
         themetags_structural: "",
+        aside_column_content: "",
         status: 'unhandled error',
         changes_made: '',
         error_message: "#{e.class} :: #{e.message}",

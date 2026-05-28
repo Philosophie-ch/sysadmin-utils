@@ -136,6 +136,7 @@ def main(csv_file, log_level = 'info')
       themetags_badge: row['themetags_badge'] || "",  # themetags
       themetags_structural: row['themetags_structural'] || "",  # themetags
 
+      aside_column_content: row['aside_column_content'] || "",
       status: '',
       changes_made: '',
       error_message: '',
@@ -548,6 +549,7 @@ def main(csv_file, log_level = 'info')
           themetags_badge: subreport[:themetags_badge],
           themetags_structural: subreport[:themetags_structural],
 
+          aside_column_content: has_aside_column_content(page),
           status: '',
           changes_made: '',
           error_message: '',
@@ -909,6 +911,7 @@ def main(csv_file, log_level = 'info')
         themetags_focus: themetags_hashmap[:focus],
         themetags_badge: themetags_hashmap[:badge],
         themetags_structural: themetags_hashmap[:structural],
+        aside_column_content: has_aside_column_content(page),
       })
 
 

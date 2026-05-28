@@ -1239,6 +1239,21 @@ def get_aside_column(page)
   return aside_columns.first
 end
 
+def has_aside_column_content(page)
+  aside_columns = Alchemy::Element.where(parent_element_id: nil, page_id: page.id, name: "aside_column", public: true)
+
+  aside_columns.each do |aside_column|
+    aside_column.nested_elements.where(public: true).each do |nested_element|
+      nested_element.contents.each do |content|
+        body = content.respond_to?(:body) ? content.body : content.ingredient
+        return "TRUE" unless body.blank?
+      end
+    end
+  end
+
+  return "FALSE"
+end
+
 def get_article_metadata_element(aside_column)
   # This is a nested element inside the aside_column element
   if aside_column.blank?
