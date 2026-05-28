@@ -168,6 +168,19 @@ print(f'  total_updated={total}, errors={errors}')
 
 echo ""
 echo "========================================="
+echo "Step 6b: Compute start_page, volume_numeric, number_numeric"
+echo "========================================="
+curl -s -o "$OUT/09b_compute_numeric_fields.json" -w "HTTP %{http_code}\n" \
+    -X POST "${API}/admin/compute-numeric-fields" \
+    -H "Authorization: Bearer $KEY"
+python3 -c "
+import json
+d = json.load(open('$OUT/09b_compute_numeric_fields.json'))
+print(f'  updated={d.get(\"updated\", 0)}')
+"
+
+echo ""
+echo "========================================="
 echo "Step 7: Generate error report"
 echo "========================================="
 ALEXANDRIA_DATA_DIR="${DIR}" ALEXANDRIA_DB_CONTAINER="${ALEXANDRIA_DB_CONTAINER:-}" \

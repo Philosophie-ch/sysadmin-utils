@@ -14,24 +14,20 @@ import re
 SRC = os.environ.get("ALEXANDRIA_DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
 csv.field_size_limit(1_000_000)
 
-PHILOSOPHIE_CH_PUBLISHER_KEY = "philosophie-ch"
+PHILOSOPHIE_CH_KEY = "philosophie-ch"
 LICENSE_CC_BY_3 = "https://creativecommons.org/licenses/by/3.0/"
 LICENSE_CC_BY_4 = "https://creativecommons.org/licenses/by/4.0/"
 
-_publisher_name_cache: dict[str, str] | None = None
 
-
-def _get_publisher_name_latex(publishers_csv_path: str, publisher_key: str) -> str | None:
-    global _publisher_name_cache
-    if _publisher_name_cache is None:
-        _publisher_name_cache = {}
-        try:
-            with open(publishers_csv_path, newline="", encoding="utf-8") as f:
-                for row in csv.DictReader(f):
-                    _publisher_name_cache[row["publisher_key"]] = row["name_latex"]
-        except FileNotFoundError:
-            pass
-    return _publisher_name_cache.get(publisher_key)
+def _get_name_latex(csv_path: str, key_col: str, target_key: str) -> str | None:
+    try:
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if row[key_col] == target_key:
+                    return row["name_latex"]
+    except FileNotFoundError:
+        pass
+    return None
 
 
 def _extract_year(date_str: str) -> int | None:
@@ -197,15 +193,15 @@ def preprocess_biblio(src_name, out_name):
     """Copy the biblio CSV, applying two conventions:
 
     1. Empty _langid defaults to 'english'.
-    2. philosophie-ch publisher entries get a CC license based on year
-       (CC BY 4.0 from 2026 onwards, CC BY 3.0 for 2025 and earlier),
+    2. Entries whose publisher or journal is Philosophie.ch get a CC license
+       based on year (CC BY 4.0 from 2026+, CC BY 3.0 for 2025 and earlier),
        but only if the license column is currently empty.
     """
     src = os.path.join(SRC, src_name)
     out = os.path.join(SRC, out_name)
 
-    publishers_csv = os.path.join(SRC, "publishers.csv")
-    phch_name_latex = _get_publisher_name_latex(publishers_csv, PHILOSOPHIE_CH_PUBLISHER_KEY)
+    phch_publisher = _get_name_latex(os.path.join(SRC, "publishers.csv"), "publisher_key", PHILOSOPHIE_CH_KEY)
+    phch_journal = _get_name_latex(os.path.join(SRC, "journals.csv"), "journal_key", PHILOSOPHIE_CH_KEY)
 
     with open(src, newline="", encoding="utf-8") as fin, \
          open(out, "w", newline="", encoding="utf-8") as fout:
@@ -217,6 +213,7 @@ def preprocess_biblio(src_name, out_name):
 
         langid_idx = headers.index("_langid") if "_langid" in headers else None
         publisher_idx = headers.index("publisher") if "publisher" in headers else None
+        journal_idx = headers.index("journal") if "journal" in headers else None
         license_idx = headers.index("license") if "license" in headers else None
         date_idx = headers.index("date") if "date" in headers else None
 
@@ -232,11 +229,22 @@ def preprocess_biblio(src_name, out_name):
                     row[langid_idx] = "english"
                     langid_filled += 1
 
-            if (phch_name_latex and publisher_idx is not None
-                    and license_idx is not None and date_idx is not None):
-                while len(row) <= max(publisher_idx, license_idx, date_idx):
+            if license_idx is not None and date_idx is not None:
+                max_idx = max(license_idx, date_idx)
+                if publisher_idx is not None:
+                    max_idx = max(max_idx, publisher_idx)
+                if journal_idx is not None:
+                    max_idx = max(max_idx, journal_idx)
+                while len(row) <= max_idx:
                     row.append("")
-                if row[publisher_idx].strip() == phch_name_latex and not row[license_idx].strip():
+
+                is_phch = False
+                if phch_publisher and publisher_idx is not None:
+                    is_phch = row[publisher_idx].strip() == phch_publisher
+                if not is_phch and phch_journal and journal_idx is not None:
+                    is_phch = row[journal_idx].strip() == phch_journal
+
+                if is_phch and not row[license_idx].strip():
                     date_val = row[date_idx].strip().lower()
                     if date_val == "forthcoming":
                         row[license_idx] = LICENSE_CC_BY_4
