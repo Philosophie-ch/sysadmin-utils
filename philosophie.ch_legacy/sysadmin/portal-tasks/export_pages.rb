@@ -270,7 +270,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         created_by: get_creator(page),
         last_updated_by: get_last_updater(page),
         last_updated_date: get_last_updated_date(page),
-        replies_to: get_reply_target_urlname(page),
+        replies_to: get_reply_target_id(page),
         replied_by: get_replied_by(page),
 
         tag_page_type: tags_to_cols[:tag_page_type],
