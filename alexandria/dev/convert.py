@@ -15,8 +15,8 @@ SRC = os.environ.get("ALEXANDRIA_DATA_DIR", os.path.dirname(os.path.abspath(__fi
 csv.field_size_limit(1_000_000)
 
 PHILOSOPHIE_CH_KEY = "philosophie-ch"
-LICENSE_CC_BY_3 = "https://creativecommons.org/licenses/by/3.0/"
-LICENSE_CC_BY_4 = "https://creativecommons.org/licenses/by/4.0/"
+LICENSE_CC_BY_3 = "cc-by-3"
+LICENSE_CC_BY_4 = "cc-by-4"
 
 
 def _get_name_latex(csv_path: str, key_col: str, target_key: str) -> str | None:
@@ -208,19 +208,31 @@ def preprocess_biblio(src_name, out_name):
 
         reader = csv.reader(fin)
         headers = next(reader)
-        writer = csv.writer(fout)
-        writer.writerow(headers)
 
         langid_idx = headers.index("_langid") if "_langid" in headers else None
         publisher_idx = headers.index("publisher") if "publisher" in headers else None
         journal_idx = headers.index("journal") if "journal" in headers else None
-        license_idx = headers.index("license") if "license" in headers else None
         date_idx = headers.index("date") if "date" in headers else None
+
+        # Add _license column if not present
+        if "_license" in headers:
+            license_idx = headers.index("_license")
+            added_license_col = False
+        else:
+            headers.append("_license")
+            license_idx = len(headers) - 1
+            added_license_col = True
+
+        writer = csv.writer(fout)
+        writer.writerow(headers)
 
         langid_filled = 0
         license_filled = 0
         for row in reader:
             row = list(row)
+
+            if added_license_col:
+                row.append("")
 
             if langid_idx is not None:
                 while len(row) <= langid_idx:
@@ -229,15 +241,7 @@ def preprocess_biblio(src_name, out_name):
                     row[langid_idx] = "english"
                     langid_filled += 1
 
-            if license_idx is not None and date_idx is not None:
-                max_idx = max(license_idx, date_idx)
-                if publisher_idx is not None:
-                    max_idx = max(max_idx, publisher_idx)
-                if journal_idx is not None:
-                    max_idx = max(max_idx, journal_idx)
-                while len(row) <= max_idx:
-                    row.append("")
-
+            if date_idx is not None:
                 is_phch = False
                 if phch_publisher and publisher_idx is not None:
                     is_phch = row[publisher_idx].strip() == phch_publisher

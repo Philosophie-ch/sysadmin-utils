@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+DELETE_STALE=false
+for arg in "$@"; do
+  case "$arg" in
+    --delete-stale) DELETE_STALE=true ;;
+    *) echo "Unknown option: $arg"; exit 1 ;;
+  esac
+done
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ ! -f "${SCRIPT_DIR}/.env" ]; then
@@ -140,7 +148,11 @@ echo ""
 echo "========================================="
 echo "Step 5: Import bibitems from full CSV"
 echo "========================================="
-import "admin/import-full-csv?delete_stale=true" "$DIR/biblio-processed.csv" "Bibitems" "$OUT/08_import_bibitems.json"
+IMPORT_ENDPOINT="admin/import-full-csv"
+if [ "$DELETE_STALE" = true ]; then
+    IMPORT_ENDPOINT="admin/import-full-csv?delete_stale=true"
+fi
+import "$IMPORT_ENDPOINT" "$DIR/biblio-processed.csv" "Bibitems" "$OUT/08_import_bibitems.json"
 python3 -c "
 import json
 d = json.load(open('$OUT/08_import_bibitems.json'))
