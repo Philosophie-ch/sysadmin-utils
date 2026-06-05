@@ -68,12 +68,65 @@ ALEXANDRIA_BIBLIO_CSV="${BIBLIO_CSV}" python3 "${SCRIPT_DIR}/convert.py"
 
 echo ""
 echo "========================================="
-echo "Step 1: Import profiles as authors"
+echo "Step 1: Wipe and restore corpus baseline"
 echo "========================================="
 echo "--- Wiping dev DB ---"
 curl -sS --fail-with-body -X POST "${API}/admin/wipe?confirm=true" \
     -H "Authorization: Bearer $KEY" | python3 -m json.tool
 echo ""
+
+# Bulk-import entities, authors and bibitems from the corpus so existing rows
+# keep their stable IDs. Junction tables (bibitem_authors, bibitem_keywords,
+# bibitem_notes, bibitem_refs) are NOT imported — import-full-csv recreates them.
+if [ -n "${ALEXANDRIA_CORPUS_PATH:-}" ] && [ -d "${ALEXANDRIA_CORPUS_PATH}/data" ]; then
+    echo "--- Restoring corpus baseline (stable IDs) ---"
+    CORPUS_DATA="${ALEXANDRIA_CORPUS_PATH}/data"
+
+    bulk_corpus() {
+        local table="$1" csv="$2"
+        local resp rows
+        resp=$(curl -sf -X POST "${API}/admin/bulk-import/${table}" \
+            -H "Authorization: Bearer $KEY" \
+            -F "file=@${csv};type=text/csv") \
+            || { echo "  FAIL: bulk-import $table"; return 1; }
+        rows=$(echo "$resp" | python3 -c "import json,sys; print(json.load(sys.stdin)['rows'])")
+        echo "  $table: rows=$rows"
+    }
+
+    merge_split_csvs() {
+        local dir="$1" tmp
+        tmp=$(mktemp)
+        local first=1
+        for f in "$dir"/*.csv; do
+            [ "$(basename "$f")" = "all.csv" ] && continue
+            if [ $first -eq 1 ]; then cat "$f" > "$tmp"; first=0
+            else tail -n +2 "$f" >> "$tmp"; fi
+        done
+        echo "$tmp"
+    }
+
+    bulk_corpus "journals"     "$CORPUS_DATA/journal/all.csv"
+    bulk_corpus "publishers"   "$CORPUS_DATA/publisher/all.csv"
+    bulk_corpus "institutions" "$CORPUS_DATA/institution/all.csv"
+    bulk_corpus "schools"      "$CORPUS_DATA/school/all.csv"
+    bulk_corpus "series"       "$CORPUS_DATA/series/all.csv"
+    bulk_corpus "keywords"     "$CORPUS_DATA/keyword/all.csv"
+
+    AUTHORS_MERGED=$(merge_split_csvs "$CORPUS_DATA/author")
+    bulk_corpus "authors" "$AUTHORS_MERGED"
+    rm -f "$AUTHORS_MERGED"
+
+    BIBITEMS_MERGED=$(merge_split_csvs "$CORPUS_DATA/bibitem")
+    bulk_corpus "bibitems" "$BIBITEMS_MERGED"
+    rm -f "$BIBITEMS_MERGED"
+else
+    echo "  (No corpus data found — first run, all IDs will be auto-assigned)"
+fi
+
+echo ""
+echo "========================================="
+echo "Step 2: Upsert authors from portal"
+echo "========================================="
 import "admin/import/authors" "$DIR/authors_pr.csv" "Profiles (pr)" "$OUT/01_authors_pr.json"
 summary "$OUT/01_authors_pr.json"
 
@@ -82,14 +135,14 @@ summary "$OUT/02_authors_bp.json"
 
 echo ""
 echo "========================================="
-echo "Step 1b: Import author name variants"
+echo "Step 2b: Import author name variants"
 echo "========================================="
 import "admin/import/author-name-variants" "$DIR/author_name_variants.csv" "Author name variants" "$OUT/01b_name_variants.json"
 summary "$OUT/01b_name_variants.json"
 
 echo ""
 echo "========================================="
-echo "Step 2: Import journals and publishers"
+echo "Step 3: Upsert journals and publishers"
 echo "========================================="
 import "admin/import/journals" "$DIR/journals.csv" "Journals" "$OUT/04_journals.json"
 summary "$OUT/04_journals.json"
@@ -99,26 +152,8 @@ summary "$OUT/05_publishers.json"
 
 echo ""
 echo "========================================="
-echo "Step 3: Import entities from biblio CSV"
+echo "Step 4: Import new entities from biblio CSV"
 echo "========================================="
-# Institutions, schools, series, and keywords are derived solely from the biblio CSV
-# (not maintained in portal data). We pre-import them from the corpus so their IDs
-# stay stable across wipe+reimport cycles. import-entities-from-full-csv then skips
-# existing entities and only auto-assigns IDs for genuinely new ones.
-if [ -n "${ALEXANDRIA_CORPUS_PATH:-}" ] && [ -d "${ALEXANDRIA_CORPUS_PATH}/data" ]; then
-    echo "--- Pre-importing entities from corpus (stable IDs) ---"
-    import "admin/import/institutions" "${ALEXANDRIA_CORPUS_PATH}/data/institution/all.csv" "Institutions (corpus)" "$OUT/06a_institutions.json"
-    summary "$OUT/06a_institutions.json"
-    import "admin/import/schools" "${ALEXANDRIA_CORPUS_PATH}/data/school/all.csv" "Schools (corpus)" "$OUT/06b_schools.json"
-    summary "$OUT/06b_schools.json"
-    import "admin/import/series" "${ALEXANDRIA_CORPUS_PATH}/data/series/all.csv" "Series (corpus)" "$OUT/06c_series.json"
-    summary "$OUT/06c_series.json"
-    import "admin/import/keywords" "${ALEXANDRIA_CORPUS_PATH}/data/keyword/all.csv" "Keywords (corpus)" "$OUT/06d_keywords.json"
-    summary "$OUT/06d_keywords.json"
-else
-    echo "  (No corpus data found — first run, entities will be auto-assigned IDs)"
-fi
-echo "--- Biblio entities (new only) ---"
 import "admin/import-entities-from-full-csv" "$DIR/biblio-processed.csv" "Biblio entities" "$OUT/06_entities.json"
 python3 -c "
 import json
@@ -129,7 +164,7 @@ print(f'  errors={len(d[\"errors\"])}')
 
 echo ""
 echo "========================================="
-echo "Step 4: Validate biblio CSV"
+echo "Step 5: Validate biblio CSV"
 echo "========================================="
 import "admin/validate-full-csv" "$DIR/biblio-processed.csv" "Validation" "$OUT/07_validate.json"
 python3 -c "
@@ -146,7 +181,7 @@ print(f'  duplicate_bibkeys={len(d.get(\"duplicate_bibkeys\", []))}')
 
 echo ""
 echo "========================================="
-echo "Step 5: Import bibitems from full CSV"
+echo "Step 6: Import bibitems from full CSV"
 echo "========================================="
 IMPORT_ENDPOINT="admin/import-full-csv"
 if [ "$DELETE_STALE" = true ]; then
@@ -165,7 +200,7 @@ print(f'  imported={imp}, updated={upd}, deleted={dlt}, failed={fail}')
 
 echo ""
 echo "========================================="
-echo "Step 6: LaTeX -> Unicode bulk conversion"
+echo "Step 7: LaTeX -> Unicode bulk conversion"
 echo "========================================="
 curl -s -o "$OUT/09_latex_conversion.json" -w "HTTP %{http_code}\n" \
     -X POST "${API}/admin/convert-latex-columns" \
@@ -180,7 +215,7 @@ print(f'  total_updated={total}, errors={errors}')
 
 echo ""
 echo "========================================="
-echo "Step 6b: Compute start_page, volume_numeric, number_numeric"
+echo "Step 7b: Compute start_page, volume_numeric, number_numeric"
 echo "========================================="
 curl -s -o "$OUT/09b_compute_numeric_fields.json" -w "HTTP %{http_code}\n" \
     -X POST "${API}/admin/compute-numeric-fields" \
@@ -193,7 +228,7 @@ print(f'  updated={d.get(\"updated\", 0)}')
 
 echo ""
 echo "========================================="
-echo "Step 7: Generate error report"
+echo "Step 8: Generate error report"
 echo "========================================="
 ALEXANDRIA_DATA_DIR="${DIR}" ALEXANDRIA_DB_CONTAINER="${ALEXANDRIA_DB_CONTAINER:-}" \
     python3 "${SCRIPT_DIR}/generate_report.py" "$OUT"

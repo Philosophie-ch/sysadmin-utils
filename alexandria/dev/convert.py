@@ -18,6 +18,11 @@ PHILOSOPHIE_CH_KEY = "philosophie-ch"
 LICENSE_CC_BY_3 = "cc-by-3"
 LICENSE_CC_BY_4 = "cc-by-4"
 
+LANGID_MAP = {
+    "ngerman": "german",
+    "nswissgerman": "german",
+}
+
 
 def _get_name_latex(csv_path: str, key_col: str, target_key: str) -> str | None:
     try:
@@ -237,9 +242,12 @@ def preprocess_biblio(src_name, out_name):
             if langid_idx is not None:
                 while len(row) <= langid_idx:
                     row.append("")
-                if not row[langid_idx].strip():
-                    row[langid_idx] = "english"
+                raw = row[langid_idx].strip().rstrip(";").lower()
+                raw = LANGID_MAP.get(raw, raw)
+                if not raw:
+                    raw = "english"
                     langid_filled += 1
+                row[langid_idx] = raw
 
             if date_idx is not None:
                 is_phch = False
