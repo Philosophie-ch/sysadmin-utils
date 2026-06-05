@@ -157,7 +157,10 @@ def convert_simple(src_name, out_name, key_col, col_map):
             out_row = {}
             for src_col, alx_col in col_map.items():
                 i = idx[src_col]
-                out_row[alx_col] = row[i].strip() if i < len(row) else ""
+                val = row[i].strip() if i < len(row) else ""
+                if val.lower() == "empty":
+                    val = ""
+                out_row[alx_col] = val
             writer.writerow(out_row)
             written += 1
 
