@@ -1619,6 +1619,49 @@ end
 
 
 
+def get_side_column_block_keys(page)
+  page.side_column_blocks.order('alchemy_page_side_column_blocks.position').pluck(:key).join(', ')
+end
+
+def set_side_column_block_keys(page, keys_str)
+  result = {
+    status: 'not started',
+    error_message: '',
+    error_trace: '',
+  }
+  begin
+    key_list = keys_str.to_s.split(',').map(&:strip).reject(&:blank?)
+
+    if key_list.empty?
+      page.side_column_block_ids = []
+      result[:status] = 'success'
+      return result
+    end
+
+    blocks = key_list.map do |key|
+      block = SideColumnBlock.find_by(key: key)
+      unless block
+        result[:status] = 'error'
+        result[:error_message] = "SideColumnBlock with key '#{key}' not found"
+        result[:error_trace] = "page_tools.rb::set_side_column_block_keys"
+        return result
+      end
+      block
+    end
+
+    page.side_column_block_ids = blocks.map(&:id)
+    result[:status] = 'success'
+    return result
+
+  rescue => e
+    result[:status] = 'unhandled error'
+    result[:error_message] = "#{e.class} :: #{e.message}"
+    result[:error_trace] = e.backtrace.join(" ::: ")
+    return result
+  end
+end
+
+
 def ad_hoc_error(subreport)
   subreport[:status] = 'error'
   subreport[:error_message] = 'AD HOC not implemented'

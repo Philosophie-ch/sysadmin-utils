@@ -98,7 +98,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
           _to_do: "", _sort: "", id: "", published: "", hidden: "", name: "", pre_headline: "",
           title: "", lead_text: "", embedded_html_base_name: "", language_code: "",
           urlname: "", slug: "", link: "", _request: "", bibkey: "", how_to_cite: "",
-          pure_html_asset: "", pure_pdf_asset: "", doi: "", metadata_json: "",
+          pure_html_asset: "", pure_pdf_asset: "", doi: "", side_column_blocks: "",
           created_at: "", page_layout: "", created_by: "", last_updated_by: "",
           last_updated_date: "", replies_to: "", replied_by: "",
           tag_page_type: "", tag_media: "", tag_content_type: "", tag_language: "",
@@ -223,12 +223,8 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         pure_pdf_asset = ''
       end
 
-      # Get academic metadata (for article or standard layouts)
-      if page.page_layout == "article" || page.page_layout == "standard"
-        metadata_json = get_academic_metadata_json(page)
-      else
-        metadata_json = ''
-      end
+      # Get side column blocks (all page layouts)
+      side_column_blocks = get_side_column_block_keys(page)
 
       # Get published status once to avoid inconsistency
       published_status = get_published(page)
@@ -262,7 +258,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         pure_html_asset: pure_html_asset,
         pure_pdf_asset: pure_pdf_asset,
         doi: doi,
-        metadata_json: metadata_json,
+        side_column_blocks: side_column_blocks,
         created_at: get_created_at(page),
         presented_entity_type: page.presented_entity_type || '',
         presentation_of: page.presented_entity_identifier || '',
@@ -356,7 +352,7 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         pure_html_asset: "",
         pure_pdf_asset: "",
         doi: "",
-        metadata_json: "",
+        side_column_blocks: "",
         created_at: "",
         page_layout: page&.page_layout || "",
         created_by: "",

@@ -84,7 +84,7 @@ def main(csv_file, log_level = 'info')
       pure_html_asset: row['pure_html_asset'] || "",  # element
       pure_pdf_asset: row['pure_pdf_asset'] || "",  # element
       doi: row['doi'] || "",  # article
-      metadata_json: row['metadata_json'] || "",
+      side_column_blocks: row['side_column_blocks'] || "",
       created_at: row['created_at'] || "",  # page
       presented_entity_type: row['presented_entity_type'] || "",
       presentation_of: row['presentation_of'] || "",
@@ -238,9 +238,7 @@ def main(csv_file, log_level = 'info')
 
       doi = subreport[:doi].strip
 
-      # Parse metadata_json
-      metadata_json_str = subreport[:metadata_json].to_s.strip
-      ##
+      side_column_blocks_str = subreport[:side_column_blocks].to_s.strip
 
       presented_entity_type = subreport[:presented_entity_type].strip
       presented_entity_type = nil if presented_entity_type.blank?
@@ -470,12 +468,7 @@ def main(csv_file, log_level = 'info')
           old_pure_pdf_asset = ''
         end
 
-        # Read academic_metadata (page level) - for article OR standard page layouts
-        if page.page_layout == "article" || page.page_layout == "standard"
-          old_metadata_json = get_academic_metadata_json(page)
-        else
-          old_metadata_json = ''
-        end
+        old_side_column_blocks = get_side_column_block_keys(page)
 
         old_page = {
           _to_do: subreport[:_to_do],
@@ -498,7 +491,7 @@ def main(csv_file, log_level = 'info')
           pure_html_asset: old_pure_html_asset,
           pure_pdf_asset: old_pure_pdf_asset,
           doi: old_doi,
-          metadata_json: old_metadata_json,
+          side_column_blocks: old_side_column_blocks,
           created_at: subreport[:created_at],
           presented_entity_type: page.presented_entity_type || '',
           presentation_of: page.presented_entity_identifier || '',
@@ -912,6 +905,7 @@ def main(csv_file, log_level = 'info')
         themetags_badge: themetags_hashmap[:badge],
         themetags_structural: themetags_hashmap[:structural],
         aside_column_content: has_aside_column_content(page),
+        side_column_blocks: get_side_column_block_keys(page),
       })
 
 
@@ -1017,27 +1011,20 @@ def main(csv_file, log_level = 'info')
           end
         end
 
-        # Academic metadata (page level) - for article OR standard page layouts
-        if page.page_layout == "article" || page.page_layout == "standard"
-          # Set academic_metadata element (metadata_json)
-          if !metadata_json_str.blank?
-            set_academic_metadata_report = set_academic_metadata_json(page, metadata_json_str)
+        # Side column blocks
+        if !side_column_blocks_str.blank?
+          set_scb_report = set_side_column_block_keys(page, side_column_blocks_str)
 
-            if set_academic_metadata_report[:status] != 'success'
-              subreport[:_request] += " PARTIAL"
-              subreport[:status] = 'partial success'
-              subreport[:error_message] += set_academic_metadata_report[:error_message]
-              subreport[:error_message] += ". Page saved, but set_academic_metadata_json failed! Stopping...\n"
-              subreport[:error_trace] += set_academic_metadata_report[:error_trace] + "\n"
-            end
+          if set_scb_report[:status] != 'success'
+            subreport[:_request] += " PARTIAL"
+            subreport[:status] = 'partial success'
+            subreport[:error_message] += set_scb_report[:error_message]
+            subreport[:error_message] += ". Page saved, but set_side_column_block_keys failed! Stopping...\n"
+            subreport[:error_trace] += set_scb_report[:error_trace] + "\n"
           end
-
-          # Read back metadata_json from academic_metadata element
-          subreport[:metadata_json] = get_academic_metadata_json(page)
-        else
-          # For non-article/standard layouts, always return empty string
-          subreport[:metadata_json] = ''
         end
+
+        subreport[:side_column_blocks] = get_side_column_block_keys(page)
 
         # Read bibkey from page
         subreport[:bibkey] = page.bibkey || ''
