@@ -203,6 +203,8 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
 
         public: user.profile.public,
         other_personal_information: user.profile.other_personal_information,
+        last_sign_in_at: user.last_sign_in_at,
+        sign_in_count: user.sign_in_count,
         confirmed_at: user.profile.confirmed_at,
         potential_duplicates: potential_duplicates,
       }
@@ -291,6 +293,8 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
       result_order: 0,
       public: "",
       other_personal_information: "",
+      last_sign_in_at: "",
+      sign_in_count: "",
       confirmed_at: "",
       potential_duplicates: "",
     }

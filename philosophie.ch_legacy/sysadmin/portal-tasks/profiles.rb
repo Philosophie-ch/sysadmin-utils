@@ -120,6 +120,8 @@ def main(csv_file, log_level = 'info')
       facebook_profile: row["facebook_profile"] || "",
       public: row["public"] || "",
       other_personal_information: row["other_personal_information"] || "",
+      last_sign_in_at: row["last_sign_in_at"] || "",
+      sign_in_count: row["sign_in_count"] || "",
       confirmed_at: row["confirmed_at"] || "",
       potential_duplicates: row["potential_duplicates"] || "",
 
@@ -405,6 +407,8 @@ def main(csv_file, log_level = 'info')
 
           public: user.profile.public,
           other_personal_information: user.profile.other_personal_information,
+          last_sign_in_at: user.last_sign_in_at,
+          sign_in_count: user.sign_in_count,
           confirmed_at: user.profile.confirmed_at,
         }
       end
@@ -633,6 +637,8 @@ def main(csv_file, log_level = 'info')
 
         public: user.profile.public,
         other_personal_information: user.profile.other_personal_information,
+        last_sign_in_at: user.last_sign_in_at,
+        sign_in_count: user.sign_in_count,
         confirmed_at: user.profile.confirmed_at,
         potential_duplicates: get_potential_duplicates(user),
         pages_commented: get_commented_pages_urlnames(user),
