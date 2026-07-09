@@ -39,13 +39,15 @@ def main(log_level = 'info')
   user_ids = Alchemy::User.pluck(:id)
   event_ids = Event.pluck(:id)
   topic_ids = Topic.pluck(:id)
+  side_column_block_ids = SideColumnBlock.pluck(:id)
 
-  max_length = [page_ids.length, user_ids.length, event_ids.length, topic_ids.length].max
+  max_length = [page_ids.length, user_ids.length, event_ids.length, topic_ids.length, side_column_block_ids.length].max
 
   page_ids.fill("", page_ids.length...max_length)
   user_ids.fill("", user_ids.length...max_length)
   event_ids.fill("", event_ids.length...max_length)
   topic_ids.fill("", topic_ids.length...max_length)
+  side_column_block_ids.fill("", side_column_block_ids.length...max_length)
 
   page_ids.each_with_index do |page_id, index|
     report << {
@@ -53,6 +55,7 @@ def main(log_level = 'info')
       event_id: event_ids[index],
       profile_id: user_ids[index],
       themetag_id: topic_ids[index],
+      side_column_block_id: side_column_block_ids[index],
     }
   end
 
