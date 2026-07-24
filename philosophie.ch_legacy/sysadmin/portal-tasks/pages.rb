@@ -856,6 +856,7 @@ def main(csv_file, log_level = 'info')
 
       subreport.merge!({
         id: page.id,
+        published: published_status,
         hidden: get_hidden(page),
         name: page.name,
         pre_headline: get_pre_headline(page),
