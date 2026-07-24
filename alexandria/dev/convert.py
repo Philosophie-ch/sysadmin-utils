@@ -275,6 +275,17 @@ def preprocess_biblio(src_name, out_name):
     print(f"{src_name} -> {out_name}: {langid_filled} rows defaulted to langid=english, {license_filled} philosophie-ch license rows filled")
 
 
+# --- Name Variants ---
+convert_simple(
+    "portal data - name_variants.csv", "author_name_variants.csv",
+    key_col="name_variant",
+    col_map={
+        "name_variant": "name_variant",
+        "type": "type",
+        "profile_id": "profile_id",
+    },
+)
+
 # --- Biblio CSV preprocessing ---
 BIBLIO_CSV = os.environ.get("ALEXANDRIA_BIBLIO_CSV", "biblio-v11-table.csv")
 preprocess_biblio(BIBLIO_CSV, "biblio-processed.csv")

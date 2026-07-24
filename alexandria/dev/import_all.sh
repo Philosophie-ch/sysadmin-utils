@@ -240,5 +240,6 @@ echo "Cleanup: removing intermediate CSVs"
 echo "========================================="
 rm -f "$DIR/authors_pr.csv" "$DIR/authors_bp.csv" \
       "$DIR/journals.csv" "$DIR/publishers.csv" \
+      "$DIR/author_name_variants.csv" \
       "$DIR/biblio-processed.csv"
 echo "Done."
