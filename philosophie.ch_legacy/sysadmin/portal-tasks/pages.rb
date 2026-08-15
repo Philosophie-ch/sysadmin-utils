@@ -75,6 +75,9 @@ def main(csv_file, log_level = 'info')
       lead_text: row['lead_text'] || "",  # intro element
       embedded_html_base_name: row['embedded_html_base_name'] || "",  # page
       language_code: row['language_code'] || "",  # page
+      content_languages: row['content_languages'] || "",  # page_languages join
+      translation_group: row['translation_group'] || "",  # page.page_translation_group_key
+      site_section: row['site_section'] || "",  # page.site_section_key
       urlname: row['urlname'] || "",  # page
       slug: row['slug'] || "", # page
       link: row['link'] || "",  # crafted
@@ -244,6 +247,12 @@ def main(csv_file, log_level = 'info')
       presented_entity_type = nil if presented_entity_type.blank?
       presentation_of = subreport[:presentation_of].strip
       presentation_of = nil if presentation_of.blank?
+
+      content_languages_str = subreport[:content_languages].strip
+      translation_group = subreport[:translation_group].strip
+      translation_group = nil if translation_group.blank?
+      site_section = subreport[:site_section].strip
+      site_section = nil if site_section.blank?
 
       created_at = subreport[:created_at].strip
       page_layout = subreport[:page_layout].strip
@@ -482,6 +491,9 @@ def main(csv_file, log_level = 'info')
           lead_text: get_lead_text(page),
           embedded_html_base_name: subreport[:embedded_html_base_name],
           language_code: page.language_code,
+          content_languages: page.page_languages.pluck(:language_code).sort.join(', '),
+          translation_group: page.page_translation_group_key || '',
+          site_section: page.site_section_key || '',
           urlname: page.urlname,
           slug: subreport[:slug],
           link: subreport[:link],
@@ -620,6 +632,20 @@ def main(csv_file, log_level = 'info')
         }
 
         page.tag_names = tag_columns_to_array(tag_columns)
+
+        page.page_translation_group_key = translation_group
+        page.site_section_key = site_section
+
+        if content_languages_str.present?
+          desired_codes = content_languages_str.split(',').map(&:strip).reject(&:blank?)
+          existing_codes = page.page_languages.pluck(:language_code)
+
+          codes_to_add = desired_codes - existing_codes
+          codes_to_remove = existing_codes - desired_codes
+
+          codes_to_remove.each { |code| page.page_languages.where(language_code: code).destroy_all }
+          codes_to_add.each { |code| PageLanguage.create!(page: page, language_code: code) }
+        end
 
         page.save!
         page.publish!
@@ -863,6 +889,9 @@ def main(csv_file, log_level = 'info')
         title: page.title,
         lead_text: get_lead_text(page),
         language_code: page.language_code,
+        content_languages: page.page_languages.pluck(:language_code).sort.join(', '),
+        translation_group: page.page_translation_group_key || '',
+        site_section: page.site_section_key || '',
         urlname: page.urlname,
         slug: retrieved_slug,
         link: page_link,
