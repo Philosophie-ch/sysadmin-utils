@@ -81,6 +81,8 @@ def main(csv_file, log_level = 'info')
       further_references_asset: row['further_references_asset'] || '',
       _references_dependencies_keys: row['_references_dependencies_keys'] || '',
 
+      site_section: row['site_section'] || '',
+
       description: row['description'] || '',
       website: row['website'] || '',
       cover_picture_asset: row['cover_picture_asset'] || '',
@@ -329,6 +331,8 @@ def main(csv_file, log_level = 'info')
           further_references_asset: entity.further_references_url || '',
           _references_dependencies_keys: subreport[:_references_dependencies_keys],
 
+          site_section: entity.site_section_key || '',
+
           description: entity.description || '',
           website: entity.website || '',
           cover_picture_asset: entity.picture_url || '',
@@ -355,6 +359,9 @@ def main(csv_file, log_level = 'info')
 
         entity.references_url = processed_references_asset
         entity.further_references_url = processed_further_references_asset
+
+        ssk = subreport[:site_section].to_s.strip
+        entity.site_section_key = ssk.blank? ? nil : ssk
 
         entity.description = subreport[:description].to_s.strip || ''
         entity.website = subreport[:website].to_s.strip || ''
@@ -419,6 +426,8 @@ def main(csv_file, log_level = 'info')
 
         references_asset: unprocessed_references_asset,
         further_references_asset: unprocessed_further_references_asset,
+
+        site_section: updated_entity.site_section_key || '',
 
         description: updated_entity.description.to_s.strip || '',
         website: updated_entity.website.to_s.strip || '',

@@ -116,6 +116,7 @@ def main(csv_file, log_level = 'info')
       pdf3_availability: row['pdf3_availability'] || '',
       additional_material: row['additional_material'] || '',
       _refs_in_xml: row['_refs_in_xml'] || '',
+      site_section: row['site_section'] || '',
 
       status: '',
       changes_made: '',
@@ -506,6 +507,7 @@ def main(csv_file, log_level = 'info')
           pdf3_availability: entity.pdf3_availability || 'missing',
           additional_material: subreport[:additional_material],
           _refs_in_xml: subreport[:_refs_in_xml],
+          site_section: entity.site_section_key || '',
           status: '',
           changes_made: '',
           error_message: '',
@@ -556,6 +558,9 @@ def main(csv_file, log_level = 'info')
         entity.pdf2_availability = pdf_availabilities[2] unless pdf_availabilities[2].nil?
         entity.pdf3_asset = processed_pdf3_asset
         entity.pdf3_availability = pdf_availabilities[3] unless pdf_availabilities[3].nil?
+
+        ssk = subreport[:site_section].to_s.strip
+        entity.site_section_key = ssk.blank? ? nil : ssk
 
         entity.save!
 
@@ -689,6 +694,7 @@ def main(csv_file, log_level = 'info')
         pdf3_asset: unprocessed_pdf3_asset,
         pdf3_availability: updated_entity.pdf3_availability || 'missing',
 
+        site_section: updated_entity.site_section_key || '',
       })
 
       subreport[:status] = 'success'
