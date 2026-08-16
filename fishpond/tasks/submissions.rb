@@ -28,9 +28,7 @@ def main(base_output_dir, log_level = 'info')
   report = []
   processed = 0
 
-  #submissions = Submission.all[0..10]  # to test
-  #submissions = Submission.all
-  submissions = Submission.where(id: [298, 100]).all
+  submissions = Submission.all
   total_submisions = submissions.length
   Rails.logger.info("Processing #{total_submisions} submissions...")
 
