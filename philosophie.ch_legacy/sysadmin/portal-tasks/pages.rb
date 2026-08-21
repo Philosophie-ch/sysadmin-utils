@@ -74,12 +74,11 @@ def main(csv_file, log_level = 'info')
       title: row['title'] || "",  # page
       lead_text: row['lead_text'] || "",  # intro element
       embedded_html_base_name: row['embedded_html_base_name'] || "",  # page
-      language_code: row['language_code'] || "",  # page
       content_languages: row['content_languages'] || "",  # page_languages join
       translation_group: row['translation_group'] || "",  # page.page_translation_group_key
       site_section: row['site_section'] || "",  # page.site_section_key
+      language_code: row['language_code'] || "",  # page
       urlname: row['urlname'] || "",  # page
-      slug: row['slug'] || "", # page
       link: row['link'] || "",  # crafted
       _request: row['_request'] || "",
       bibkey: row['bibkey'] || "",
@@ -408,7 +407,6 @@ def main(csv_file, log_level = 'info')
           next
         else
           subreport[:id] = ''
-          subreport[:slug] = ''
           subreport[:link] = ''
           subreport[:status] = "success"
           subreport[:changes_made] = "PAGE WAS DELETED IN THE SERVER"
@@ -490,12 +488,11 @@ def main(csv_file, log_level = 'info')
           title: page.title,
           lead_text: get_lead_text(page),
           embedded_html_base_name: subreport[:embedded_html_base_name],
-          language_code: page.language_code,
           content_languages: page.page_languages.pluck(:language_code).sort.join(', '),
           translation_group: page.page_translation_group_key || '',
           site_section: page.site_section_key || '',
+          language_code: page.language_code,
           urlname: page.urlname,
-          slug: subreport[:slug],
           link: subreport[:link],
           _request: subreport[:_request],
           bibkey: page.bibkey || '',
@@ -844,8 +841,9 @@ def main(csv_file, log_level = 'info')
       #######
 
       if req == 'AD HOC'
-        ad_hoc_error(subreport)
-        next
+        page.page_translation_group_key = translation_group
+        page.site_section_key = site_section
+        page.save!
       end
 
       #######
@@ -888,12 +886,11 @@ def main(csv_file, log_level = 'info')
         pre_headline: get_pre_headline(page),
         title: page.title,
         lead_text: get_lead_text(page),
-        language_code: page.language_code,
         content_languages: page.page_languages.pluck(:language_code).sort.join(', '),
         translation_group: page.page_translation_group_key || '',
         site_section: page.site_section_key || '',
+        language_code: page.language_code,
         urlname: page.urlname,
-        slug: retrieved_slug,
         link: page_link,
         created_at: get_created_at(page),
         presented_entity_type: page.presented_entity_type || '',

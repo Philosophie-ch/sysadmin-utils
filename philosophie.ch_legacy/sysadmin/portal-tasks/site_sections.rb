@@ -76,14 +76,18 @@ def main(csv_file, log_level = 'info')
 
       context: row['context'] || '',
       parent: row['parent'] || '',
+      level: '',
       position: row['position'] || '',
-      page_translation_group: row['page_translation_group'] || '',
+      translation_group: row['translation_group'] || '',
       url_override: row['url_override'] || '',
       hidden: row['hidden'] || '',
     }
 
     language_codes.each do |code|
       subreport[:"title_#{code}"] = row["title_#{code}"] || ''
+    end
+    language_codes.each do |code|
+      subreport[:"description_#{code}"] = row["description_#{code}"] || ''
     end
 
     subreport.merge!({
@@ -156,7 +160,7 @@ def main(csv_file, log_level = 'info')
       parent = nil if parent.blank?
       position = subreport[:position].strip
       position = position.blank? ? 0 : position.to_i
-      ptg_key = subreport[:page_translation_group].strip
+      ptg_key = subreport[:translation_group].strip
       ptg_key = nil if ptg_key.blank?
       url_override = subreport[:url_override].strip
       url_override = nil if url_override.blank?
@@ -164,13 +168,13 @@ def main(csv_file, log_level = 'info')
       hidden = ['true', 'yes', '1'].include?(hidden_raw)
 
       # Resolve parent
-      parent = nil
       if parent
+        parent_key_str = parent
         parent = MODEL.find_by(KEY => parent)
         if parent.nil?
           subreport[:request] = req_err
           subreport[:status] = "error"
-          subreport[:error_message] = "Parent with key '#{parent}' not found. Skipping"
+          subreport[:error_message] = "Parent with key '#{parent_key_str}' not found. Skipping"
           subreport[:error_trace] = "#{FILE_NAME}::main::Parsing"
           next
         end
@@ -202,13 +206,18 @@ def main(csv_file, log_level = 'info')
           KEY => entity.key,
           context: entity.context,
           parent: entity.parent&.key || '',
+          level: (entity.depth + 1).to_s,
           position: entity.position.to_s,
-          page_translation_group: entity.page_translation_group_key || '',
+          translation_group: entity.page_translation_group_key || '',
           url_override: entity.url_override || '',
           hidden: entity.hidden? ? 'TRUE' : 'FALSE',
         }
         language_codes.each do |code|
           old_entity[:"title_#{code}"] = entity.title_for(code) || ''
+        end
+        language_codes.each do |code|
+          trans = entity.translations.find_by(language_code: code)
+          old_entity[:"description_#{code}"] = trans&.try(:description) || ''
         end
         old_entity.merge!({
           status: '',
@@ -238,6 +247,26 @@ def main(csv_file, log_level = 'info')
       end
 
       if ['POST', 'UPDATE'].include?(req)
+        if req == 'UPDATE' && entity_key.present? && entity_key != entity.key
+          old_key = entity.key
+          # Collect referencing IDs, nullify, rename key, restore references
+          page_ids = Alchemy::Page.where(site_section_key: old_key).pluck(:id)
+          pub_ids = defined?(Publication) && Publication.column_names.include?('site_section_key') ? Publication.where(site_section_key: old_key).pluck(:id) : []
+          jour_ids = defined?(Journal) && Journal.column_names.include?('site_section_key') ? Journal.where(site_section_key: old_key).pluck(:id) : []
+          publ_ids = defined?(Publisher) && Publisher.column_names.include?('site_section_key') ? Publisher.where(site_section_key: old_key).pluck(:id) : []
+
+          Alchemy::Page.where(id: page_ids).update_all(site_section_key: nil)
+          Publication.where(id: pub_ids).update_all(site_section_key: nil) if pub_ids.any?
+          Journal.where(id: jour_ids).update_all(site_section_key: nil) if jour_ids.any?
+          Publisher.where(id: publ_ids).update_all(site_section_key: nil) if publ_ids.any?
+
+          entity.update_column(:key, entity_key)
+
+          Alchemy::Page.where(id: page_ids).update_all(site_section_key: entity_key) if page_ids.any?
+          Publication.where(id: pub_ids).update_all(site_section_key: entity_key) if pub_ids.any?
+          Journal.where(id: jour_ids).update_all(site_section_key: entity_key) if jour_ids.any?
+          Publisher.where(id: publ_ids).update_all(site_section_key: entity_key) if publ_ids.any?
+        end
         entity.context = context if context.present?
         entity.parent = parent
         entity.position = position
@@ -250,13 +279,18 @@ def main(csv_file, log_level = 'info')
         # Handle translations
         language_codes.each do |code|
           title_value = subreport[:"title_#{code}"].to_s.strip
+          description_value = subreport[:"description_#{code}"].to_s.strip
           existing = entity.translations.find_by(language_code: code)
 
           if title_value.present?
+            attrs = { title: title_value }
+            attrs[:description] = description_value.presence if existing&.respond_to?(:description)
             if existing
-              existing.update!(title: title_value)
+              existing.update!(attrs)
             else
-              SiteSectionTranslation.create!(site_section: entity, language_code: code, title: title_value)
+              create_attrs = { site_section: entity, language_code: code, title: title_value }
+              create_attrs[:description] = description_value.presence if SiteSectionTranslation.column_names.include?('description')
+              SiteSectionTranslation.create!(create_attrs)
             end
           elsif existing && title_value.blank?
             existing.destroy!
@@ -275,13 +309,18 @@ def main(csv_file, log_level = 'info')
         KEY => updated.key,
         context: updated.context,
         parent: updated.parent&.key || '',
+        level: (updated.depth + 1).to_s,
         position: updated.position.to_s,
-        page_translation_group: updated.page_translation_group_key || '',
+        translation_group: updated.page_translation_group_key || '',
         url_override: updated.url_override || '',
         hidden: updated.hidden? ? 'TRUE' : 'FALSE',
       })
       language_codes.each do |code|
         subreport[:"title_#{code}"] = updated.title_for(code) || ''
+      end
+      language_codes.each do |code|
+        trans = updated.translations.find_by(language_code: code)
+        subreport[:"description_#{code}"] = trans&.try(:description) || ''
       end
 
       subreport[:status] = 'success'

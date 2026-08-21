@@ -50,6 +50,8 @@ def main(csv_file, log_level = 'info')
     Rails.logger.level = Logger::INFO
   end
 
+  language_codes = Language.public_languages.ordered.pluck(:code)
+
   report = []
   processed_lines = 0
 
@@ -73,14 +75,20 @@ def main(csv_file, log_level = 'info')
       KEY => row[KEY_NAME] || '',
 
       page_count: '',
-      pages: '',
+    }
+
+    language_codes.each do |code|
+      subreport[:"page_#{code}"] = ''
+    end
+
+    subreport.merge!({
       status: '',
       changes_made: '',
       error_message: '',
       error_trace: '',
       original_order: '',
       result_order: '',
-    }
+    })
 
 
     begin
@@ -161,14 +169,19 @@ def main(csv_file, log_level = 'info')
           id: entity.id.to_s,
           KEY => entity.key,
           page_count: old_pages.count.to_s,
-          pages: old_pages.map { |p| "#{p.language_code}/#{p.urlname} [#{p.page_languages.pluck(:language_code).join(',')}]" }.join('; '),
+        }
+        language_codes.each do |code|
+          page_for_lang = old_pages.detect { |p| p.page_languages.any? { |pl| pl.language_code == code } }
+          old_entity[:"page_#{code}"] = page_for_lang ? "#{page_for_lang.language_code}/#{page_for_lang.urlname}" : ''
+        end
+        old_entity.merge!({
           status: '',
           changes_made: '',
           error_message: '',
           error_trace: '',
           original_order: '',
           result_order: '',
-        }
+        })
       end
 
 
@@ -205,8 +218,11 @@ def main(csv_file, log_level = 'info')
         id: updated.id.to_s,
         KEY => updated.key,
         page_count: updated_pages.count.to_s,
-        pages: updated_pages.map { |p| "#{p.language_code}/#{p.urlname} [#{p.page_languages.pluck(:language_code).join(',')}]" }.join('; '),
       })
+      language_codes.each do |code|
+        page_for_lang = updated_pages.detect { |p| p.page_languages.any? { |pl| pl.language_code == code } }
+        subreport[:"page_#{code}"] = page_for_lang ? "#{page_for_lang.language_code}/#{page_for_lang.urlname}" : ''
+      end
 
       subreport[:status] = subreport[:error_message].present? ? 'partial success' : 'success'
       subreport[:request] = "Z_SUCCESS -- #{req}"
