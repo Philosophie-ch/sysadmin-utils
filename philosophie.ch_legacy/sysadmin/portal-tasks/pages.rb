@@ -841,9 +841,8 @@ def main(csv_file, log_level = 'info')
       #######
 
       if req == 'AD HOC'
-        page.page_translation_group_key = translation_group
-        page.site_section_key = site_section
-        page.save!
+        ad_hoc_error(subreport)
+        next
       end
 
       #######
