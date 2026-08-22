@@ -82,12 +82,24 @@ echo "Backing up rails assets done."
 # Backup database
 echo "Backing up database..."
 rm -f "${DB_TO_BACKUP_DIR}/${DB_DUMP_NAME}"
-docker exec "${DB_CONTAINER_NAME}" /bin/bash -c "pg_dump \"postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@127.0.0.1/\${POSTGRES_DB}\" --column-inserts --no-owner --no-privileges > ${CONTAINER_DB_TO_BACKUP_DIR}/${DB_DUMP_NAME}" && echo "Database dump done." || echo "Failed to dump database."
-docker exec "${DB_CONTAINER_NAME}" /bin/bash -c "pg_dump \"postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@127.0.0.1/\${POSTGRES_DB}\" --column-inserts --data-only --no-owner --no-privileges --file=${CONTAINER_DB_TO_BACKUP_DIR}/${DB_DATA_DUMP_NAME}" && echo "Database data-only dump done." || echo "Failed to dump data-only database."
+docker exec "${DB_CONTAINER_NAME}" /bin/bash -c "pg_dump \"postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@127.0.0.1/\${POSTGRES_DB}\" --column-inserts --no-owner --no-privileges > ${CONTAINER_DB_TO_BACKUP_DIR}/${DB_DUMP_NAME}"
+if [ $? -ne 0 ]; then
+    echo "ERROR: Full database dump failed."
+    exit 1
+fi
+echo "Database dump done."
+
+docker exec "${DB_CONTAINER_NAME}" /bin/bash -c "pg_dump \"postgresql://\${POSTGRES_USER}:\${POSTGRES_PASSWORD}@127.0.0.1/\${POSTGRES_DB}\" --column-inserts --data-only --no-owner --no-privileges --file=${CONTAINER_DB_TO_BACKUP_DIR}/${DB_DATA_DUMP_NAME}"
+if [ $? -ne 0 ]; then
+    echo "ERROR: Data-only database dump failed."
+    exit 1
+fi
+echo "Database data-only dump done."
+
 rm -f "${LOCAL_BACKUP_DIR}/${DB_DUMP_NAME}"
 rsync -avP "${DB_TO_BACKUP_DIR}/${DB_DUMP_NAME}" "${LOCAL_BACKUP_DIR}"
 rsync -avP "${DB_TO_BACKUP_DIR}/${DB_DATA_DUMP_NAME}" "${LOCAL_BACKUP_DIR}"
-echo "Backing up database step culminated."
+echo "Database dumps copied to backup directory."
 
 
 # Set up permissions
