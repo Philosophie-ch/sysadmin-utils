@@ -1,0 +1,7 @@
+/home/sysadmin/rootcron.log /var/log/backup-verbose.log {
+    weekly
+    rotate 4
+    compress
+    missingok
+    notifempty
+}

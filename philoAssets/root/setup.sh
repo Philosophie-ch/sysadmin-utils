@@ -134,7 +134,7 @@ echo "Test email sent. Check your inbox to confirm delivery."
 # --- Install cron job ---
 
 echo "Installing cron job..."
-cron_line="0 0 * * * /root/cron-backup.sh"
+cron_line="0 0 * * * /root/cron-backup.sh >> /var/log/backup-verbose.log 2>&1"
 
 if crontab -l 2>/dev/null | grep -qF "cron-backup.sh"; then
     echo "Cron job already exists, skipping."
@@ -142,6 +142,20 @@ else
     (crontab -l 2>/dev/null; echo "${cron_line}") | crontab -
     echo "Cron job installed: ${cron_line}"
 fi
+
+# --- Configure logrotate ---
+
+echo "Configuring logrotate..."
+cat > /etc/logrotate.d/backup <<'EOF'
+/home/sysadmin/rootcron.log /var/log/backup-verbose.log {
+    weekly
+    rotate 4
+    compress
+    missingok
+    notifempty
+}
+EOF
+echo "Logrotate configured."
 
 echo ""
 echo "Setup complete. Run '/root/backup.sh' to test a manual backup."
