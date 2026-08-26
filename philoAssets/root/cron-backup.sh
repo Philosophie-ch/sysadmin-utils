@@ -17,3 +17,11 @@ else
     fi
     exit 1
 fi
+
+# Weekly summary on Sundays
+day_of_week=$(date +%u)
+if [ "${day_of_week}" -eq 7 ] && [ -n "${ALERT_RECIPIENTS}" ]; then
+    summary=$(tail -7 "${LOGFILE}")
+    printf 'Weekly Backup Summary (PhiloAssets)\n\nLast 7 entries:\n%s\n' "${summary}" \
+        | mail -s "Weekly backup summary: PhiloAssets" ${ALERT_RECIPIENTS}
+fi
