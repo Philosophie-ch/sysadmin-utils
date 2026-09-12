@@ -21,9 +21,6 @@ groups:
               intervalMs: 15000
               maxDataPoints: 43200
           - refId: B
-            relativeTimeRange:
-              from: 600
-              to: 0
             datasourceUid: __expr__
             model:
               type: reduce
@@ -62,9 +59,6 @@ groups:
               intervalMs: 15000
               maxDataPoints: 43200
           - refId: B
-            relativeTimeRange:
-              from: 600
-              to: 0
             datasourceUid: __expr__
             model:
               type: reduce
@@ -103,9 +97,6 @@ groups:
               intervalMs: 15000
               maxDataPoints: 43200
           - refId: B
-            relativeTimeRange:
-              from: 600
-              to: 0
             datasourceUid: __expr__
             model:
               type: reduce
@@ -144,9 +135,6 @@ groups:
               intervalMs: 15000
               maxDataPoints: 43200
           - refId: B
-            relativeTimeRange:
-              from: 600
-              to: 0
             datasourceUid: __expr__
             model:
               type: reduce
