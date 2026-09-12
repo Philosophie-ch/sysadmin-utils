@@ -1,0 +1,11 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: email-philosophie
+    receivers:
+      - uid: email-philosophie
+        type: email
+        settings:
+          addresses: info@philosophie.ch
+          singleEmail: true
