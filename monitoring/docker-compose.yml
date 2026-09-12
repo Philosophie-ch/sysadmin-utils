@@ -12,6 +12,8 @@ services:
       - "--storage.tsdb.retention.size=${PROMETHEUS_STORAGE_SIZE:-2GB}"
     ports:
       - "127.0.0.1:${PROMETHEUS_PORT:-9099}:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - monitoring
     depends_on:
