@@ -76,7 +76,7 @@ def main(csv_file, log_level = 'info')
       embedded_html_base_name: row['embedded_html_base_name'] || "",  # page
       content_languages: row['content_languages'] || "",  # page_languages join
       translation_group: row['translation_group'] || "",  # page.page_translation_group_key
-      site_section: row['site_section'] || "",  # page.site_section_key
+      manual_breadcrumbs: row['manual_breadcrumbs'] || "",  # page.site_section_key
       language_code: row['language_code'] || "",  # page
       urlname: row['urlname'] || "",  # page
       link: row['link'] || "",  # crafted
@@ -250,8 +250,8 @@ def main(csv_file, log_level = 'info')
       content_languages_str = subreport[:content_languages].strip
       translation_group = subreport[:translation_group].strip
       translation_group = nil if translation_group.blank?
-      site_section = subreport[:site_section].strip
-      site_section = nil if site_section.blank?
+      manual_breadcrumbs = subreport[:manual_breadcrumbs].strip
+      manual_breadcrumbs = nil if manual_breadcrumbs.blank?
 
       created_at = subreport[:created_at].strip
       page_layout = subreport[:page_layout].strip
@@ -490,7 +490,7 @@ def main(csv_file, log_level = 'info')
           embedded_html_base_name: subreport[:embedded_html_base_name],
           content_languages: page.page_languages.pluck(:language_code).sort.join(', '),
           translation_group: page.page_translation_group_key || '',
-          site_section: page.site_section_key || '',
+          manual_breadcrumbs: page.site_section_key || '',
           language_code: page.language_code,
           urlname: page.urlname,
           link: subreport[:link],
@@ -631,7 +631,7 @@ def main(csv_file, log_level = 'info')
         page.tag_names = tag_columns_to_array(tag_columns)
 
         page.page_translation_group_key = translation_group
-        page.site_section_key = site_section
+        page.site_section_key = manual_breadcrumbs
 
         if content_languages_str.present?
           desired_codes = content_languages_str.split(',').map(&:strip).reject(&:blank?)
@@ -887,7 +887,7 @@ def main(csv_file, log_level = 'info')
         lead_text: get_lead_text(page),
         content_languages: page.page_languages.pluck(:language_code).sort.join(', '),
         translation_group: page.page_translation_group_key || '',
-        site_section: page.site_section_key || '',
+        manual_breadcrumbs: page.site_section_key || '',
         language_code: page.language_code,
         urlname: page.urlname,
         link: page_link,
