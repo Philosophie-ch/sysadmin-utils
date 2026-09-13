@@ -5,13 +5,13 @@ global:
 scrape_configs:
   - job_name: 'node_exporter'
     static_configs:
-      - targets: ['node_exporter:9100']
+      - targets: ['localhost:9109']
 
   - job_name: 'cadvisor'
     static_configs:
-      - targets: ['cadvisor:8080']
+      - targets: ['localhost:8089']
 
   - job_name: 'traefik'
     static_configs:
-      - targets: ['traefik:8082']
+      - targets: ['localhost:8082']
     metrics_path: /metrics
