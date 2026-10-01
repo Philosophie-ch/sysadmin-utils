@@ -3,15 +3,35 @@ global:
   evaluation_interval: 30s
 
 scrape_configs:
+  # philo-000 (portal server)
   - job_name: 'node_exporter'
     static_configs:
       - targets: ['localhost:9109']
+        labels:
+          server: philo-000
 
   - job_name: 'cadvisor'
     static_configs:
       - targets: ['localhost:8089']
+        labels:
+          server: philo-000
 
   - job_name: 'traefik'
     static_configs:
       - targets: ['localhost:8082']
+        labels:
+          server: philo-000
     metrics_path: /metrics
+
+  # philo-assets (assets server, via SSH tunnel)
+  - job_name: 'node_exporter_assets'
+    static_configs:
+      - targets: ['localhost:9209']
+        labels:
+          server: philo-assets
+
+  - job_name: 'cadvisor_assets'
+    static_configs:
+      - targets: ['localhost:8189']
+        labels:
+          server: philo-assets

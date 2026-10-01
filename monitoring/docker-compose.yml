@@ -60,8 +60,8 @@ services:
       - GF_SMTP_HOST=${SMTP_HOST}:${SMTP_PORT:-465}
       - GF_SMTP_USER=${SMTP_USER}
       - GF_SMTP_PASSWORD=${SMTP_PASSWORD}
-      - GF_SMTP_FROM_ADDRESS=${SMTP_FROM:-monitoring@philosophie.ch}
-      - GF_SMTP_FROM_NAME=Philosophie.ch Monitoring
+      - GF_SMTP_FROM_ADDRESS=${SMTP_FROM}
+      - GF_SMTP_FROM_NAME=${SMTP_FROM_NAME:-Monitoring}
       - GF_SMTP_STARTTLS_POLICY=NoStartTLS
     volumes:
       - grafana_data:/var/lib/grafana

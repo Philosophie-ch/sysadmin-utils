@@ -11,7 +11,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "id": 100,
-      "title": "System Health",
+      "title": "System Health (philo-assets)",
       "type": "row"
     },
     {
@@ -21,8 +21,6 @@
           "color": { "mode": "palette-classic" },
           "custom": {
             "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisLabel": "",
             "drawStyle": "line",
             "fillOpacity": 20,
             "lineWidth": 2,
@@ -45,7 +43,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node_exporter\"} / node_memory_MemTotal_bytes{job=\"node_exporter\"})) * 100",
+          "expr": "(1 - (node_memory_MemAvailable_bytes{job=\"node_exporter_assets\"} / node_memory_MemTotal_bytes{job=\"node_exporter_assets\"})) * 100",
           "legendFormat": "Used %",
           "refId": "A"
         }
@@ -64,7 +62,9 @@
             "spanNulls": false,
             "stacking": { "mode": "none" }
           },
-          "unit": "bytes"
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -74,12 +74,12 @@
         "legend": { "displayMode": "list", "placement": "bottom" },
         "tooltip": { "mode": "multi" }
       },
-      "title": "Swap Usage",
+      "title": "CPU Usage %",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "node_memory_SwapTotal_bytes{job=\"node_exporter\"} - node_memory_SwapFree_bytes{job=\"node_exporter\"}",
-          "legendFormat": "Swap Used",
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node_exporter_assets\"}[5m])) * 100)",
+          "legendFormat": "CPU %",
           "refId": "A"
         }
       ]
@@ -109,12 +109,12 @@
         "legend": { "displayMode": "list", "placement": "bottom" },
         "tooltip": { "mode": "multi" }
       },
-      "title": "CPU Usage %",
+      "title": "Disk Usage %",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node_exporter\"}[5m])) * 100)",
-          "legendFormat": "CPU %",
+          "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\", fstype!=\"tmpfs\", job=\"node_exporter_assets\"} / node_filesystem_size_bytes{mountpoint=\"/\", fstype!=\"tmpfs\", job=\"node_exporter_assets\"})) * 100",
+          "legendFormat": "/ used %",
           "refId": "A"
         }
       ]
@@ -132,9 +132,7 @@
             "spanNulls": false,
             "stacking": { "mode": "none" }
           },
-          "max": 100,
-          "min": 0,
-          "unit": "percent"
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -144,13 +142,18 @@
         "legend": { "displayMode": "list", "placement": "bottom" },
         "tooltip": { "mode": "multi" }
       },
-      "title": "Disk Usage %",
+      "title": "Network Traffic",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\", fstype!=\"tmpfs\", job=\"node_exporter\"} / node_filesystem_size_bytes{mountpoint=\"/\", fstype!=\"tmpfs\", job=\"node_exporter\"})) * 100",
-          "legendFormat": "/ used %",
+          "expr": "rate(node_network_receive_bytes_total{device!~\"lo|veth.*|br-.*|docker.*\", job=\"node_exporter_assets\"}[5m])",
+          "legendFormat": "RX {{device}}",
           "refId": "A"
+        },
+        {
+          "expr": "rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|br-.*|docker.*\", job=\"node_exporter_assets\"}[5m])",
+          "legendFormat": "TX {{device}}",
+          "refId": "B"
         }
       ]
     },
@@ -158,7 +161,7 @@
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 },
       "id": 101,
-      "title": "Container Resources",
+      "title": "Container Resources (philo-assets)",
       "type": "row"
     },
     {
@@ -188,7 +191,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "container_memory_usage_bytes{name=~\"philosophiechlegacy-web.*|philosophiechlegacy-db|alexandria|alexandria-db|traefik\", name!=\"\", job=\"cadvisor\"}",
+          "expr": "container_memory_usage_bytes{name=~\"nginx-proxy-manager|nginx-static|filebrowser\", name!=\"\", job=\"cadvisor_assets\"}",
           "legendFormat": "{{name}}",
           "refId": "A"
         }
@@ -223,136 +226,20 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "rate(container_cpu_usage_seconds_total{name=~\"philosophiechlegacy-web.*|philosophiechlegacy-db|alexandria|alexandria-db|traefik\", name!=\"\", job=\"cadvisor\"}[5m]) * 100",
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\"nginx-proxy-manager|nginx-static|filebrowser\", name!=\"\", job=\"cadvisor_assets\"}[5m]) * 100",
           "legendFormat": "{{name}}",
           "refId": "A"
-        }
-      ]
-    },
-    {
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 20 },
-      "id": 102,
-      "title": "Traffic (Traefik)",
-      "type": "row"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "axisBorderShow": false,
-            "drawStyle": "line",
-            "fillOpacity": 15,
-            "lineWidth": 2,
-            "spanNulls": false,
-            "stacking": { "mode": "none" }
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 21 },
-      "id": 7,
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi" }
-      },
-      "title": "Request Rate",
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "sum(rate(traefik_entrypoint_requests_total{entrypoint=\"websecure\"}[5m]))",
-          "legendFormat": "Total req/s",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "axisBorderShow": false,
-            "drawStyle": "line",
-            "fillOpacity": 15,
-            "lineWidth": 2,
-            "spanNulls": false,
-            "stacking": { "mode": "normal" }
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 21 },
-      "id": 8,
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi" }
-      },
-      "title": "Error Rate by Code",
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "sum by (code) (rate(traefik_entrypoint_requests_total{entrypoint=\"websecure\", code=~\"4..|5..\"}[5m]))",
-          "legendFormat": "{{code}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": {
-            "axisBorderShow": false,
-            "drawStyle": "line",
-            "fillOpacity": 15,
-            "lineWidth": 2,
-            "spanNulls": false,
-            "stacking": { "mode": "none" }
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 21 },
-      "id": 9,
-      "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi" }
-      },
-      "title": "Response Latency (p50 / p95 / p99)",
-      "type": "timeseries",
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(traefik_entrypoint_request_duration_seconds_bucket{entrypoint=\"websecure\"}[5m])) by (le))",
-          "legendFormat": "p50",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(traefik_entrypoint_request_duration_seconds_bucket{entrypoint=\"websecure\"}[5m])) by (le))",
-          "legendFormat": "p95",
-          "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum(rate(traefik_entrypoint_request_duration_seconds_bucket{entrypoint=\"websecure\"}[5m])) by (le))",
-          "legendFormat": "p99",
-          "refId": "C"
         }
       ]
     }
   ],
   "schemaVersion": 39,
-  "tags": ["philosophie.ch"],
+  "tags": ["philosophie.ch", "philo-assets"],
   "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "Europe/Zurich",
-  "title": "Philosophie.ch Portal",
-  "uid": "philoch-portal",
+  "title": "PhiloAssets Server",
+  "uid": "philoch-assets",
   "version": 1
 }

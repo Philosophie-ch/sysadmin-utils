@@ -16,7 +16,7 @@ groups:
               to: 0
             datasourceUid: PBFA97CFB590B2093
             model:
-              expr: "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100"
+              expr: "(1 - (node_memory_MemAvailable_bytes{job=\"node_exporter\"} / node_memory_MemTotal_bytes{job=\"node_exporter\"})) * 100"
               refId: A
               intervalMs: 15000
               maxDataPoints: 43200
@@ -54,7 +54,7 @@ groups:
               to: 0
             datasourceUid: PBFA97CFB590B2093
             model:
-              expr: "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)"
+              expr: "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\", job=\"node_exporter\"}[5m])) * 100)"
               refId: A
               intervalMs: 15000
               maxDataPoints: 43200
@@ -92,7 +92,7 @@ groups:
               to: 0
             datasourceUid: PBFA97CFB590B2093
             model:
-              expr: "node_memory_SwapTotal_bytes - node_memory_SwapFree_bytes"
+              expr: "node_memory_SwapTotal_bytes{job=\"node_exporter\"} - node_memory_SwapFree_bytes{job=\"node_exporter\"}"
               refId: A
               intervalMs: 15000
               maxDataPoints: 43200
@@ -130,7 +130,7 @@ groups:
               to: 0
             datasourceUid: PBFA97CFB590B2093
             model:
-              expr: "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"})) * 100"
+              expr: "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\", fstype!=\"tmpfs\", job=\"node_exporter\"} / node_filesystem_size_bytes{mountpoint=\"/\", fstype!=\"tmpfs\", job=\"node_exporter\"})) * 100"
               refId: A
               intervalMs: 15000
               maxDataPoints: 43200

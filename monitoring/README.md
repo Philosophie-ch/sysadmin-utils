@@ -1,64 +1,100 @@
 # Philosophie.ch Monitoring Stack
 
-## Stack
-
-- **Prometheus** (`network_mode: host`): metrics storage and query; scrapes node_exporter, cAdvisor, and Traefik
-- **cAdvisor**: per-container CPU, memory, network, disk I/O metrics
-- **node_exporter**: host-level CPU, memory, swap, disk metrics
-- **Grafana**: dashboards and alerting
-
-Grafana, cAdvisor, and node_exporter bind their ports to `127.0.0.1` only. Prometheus runs on the host network (port 9090). Access Grafana via SSH tunnel.
+Monitors two servers from a single Grafana instance.
 
 ## Architecture
 
-Prometheus uses `network_mode: host` so it can reach all scrape targets via `localhost`:
-- `localhost:9109` for node_exporter
-- `localhost:8089` for cAdvisor
-- `localhost:8082` for Traefik metrics
+```
+Assets server                    Main server (monitoring host)
++-----------------+              +-----------------------------------+
+| node_exporter   |--SSH tunnel--| Prometheus (host network)         |
+| cAdvisor        |              |   scrapes localhost:9109, :8089   |
++-----------------+              |   scrapes localhost:8082 (traefik)|
+                                 |   scrapes localhost:9209, :8189   |
+                                 |     (tunnel to philo-assets)      |
+                                 |                                   |
+                                 | Grafana (bridge network)          |
+                                 |   reaches Prometheus via          |
+                                 |   host.docker.internal:9090       |
+                                 |                                   |
+                                 | cAdvisor, node_exporter (local)   |
+                                 +-----------------------------------+
+```
 
-Grafana runs on the `monitoring` bridge network and reaches Prometheus via `host.docker.internal:9090` (mapped through `extra_hosts`).
+### Components on the monitoring host
 
-cAdvisor needs `privileged: true` and access to `/var/run/docker.sock` to resolve Docker container names. Without the Docker socket, metrics exist but lack the `name` label and container panels show "No data".
+- **Prometheus** (`network_mode: host`, port 9090): scrapes all targets via localhost
+- **cAdvisor**: per-container metrics; needs Docker socket + privileged mode
+- **node_exporter**: host-level CPU, memory, swap, disk metrics
+- **Grafana**: dashboards and alerting; access via SSH tunnel
+
+### Components on the assets server
+
+- **cAdvisor**: per-container metrics
+- **node_exporter**: host-level metrics
+
+Both bind to `127.0.0.1` only. An SSH tunnel from the monitoring host forwards them to localhost ports there (configured in `.env`).
 
 ## Setup
 
-1. Copy `.env.example` to `.env` and fill in the values:
-   - `GRAFANA_ADMIN_PASSWORD`: pick a strong password
-   - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`: SMTP credentials for alert emails
-   - `SMTP_FROM`: sender address for alert emails (default: `monitoring@philosophie.ch`)
+### First time
 
-2. If the SMTP password contains special characters (`$`, `!`, `&`, `*`), wrap it in single quotes in `.env`:
+1. Copy `.env.example` to `.env` and fill in all values
+2. If the SMTP password contains special characters (`$`, `!`, `&`, `*`), wrap it in single quotes:
    ```
    SMTP_PASSWORD='password-with-$pecial-chars'
    ```
-
-3. Start the stack:
+3. Remove any dead monitoring containers on both servers:
    ```bash
-   docker compose up -d
+   ssh <monitor-server> "docker rm grafana prometheus promtail loki cadvisor node_exporter 2>/dev/null"
+   ssh <assets-server> "docker rm grafana prometheus promtail loki cadvisor node_exporter 2>/dev/null"
+   ```
+4. Run the deploy script:
+   ```bash
+   chmod +x deploy.sh philo-assets/ssh-tunnel.sh
+   ./deploy.sh
    ```
 
-4. Access Grafana via SSH port forwarding:
-   ```bash
-   ssh -L 3009:localhost:3009 <user>@<server>
-   ```
-   Then open `http://localhost:3009` in your browser. Login: `admin` / your `GRAFANA_ADMIN_PASSWORD`.
+### Subsequent deploys
 
-5. To reset the Grafana admin password:
-   ```bash
-   docker compose exec grafana grafana cli admin reset-admin-password NEW_PASSWORD
-   ```
+```bash
+./deploy.sh
+```
 
-## Dashboard
+The deploy script handles everything:
+1. Syncs exporter config to the assets server and starts cAdvisor + node_exporter
+2. Syncs the monitoring stack to the monitoring host and restarts it
+3. Installs and starts the SSH tunnel as a systemd service
 
-One custom dashboard: **Philosophie.ch Portal**
+### Accessing Grafana
 
-- **System Health**: memory %, swap usage, CPU %, disk %
-- **Container Resources**: per-container memory and CPU over time
-- **Traffic**: request rate, error rate by HTTP code, response latency percentiles (p50/p95/p99)
+SSH port forward from your local machine:
+```bash
+ssh -L <grafana-port>:localhost:<grafana-port> <monitor-server>
+```
+Then open `http://localhost:<grafana-port>`. Login: `admin` / your `GRAFANA_ADMIN_PASSWORD`.
+
+To reset the Grafana admin password:
+```bash
+ssh <monitor-server> "cd ~/sysadmin-utils/monitoring && docker compose exec grafana grafana cli admin reset-admin-password NEW_PASSWORD"
+```
+
+## Dashboards
+
+Two dashboards, auto-provisioned:
+
+**Philosophie.ch Portal** (monitoring host):
+- System health: memory %, swap, CPU %, disk %
+- Container resources: per-container memory and CPU over time
+- Traffic: request rate, error rate by HTTP code, response latency percentiles (from Traefik metrics)
+
+**PhiloAssets Server** (assets server, via SSH tunnel):
+- System health: memory %, CPU %, disk %, network traffic
+- Container resources: per-container memory and CPU (nginx-proxy-manager, nginx-static, filebrowser)
 
 ## Alerts
 
-Alerts are provisioned automatically. The default recipient is configured in `grafana/provisioning/alerting/contactpoints.yml`.
+Alerts are provisioned for the monitoring host and send email. The recipient is configured in `grafana/provisioning/alerting/contactpoints.yml`.
 
 | Alert | Threshold | Sustained for | Severity |
 |-------|-----------|---------------|----------|
@@ -69,9 +105,25 @@ Alerts are provisioned automatically. The default recipient is configured in `gr
 
 Repeat interval: 4 hours.
 
-## Traefik metrics
+## SSH Tunnel
 
-Traefik must expose a Prometheus metrics endpoint on port 8082 for the traffic panels to work. This requires three Traefik CLI args:
+The monitoring host runs an SSH tunnel to the assets server as a systemd service (`monitoring-tunnel`). It forwards the assets server's exporter ports to localhost on the monitoring host so Prometheus can scrape them.
+
+The tunnel reconnects automatically on failure (via `ServerAliveInterval` + systemd `Restart=always`).
+
+Check tunnel status:
+```bash
+ssh <monitor-server> "sudo systemctl status monitoring-tunnel"
+```
+
+Restart the tunnel:
+```bash
+ssh <monitor-server> "sudo systemctl restart monitoring-tunnel"
+```
+
+## Traefik Metrics
+
+Traefik must expose a Prometheus metrics endpoint for the traffic panels to work. This requires Traefik CLI args:
 
 ```
 --entryPoints.metrics.address=:8082
@@ -79,39 +131,42 @@ Traefik must expose a Prometheus metrics endpoint on port 8082 for the traffic p
 --metrics.prometheus.entryPoint=metrics
 ```
 
-And the port must be published: `8082:8082` (or `127.0.0.1:8082:8082`).
+These are configured in the portal's Kamal deploy config. Changing Traefik args requires `kamal traefik reboot` (not `docker restart`; a restart reuses the old args). A reboot causes a brief (~2 second) interruption.
 
-These are configured in the portal's Kamal deploy config. Changing Traefik args requires `kamal traefik reboot` (not just `docker restart`; a restart reuses the old args). A reboot causes a brief (~2 second) interruption.
-
-## Data persistence
+## Data Persistence
 
 Prometheus data and Grafana configuration are stored in Docker volumes (`prometheus_data`, `grafana_data`). They survive container restarts and re-deploys. To reset: `docker compose down -v`.
 
 ## Troubleshooting
 
 **Container panels show "No data":**
-- Check cAdvisor can talk to Docker: `docker logs cadvisor | grep 'docker container factory'`. It must say "Registration of the docker container factory successfully". If it says "failed", the Docker API version is incompatible; upgrade cAdvisor.
-- cAdvisor v0.49.x is incompatible with Docker Engine v29+ (API v1.44 minimum). Use v0.60.5+.
+- Check cAdvisor can talk to Docker: `docker logs cadvisor | grep 'docker container factory'`. Must say "successfully". If "failed" with API version mismatch, upgrade cAdvisor. v0.60.5+ works with Docker Engine v29+.
+
+**PhiloAssets panels show "No data":**
+- Check the SSH tunnel: `sudo systemctl status monitoring-tunnel`
+- Verify Prometheus can reach the tunneled ports: `curl http://localhost:9209/metrics` and `curl http://localhost:8189/metrics`
+- Check Prometheus targets: `curl -s http://localhost:9090/api/v1/targets`
 
 **Traefik panels show "No data":**
-- Verify the metrics endpoint responds: `curl http://localhost:8082/metrics`
-- If connection refused: Traefik args haven't been applied. Use `kamal traefik reboot`, not `docker restart`.
-- Check Prometheus target status: `curl http://localhost:9090/api/v1/targets`
+- Verify: `curl http://localhost:8082/metrics`
+- If connection refused: Traefik args haven't been applied. Use `kamal traefik reboot`.
+- Check Prometheus targets: `curl http://localhost:9090/api/v1/targets`
 
 **ghcr.io image pull "denied":**
-- Run `docker logout ghcr.io` on the server, then pull again. Stale credentials block anonymous pulls from the GitHub Container Registry.
+- Run `docker logout ghcr.io`, then pull again.
 
-**Grafana shows "datasource not found":**
-- Grafana reaches Prometheus via `host.docker.internal:9090`. Verify `extra_hosts` is set on the Grafana container and Prometheus is listening: `curl http://localhost:9090/-/healthy`
+**Grafana datasource error:**
+- Grafana reaches Prometheus via `host.docker.internal:9090`. Verify: `curl http://localhost:9090/-/healthy`
 
 **SMTP alerts not sending:**
-- Port 465 uses implicit TLS, not STARTTLS. `GF_SMTP_STARTTLS_POLICY=NoStartTLS` is required in the Grafana environment.
-- Check Grafana logs: `docker logs grafana | grep -i smtp`
+- Port 465 uses implicit TLS. `GF_SMTP_STARTTLS_POLICY=NoStartTLS` is required.
+- Check logs: `docker logs grafana | grep -i smtp`
 
 ## Maintenance
 
 - **Prometheus retention**: 30 days, 2 GB max (whichever hits first)
 - **Update images**: edit version tags in `docker-compose.yml`, then `docker compose pull && docker compose up -d`
-- **Edit dashboards**: edit in the Grafana UI, then export the JSON and replace `philosophie-ch-portal.json`
+- **Edit dashboards**: edit in the Grafana UI, then export the JSON and replace the `.json` file
 - **Edit alerts**: modify `grafana/provisioning/alerting/rules.yml`, then `docker compose restart grafana`
 - **Full restart**: `docker compose down && docker compose up -d`
+- **Redeploy everything**: `./deploy.sh`

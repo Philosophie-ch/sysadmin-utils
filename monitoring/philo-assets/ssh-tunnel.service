@@ -1,0 +1,14 @@
+[Unit]
+Description=SSH tunnel to philo-assets for monitoring
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sysadmin
+ExecStart=DEPLOY_PATH_PLACEHOLDER/philo-assets/ssh-tunnel.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
