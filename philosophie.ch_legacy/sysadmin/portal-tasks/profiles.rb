@@ -106,7 +106,7 @@ def main(csv_file, log_level = 'info')
       _function_standardised: row["_function_standardised"] || "",
 
       country: row["country"] || "",
-      area: row["area"] || "",
+      swiss_region: row["swiss_region"] || "",
       _canton: row["_canton"] || "",
       description: row["description"] || "",
       website: row["website"] || "",
@@ -212,7 +212,7 @@ def main(csv_file, log_level = 'info')
       gender = subreport[:gender].strip  # user
 
       country = subreport[:country].strip  # profile
-      area = subreport[:area].strip  # profile
+      swiss_region = subreport[:swiss_region].strip  # profile
       description = subreport[:description].strip # profile
       website = subreport[:website].strip # profile
       teacher_at_institution = subreport[:teacher_at_institution].strip # profile
@@ -387,7 +387,7 @@ def main(csv_file, log_level = 'info')
           _function_standardised: subreport[:_function_standardised],
 
           country: user.profile.country,
-          area: user.profile.area,
+          swiss_region: user.profile.swiss_region,
           _canton: subreport[:_canton],
           description: user.profile.description,
           website: user.profile.website,
@@ -450,7 +450,7 @@ def main(csv_file, log_level = 'info')
           user.profile.newsletter = newsletter
           user.profile.academic_page = academic_page
           user.profile.country = country
-          user.profile.area = area
+          user.profile.swiss_region = swiss_region
           user.profile.description = description
           user.profile.website = website
           user.profile.teacher_at_institution = teacher_at_institution
@@ -617,7 +617,7 @@ def main(csv_file, log_level = 'info')
         abbreviation: user.profile.abbreviation,
         language: user.language,
         country: user.profile.country,
-        area: user.profile.area,
+        swiss_region: user.profile.swiss_region,
         alchemy_roles: user.alchemy_roles.join(', '),
         gender: user.gender,
         last_updaters: user.profile.last_updaters.to_json,

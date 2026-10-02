@@ -250,22 +250,22 @@ def main(csv_file, log_level = 'info')
         if req == 'UPDATE' && entity_key.present? && entity_key != entity.key
           old_key = entity.key
           # Collect referencing IDs, nullify, rename key, restore references
-          page_ids = Alchemy::Page.where(site_section_key: old_key).pluck(:id)
-          pub_ids = defined?(Publication) && Publication.column_names.include?('site_section_key') ? Publication.where(site_section_key: old_key).pluck(:id) : []
-          jour_ids = defined?(Journal) && Journal.column_names.include?('site_section_key') ? Journal.where(site_section_key: old_key).pluck(:id) : []
-          publ_ids = defined?(Publisher) && Publisher.column_names.include?('site_section_key') ? Publisher.where(site_section_key: old_key).pluck(:id) : []
+          page_ids = Alchemy::Page.where(breadcrumb_key: old_key).pluck(:id)
+          pub_ids = defined?(Publication) && Publication.column_names.include?('breadcrumb_key') ? Publication.where(breadcrumb_key: old_key).pluck(:id) : []
+          jour_ids = defined?(Journal) && Journal.column_names.include?('breadcrumb_key') ? Journal.where(breadcrumb_key: old_key).pluck(:id) : []
+          publ_ids = defined?(Publisher) && Publisher.column_names.include?('breadcrumb_key') ? Publisher.where(breadcrumb_key: old_key).pluck(:id) : []
 
-          Alchemy::Page.where(id: page_ids).update_all(site_section_key: nil)
-          Publication.where(id: pub_ids).update_all(site_section_key: nil) if pub_ids.any?
-          Journal.where(id: jour_ids).update_all(site_section_key: nil) if jour_ids.any?
-          Publisher.where(id: publ_ids).update_all(site_section_key: nil) if publ_ids.any?
+          Alchemy::Page.where(id: page_ids).update_all(breadcrumb_key: nil)
+          Publication.where(id: pub_ids).update_all(breadcrumb_key: nil) if pub_ids.any?
+          Journal.where(id: jour_ids).update_all(breadcrumb_key: nil) if jour_ids.any?
+          Publisher.where(id: publ_ids).update_all(breadcrumb_key: nil) if publ_ids.any?
 
           entity.update_column(:key, entity_key)
 
-          Alchemy::Page.where(id: page_ids).update_all(site_section_key: entity_key) if page_ids.any?
-          Publication.where(id: pub_ids).update_all(site_section_key: entity_key) if pub_ids.any?
-          Journal.where(id: jour_ids).update_all(site_section_key: entity_key) if jour_ids.any?
-          Publisher.where(id: publ_ids).update_all(site_section_key: entity_key) if publ_ids.any?
+          Alchemy::Page.where(id: page_ids).update_all(breadcrumb_key: entity_key) if page_ids.any?
+          Publication.where(id: pub_ids).update_all(breadcrumb_key: entity_key) if pub_ids.any?
+          Journal.where(id: jour_ids).update_all(breadcrumb_key: entity_key) if jour_ids.any?
+          Publisher.where(id: publ_ids).update_all(breadcrumb_key: entity_key) if publ_ids.any?
         end
         entity.context = context if context.present?
         entity.parent = parent

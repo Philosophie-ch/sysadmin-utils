@@ -257,7 +257,7 @@ def build_profile_report_row(user, user_articles_map, result_order)
     _function_standardised: "",
 
     country: user.profile.country,
-    area: user.profile.area,
+    swiss_region: user.profile.swiss_region,
     _canton: "",
     description: user.profile.description,
     website: user.profile.website,
