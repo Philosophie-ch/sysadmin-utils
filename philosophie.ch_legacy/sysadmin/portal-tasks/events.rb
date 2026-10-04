@@ -1,4 +1,5 @@
 require 'csv'
+require 'date'
 require 'fileutils'
 
 ActiveRecord::Base.logger.level = Logger::WARN
@@ -54,6 +55,70 @@ def generate_csv_report(report)
 end
 
 
+# 'dates' cell: semicolon-separated ISO dates, e.g. "2026-11-05; 2026-11-06".
+# Returns [sorted_dates, error_message]
+def parse_event_dates(dates_str)
+  parts = dates_str.to_s.split(';').map(&:strip).reject(&:blank?)
+  return [[], "No dates found"] if parts.empty?
+
+  parsed = []
+  parts.each do |part|
+    begin
+      parsed << Date.iso8601(part)
+    rescue ArgumentError
+      return [[], "Invalid date '#{part}'. Use YYYY-MM-DD"]
+    end
+  end
+
+  duplicates = parsed.select { |d| parsed.count(d) > 1 }.uniq
+  return [[], "Duplicate dates: #{duplicates.map(&:iso8601).join(', ')}"] unless duplicates.empty?
+
+  [parsed.sort, nil]
+end
+
+
+# 'speakers' cell: semicolon-separated, each "@profile-slug | affiliation" or "Plain Name | affiliation".
+# The affiliation part is optional. Order in the cell becomes the speaker position.
+# Returns [array of {profile:, name:, affiliation:}, error_message]
+def parse_event_speakers(speakers_str)
+  items = speakers_str.to_s.split(';').map(&:strip).reject(&:blank?)
+  speakers = []
+
+  items.each do |item|
+    who, affiliation = item.split('|', 2).map(&:strip)
+
+    if who.blank?
+      return [[], "Speaker without a name or profile slug in '#{item}'"]
+    end
+
+    if who.start_with?('@')
+      slug = who[1..-1].strip
+      profile = Profile.find_by(slug: slug)
+      return [[], "Speaker profile with slug '#{slug}' not found"] if profile.nil?
+
+      speakers << { profile: profile, name: nil, affiliation: affiliation.presence }
+    else
+      speakers << { profile: nil, name: who, affiliation: affiliation.presence }
+    end
+  end
+
+  [speakers, nil]
+end
+
+
+def event_dates_to_string(event)
+  event.ordered_dates.map { |event_date| event_date.date.iso8601 }.join('; ')
+end
+
+
+def event_speakers_to_string(event)
+  event.speakers.order(:position).map do |speaker|
+    who = speaker.profile.present? ? "@#{speaker.profile.slug}" : speaker.name.to_s
+    speaker.affiliation.present? ? "#{who} | #{speaker.affiliation}" : who
+  end.join('; ')
+end
+
+
 ############
 # MAIN
 ############
@@ -64,13 +129,16 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
   subreport = {
     _request: row["_request"] || '',
     id: row["id"] || '',
-    date: row["date"] || '',
+    dates: row["dates"] || '',
     profile_slug: row["profile_slug"] || '',
     title: row["title"] || '',
     region: row["region"] || '',
+    speakers: row["speakers"] || '',
     link: row["link"] || '',
     _url: row["_url"] || '',
     recurrent: row["recurrent"] || '',
+    page_id: row["page_id"] || '',  # read-only
+    node_id: row["node_id"] || '',  # read-only
     _to_do_for_us: row["_to_do_for_us"] || '',
 
     status: '',
@@ -99,16 +167,29 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
       end
     end
 
+    # Dates are required to create/update, and used for the fallback lookup (no id) otherwise
+    dates = []
+    if req == 'POST' || req == 'UPDATE' || subreport[:dates].present?
+      dates, dates_error = parse_event_dates(subreport[:dates])
+      if dates_error
+        subreport[:status] = 'error'
+        subreport[:error_message] = "#{dates_error}. Skipping..."
+        subreport[:error_trace] = "Main::Control::dates"
+        next
+      end
+    end
+
     if req == 'POST'
-      same_events = Event.where(title: subreport[:title], region: subreport[:region], date: subreport[:date])
+      same_events = Event.where(title: subreport[:title], region: subreport[:region], date: dates.min)
       unless same_events.empty?
         subreport[:status] = 'error'
-        subreport[:error_message] = "Event with the same title, region, and date already exists. Skipping..."
+        subreport[:error_message] = "Event with the same title, region, and earliest date already exists. Skipping..."
         subreport[:error_trace] = "Main::Control::POST"
         next
       end
     end
 
+    speakers = []
     if req == 'UPDATE' || req == 'POST'
       if subreport[:title].nil? || subreport[:title].empty? || subreport[:title].strip == '' || subreport[:title].blank?
         subreport[:status] = 'error'
@@ -120,13 +201,6 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
       if subreport[:region].nil? || subreport[:region].empty? || subreport[:region].strip == '' || subreport[:region].blank?
         subreport[:status] = 'error'
         subreport[:error_message] = "Region is empty, but required for '#{req}'. Skipping..."
-        subreport[:error_trace] = "Main::Control::UPDATE/POST"
-        next
-      end
-
-      if subreport[:date].nil? || subreport[:date].empty? || subreport[:date].strip == '' || subreport[:date].blank?
-        subreport[:status] = 'error'
-        subreport[:error_message] = "Date is empty, but required for '#{req}'. Skipping..."
         subreport[:error_trace] = "Main::Control::UPDATE/POST"
         next
       end
@@ -145,12 +219,19 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
         end
       end
 
+      speakers, speakers_error = parse_event_speakers(subreport[:speakers])
+      if speakers_error
+        subreport[:status] = 'error'
+        subreport[:error_message] = "#{speakers_error}. Skipping..."
+        subreport[:error_trace] = "Main::Control::speakers"
+        next
+      end
+
     end
 
     # Parsing
     Rails.logger.info("Parsing task for event...")
     id = subreport[:id]
-    date = subreport[:date]
     profile_slug = subreport[:profile_slug]
     title = subreport[:title]
     region = subreport[:region]
@@ -179,13 +260,20 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
         end
 
       else
-        # else try to retrieve event by title, region, and date
-        event = Event.where(title: title, region: region, date: date).first
+        # else try to retrieve event by title, region, and earliest date
+        if dates.empty?
+          subreport[:status] = 'error'
+          subreport[:error_message] = "Neither id nor dates given, cannot look up the event. Skipping..."
+          subreport[:error_trace] = "Main::Setup"
+          next
+        end
+
+        event = Event.where(title: title, region: region, date: dates.min).first
 
         if event.nil?
-          Rails.logger.error("Event with title '#{title}', region '#{region}', and date '#{date}' not found. Skipping...")
+          Rails.logger.error("Event with title '#{title}', region '#{region}', and earliest date '#{dates.min}' not found. Skipping...")
           subreport[:status] = 'error'
-          subreport[:error_message] = "Event with title '#{title}', region '#{region}', and date '#{date}' not found. Skipping..."
+          subreport[:error_message] = "Event with title '#{title}', region '#{region}', and earliest date '#{dates.min}' not found. Skipping..."
           subreport[:error_trace] = "Main::Setup"
           next
         end
@@ -210,10 +298,11 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
     end
 
     if req == 'DELETE'
-      event.delete
-      if Event.find_by(id: id).present?
+      event_id = event.id
+      event.destroy!  # also destroys event_dates and speakers
+      if Event.find_by(id: event_id).present?
         subreport[:status] = 'error'
-        subreport[:error_message] = "Event with ID #{id} not deleted for an unknown reason!"
+        subreport[:error_message] = "Event with ID #{event_id} not deleted for an unknown reason!"
         subreport[:error_trace] = "Main::Setup::DELETE"
         next
       else
@@ -228,13 +317,16 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
       old_event = {
         _request: subreport[:_request],
         id: event.id,
-        date: event.date.strftime('%Y-%m-%d'),
+        dates: event_dates_to_string(event),
         profile_slug: event.profile.slug,
         title: event.title,
         region: event.region,
+        speakers: event_speakers_to_string(event),
         link: event.link,
         _url: subreport[:_url],
         recurrent: subreport[:recurrent],
+        page_id: event.page_id,
+        node_id: event.node_id,
         _to_do_for_us: subreport[:_to_do_for_us],
 
         status: subreport[:status],
@@ -249,35 +341,52 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
 
     if req == 'POST' || req == 'UPDATE'
       Rails.logger.info("Processing event: setting attributes...")
-      event.date = date
-      event.profile = Profile.find_by(slug: profile_slug)
-      event.title = title
-      event.region = region
-      event.link = link
-      event.recurrent = recurrent
 
-      successful_save = event.save!
-      if successful_save
-        subreport[:status] = 'success'
-      else
-        subreport[:status] = 'error'
-        subreport[:error_message] = "Event not saved for an unknown reason! Skipping..."
-        subreport[:error_trace] = "Main::Execution"
-        next
+      ActiveRecord::Base.transaction do
+        # Event#date caches the earliest of event_dates (and is validated before the callback runs)
+        event.date = dates.min
+        event.profile = Profile.find_by(slug: profile_slug)
+        event.title = title
+        event.region = region
+        # page-anchored events get their link computed by the portal from page_id and node_id
+        event.link = link unless event.page_id.present? && event.node_id.present?
+        event.recurrent = recurrent
+
+        event.save!
+
+        # Replace the set of dates
+        event.event_dates.where.not(date: dates).destroy_all
+        existing_dates = event.event_dates.reload.map(&:date)
+        (dates - existing_dates).each { |date| event.event_dates.create!(date: date) }
+
+        # Save again so the before_save callback re-syncs Event#date from the new set of dates
+        event.reload.save!
+
+        # Replace the speakers; position follows the order in the cell
+        event.speakers.destroy_all
+        speakers.each_with_index do |speaker, index|
+          event.speakers.create!(position: index, profile: speaker[:profile], name: speaker[:name], affiliation: speaker[:affiliation])
+        end
       end
+
+      event.reload
+      subreport[:status] = 'success'
     end
 
     # Update report
     Rails.logger.info("Updating report...")
     subreport.merge!({
       id: event.id,
-      date: event.date.strftime('%Y-%m-%d'),
+      dates: event_dates_to_string(event),
       profile_slug: event.profile.slug,
       title: event.title,
       region: event.region,
+      speakers: event_speakers_to_string(event),
       link: event.link,
       _url: "https://www.philosophie.ch#{event.link}",
       recurrent: "#{event.recurrent}".upcase,
+      page_id: event.page_id,
+      node_id: event.node_id,
     })
 
     if req == 'UPDATE' || req == 'GET'
