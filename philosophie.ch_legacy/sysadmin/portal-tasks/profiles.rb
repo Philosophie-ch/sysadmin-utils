@@ -107,6 +107,8 @@ def main(csv_file, log_level = 'info')
 
       country: row["country"] || "",
       swiss_region: row["swiss_region"] || "",
+      cv_url: row["cv_url"] || "",
+      ui_language: row["ui_language"] || "",
       _canton: row["_canton"] || "",
       description: row["description"] || "",
       website: row["website"] || "",
@@ -213,6 +215,7 @@ def main(csv_file, log_level = 'info')
 
       country = subreport[:country].strip  # profile
       swiss_region = subreport[:swiss_region].strip  # profile
+      cv_url = subreport[:cv_url].strip  # profile
       description = subreport[:description].strip # profile
       website = subreport[:website].strip # profile
       teacher_at_institution = subreport[:teacher_at_institution].strip # profile
@@ -388,6 +391,8 @@ def main(csv_file, log_level = 'info')
 
           country: user.profile.country,
           swiss_region: user.profile.swiss_region,
+          cv_url: user.profile.cv_url,
+          ui_language: user.profile.ui_language,
           _canton: subreport[:_canton],
           description: user.profile.description,
           website: user.profile.website,
@@ -450,7 +455,22 @@ def main(csv_file, log_level = 'info')
           user.profile.newsletter = newsletter
           user.profile.academic_page = academic_page
           user.profile.country = country
-          user.profile.swiss_region = swiss_region
+          # swiss_region only applies to Switzerland (same rule as the profile edit form)
+          if swiss_region.present? && country.present? && country != 'CH'
+            subreport[:warning_messages] = "#{subreport[:warning_messages]}swiss_region '#{swiss_region}' ignored because country is '#{country}' (not CH). ".lstrip
+            swiss_region = ''
+          end
+          if swiss_region.present? && !SwissRegion::ALL.include?(swiss_region)
+            raise ArgumentError, "Invalid swiss_region '#{swiss_region}'. Valid values: #{SwissRegion::ALL.join(', ')}"
+          end
+          user.profile.swiss_region = swiss_region.presence
+
+          # ui_language is read-only here: it is set by the interface language switcher only
+          input_ui_language = subreport[:ui_language].to_s.strip
+          if input_ui_language != user.profile.ui_language.to_s
+            subreport[:warning_messages] = "#{subreport[:warning_messages]}ui_language is read-only and was not changed. ".lstrip
+          end
+          user.profile.cv_url = cv_url.presence
           user.profile.description = description
           user.profile.website = website
           user.profile.teacher_at_institution = teacher_at_institution
@@ -618,6 +638,8 @@ def main(csv_file, log_level = 'info')
         language: user.language,
         country: user.profile.country,
         swiss_region: user.profile.swiss_region,
+        cv_url: user.profile.cv_url,
+        ui_language: user.profile.ui_language,
         alchemy_roles: user.alchemy_roles.join(', '),
         gender: user.gender,
         last_updaters: user.profile.last_updaters.to_json,

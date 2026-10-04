@@ -117,6 +117,7 @@ def main(csv_file, log_level = 'info')
       additional_material: row['additional_material'] || '',
       _refs_in_xml: row['_refs_in_xml'] || '',
       breadcrumb_key: row['breadcrumb_key'] || '',
+      rejected_at: row['rejected_at'] || '',
 
       status: '',
       changes_made: '',
@@ -508,6 +509,7 @@ def main(csv_file, log_level = 'info')
           additional_material: subreport[:additional_material],
           _refs_in_xml: subreport[:_refs_in_xml],
           breadcrumb_key: entity.breadcrumb_key || '',
+          rejected_at: entity.rejected_at&.iso8601 || '',
           status: '',
           changes_made: '',
           error_message: '',
@@ -561,6 +563,15 @@ def main(csv_file, log_level = 'info')
 
         breadcrumb_key = subreport[:breadcrumb_key].to_s.strip
         entity.breadcrumb_key = breadcrumb_key.blank? ? nil : breadcrumb_key
+
+        rejected_at_str = subreport[:rejected_at].to_s.strip
+        if rejected_at_str.blank?
+          entity.rejected_at = nil
+        else
+          parsed_rejected_at = Time.zone.parse(rejected_at_str) rescue nil
+          raise ArgumentError, "Invalid rejected_at '#{rejected_at_str}'. Use ISO 8601, e.g. 2026-09-20T12:00:00Z" if parsed_rejected_at.nil?
+          entity.rejected_at = parsed_rejected_at
+        end
 
         entity.save!
 
@@ -695,6 +706,7 @@ def main(csv_file, log_level = 'info')
         pdf3_availability: updated_entity.pdf3_availability || 'missing',
 
         breadcrumb_key: updated_entity.breadcrumb_key || '',
+        rejected_at: updated_entity.rejected_at&.iso8601 || '',
       })
 
       subreport[:status] = 'success'

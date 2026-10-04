@@ -258,6 +258,8 @@ def build_profile_report_row(user, user_articles_map, result_order)
 
     country: user.profile.country,
     swiss_region: user.profile.swiss_region,
+    cv_url: user.profile.cv_url,
+    ui_language: user.profile.ui_language,
     _canton: "",
     description: user.profile.description,
     website: user.profile.website,

@@ -182,6 +182,8 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
 
         country: user.profile.country,
         swiss_region: user.profile.swiss_region,
+        cv_url: user.profile.cv_url,
+        ui_language: user.profile.ui_language,
         _canton: "",
         description: user.profile.description,
         website: user.profile.website,
@@ -274,6 +276,8 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
       _function_standardised: "",
       country: "",
       swiss_region: "",
+      cv_url: "",
+      ui_language: "",
       _canton: "",
       description: "",
       website: "",
