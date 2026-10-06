@@ -114,10 +114,11 @@ echo "Assets synced successfully."
 # --- Prune old DB snapshots ---
 #
 # Retention policy:
-#   < 7 days old:    keep (daily)
-#   7-90 days old:   keep one per ISO week (the most recent)
-#   90-180 days old: keep one per month (the most recent)
-#   > 180 days old:  delete
+#   < 7 days old:      keep (daily)
+#   7-90 days old:     keep one per ISO week (the most recent)
+#   90-180 days old:   keep one per month (the most recent)
+#   180-365 days old:  keep one per two months (the most recent)
+#   > 365 days old:    delete
 
 echo "Applying retention policy..."
 
@@ -170,6 +171,25 @@ while IFS= read -r dir_name; do
             fi
         done < <(rclone lsf "${remote}/db/" --dirs-only)
         if [ "${dir_name}" = "${latest_in_month}" ]; then
+            keep=1
+        fi
+    elif [ "${age_days}" -le 365 ]; then
+        dir_bimonth=$(date -d "${dir_name}" +%Y-)$(( ($(date -d "${dir_name}" +%-m) - 1) / 2 ))
+        latest_in_bimonth=""
+        while IFS= read -r sibling; do
+            sibling="${sibling%/}"
+            date -d "${sibling}" +%s >/dev/null 2>&1 || continue
+            sibling_age=$(( (now_epoch - $(date -d "${sibling}" +%s)) / 86400 ))
+            [ "${sibling_age}" -le 180 ] && continue
+            [ "${sibling_age}" -gt 365 ] && continue
+            sibling_bimonth=$(date -d "${sibling}" +%Y-)$(( ($(date -d "${sibling}" +%-m) - 1) / 2 ))
+            if [ "${sibling_bimonth}" = "${dir_bimonth}" ]; then
+                if [ -z "${latest_in_bimonth}" ] || [[ "${sibling}" > "${latest_in_bimonth}" ]]; then
+                    latest_in_bimonth="${sibling}"
+                fi
+            fi
+        done < <(rclone lsf "${remote}/db/" --dirs-only)
+        if [ "${dir_name}" = "${latest_in_bimonth}" ]; then
             keep=1
         fi
     fi
