@@ -6,7 +6,15 @@ The full target code of the portal is located at: `~/philosophie-ch/portal/legac
 
 ## Overview
 
-The Portal Tasks system is a collection of Ruby scripts designed to manage and synchronize content for the Philosophie.ch portal through CSV-based batch processing. These scripts integrate deeply with Rails/Alchemy CMS to handle bulk operations on pages, profiles, publications, journals, publishers, events, and thematic tags.
+The Portal Tasks system is a collection of Ruby scripts designed to manage and synchronize content for the Philosophie.ch portal through CSV-based batch processing. These scripts integrate deeply with Rails/Alchemy CMS to handle bulk operations on pages, profiles, publications, journals, publishers, events, notes, thematic tags, translation groups, site sections and side column blocks.
+
+## Design Rules
+
+The scripts are deliberately simple. The full rules are in `.claude/CLAUDE.md`; in short:
+- Admins look at the report columns (`status`, `changes_made`, `error_message`, `error_trace`, `warning_messages`) only when a row failed. Logs and stdout are never seen.
+- A script writes what the CSV says and validates only what the model or database would reject. Failures go in the row.
+- Read-only columns (computed, or stored elsewhere) are silently ignored on UPDATE and POST. The report returns a fresh GET value.
+- The Google Sheet is the authority for column names and order. `check_headers.rb` compares the sheet with the scripts.
 
 ## Directory Structure
 
@@ -19,21 +27,35 @@ portal-tasks/
 ├── publishers.rb               # Publisher information processing (CSV-driven)
 ├── themetags.rb                # Thematic tag/topic management (CSV-driven)
 ├── events.rb                   # Event data processing (CSV-driven)
-├── news.rb                     # News/overview report generation
+├── notes.rb                    # Note management (CSV-driven)
+├── translation_groups.rb       # Page translation groups (CSV-driven)
+├── site_sections.rb            # Site sections and their translations (CSV-driven)
+├── side_column_blocks.rb       # Side column blocks (CSV-driven)
+├── news.rb                     # All IDs per entity (report)
+├── deletions.rb                # IDs/keys from the sheets that no longer exist (report)
+├── check_headers.rb            # Sheet headers compared with the script columns (report)
 ├── links.rb                    # Link extraction and validation
-├── export_pages.rb             # Bulk page export (no CSV input required)
-├── export_profiles.rb          # Bulk profile export (no CSV input required)
+├── export_pages.rb             # Bulk page export
+├── export_profiles.rb          # Bulk profile export
+├── export_side_column_blocks.rb  # Bulk side column block export
+├── swap_webp_asset_urls.rb     # Page images: non-webp URL to .webp when it exists
+├── swap_webp_profile_picture_urls.rb        # Same for profile pictures
+├── swap_webp_publication_cover_pictures.rb  # Same for publication covers
+├── bulk_image_migration.rb     # Scan/migrate images to the asset server
+├── bulk_media_migration.rb     # Scan/migrate audio/video/pdf to the asset server
 ├── lib/
 │   ├── utils.rb                # Core shared utilities
 │   ├── export_utils.rb         # Export-specific utilities (ID parsing, validation)
-│   ├── page_tools.rb           # Page-specific utilities
+│   ├── page_tools.rb           # Page-specific utilities, PAGE_REPORT_COLUMNS
 │   ├── profile_tools.rb        # Profile-specific utilities
-│   ├── publication_tools.rb    # Publication-specific utilities
+│   ├── publication_tools.rb    # Publication-specific utilities, PUBLICATION_REPORT_COLUMNS
+│   ├── note_tools.rb           # Note-specific utilities
 │   ├── journal_publisher_tools.rb
 │   ├── themetags_tools.rb
 │   ├── link_tools.rb           # Link extraction/validation
 │   ├── ah-page-tools.rb        # Advanced page manipulation
 │   └── *.csv                   # Data files
+├── sheet_headers.csv           # Export of the _headers tab (input of check_headers.rb)
 └── portal-tasks-reports/       # Generated reports (created at runtime)
 ```
 
@@ -46,7 +68,9 @@ All main task scripts follow a CSV-driven pattern:
 2. **Processing**: Validate, create, update, or delete entities based on CSV instructions
 3. **Output**: Generate detailed CSV report with results, errors, and warnings
 
-**Standard CSV Encoding**: UTF-16 (with some exceptions like pages.rb using UTF-8)
+**CSV Encoding**: UTF-16 for most scripts. `themetags.rb` and `events.rb` read UTF-8. `pages.rb`, `translation_groups.rb` and `site_sections.rb` detect UTF-16 or UTF-8 themselves.
+
+**Input file and arguments**: the CRUD scripts read a fixed file, `portal-tasks/<name>.csv` (for example `portal-tasks/pages.csv`). The only argument is the log level.
 
 ### 2. Request Types
 
@@ -158,6 +182,8 @@ main(ARGV[0], ARGV[1])
 **CSV**: `journals.csv` (~21KB)
 **Model**: `Journal`
 
+**ISSNs**: `issn_print` and `issn_electronic` are read-only. They are stored in Alexandria, not in the portal database. GET reads them from Alexandria (`GET /api/v1/journals/by-key/{key}`), UPDATE and POST ignore them. If Alexandria cannot be read, the sheet's cells are kept and GET adds a warning.
+
 #### publishers.rb
 **Purpose**: Process publisher information
 
@@ -174,8 +200,30 @@ main(ARGV[0], ARGV[1])
 #### events.rb
 **Purpose**: Process event data
 
-**CSV**: `events.csv` (~144B)
+**CSV**: `events.csv`
 **Model**: `Event`
+**Encoding**: UTF-8
+
+**Key Features**:
+- `dates`: one cell of comma-separated ISO dates (`2026-11-05, 2026-11-06`). UPDATE replaces the whole set. `Event#date` is only a cache of the earliest date.
+- `speakers`: one cell, `@profile-slug | affiliation; Plain Name | affiliation`. The order is the position. UPDATE replaces all speakers, a blank cell clears them.
+- `link` is not written for page-anchored events (the portal computes it). Without an `id` the event is found by title, region and earliest date.
+- Old events can have a title longer than the 88 characters the model allows today. An UPDATE that does not change the title still saves (the title validation is skipped for it). Changing a title to one that is too long is an error.
+
+#### notes.rb
+**Purpose**: Manage notes (standalone `Note` model, not Alchemy pages)
+
+**CSV**: `notes.csv`
+**Model**: `Note`
+
+**Key Features**:
+- `slug` is the key. Blank on POST means the portal generates it. A note is renamed by sending its `id` with a new slug.
+- `author` is a profile slug. `published` is `PUBLISHED` or `UNPUBLISHED`. `content_languages` is a comma-separated list, UPDATE replaces it.
+- Read-only: `link`, `created_at`, `last_updated_date`, `interest_count`, `comment_count`.
+- Helpers in `lib/note_tools.rb`.
+
+#### translation_groups.rb, site_sections.rb, side_column_blocks.rb
+CSV-driven CRUD by `key` for `PageTranslationGroup`, `SiteSection` (with its translations; renaming a key also updates `breadcrumb_key` on pages, publications, journals and publishers) and `SideColumnBlock`.
 
 ### Report-Only Scripts
 
@@ -183,9 +231,23 @@ main(ARGV[0], ARGV[1])
 **Purpose**: Generate comprehensive news/overview report from existing portal data
 
 **Features**:
-- Query multiple entity types
+- Query multiple entity types (pages, users, events, topics, side column blocks, notes)
 - Generate snapshot reports without modifications
 - No CSV input required
+
+#### deletions.rb
+**Purpose**: Counterpart of `news.rb`. Reports which IDs or keys from the sheets no longer exist (everything is hard-deleted). Read-only.
+
+**Input**: `portal-tasks/deletions.csv`, any subset of the columns `page_id`, `profile_id` (user ids, as in the profiles sheet), `event_id`, `themetag_id`, `side_column_block_id`, `note_id`, `publication_id`, `journal_id`, `publisher_id`, `translation_group_key`, `site_section_key`.
+
+**Output**: `deleted_pages`, `deleted_profiles`, `deleted_events`, `deleted_themetags`, `deleted_side_column_blocks`, `deleted_notes`, `deleted_publications`, `deleted_journals`, `deleted_publishers`, `deleted_translation_groups`, `deleted_site_sections`, plus `profiles_without_profile` (users that exist without a profile), `invalid_values`, `warnings` and `summary`.
+
+#### check_headers.rb
+**Purpose**: Compare the headers of the sheet tabs with the columns the scripts write. Read-only, it never runs the other scripts (it reads their source).
+
+**Input**: `portal-tasks/sheet_headers.csv`, the export of a `_headers` tab: row 1 holds the tab names, below each name `=TRANSPOSE('<tab>'!2:2)`. Optional argument: another path.
+
+**Output**: report on stdout and `portal-tasks-reports/YYMMDD_check_headers_report.txt` / `.csv`. It checks each tab against its CRUD script and the `export_*.rb` / `swap_webp_*.rb` scripts of that tab, tabs that share scripts against each other, and reports missing columns, extra columns, empty headers, duplicate keys and order differences. Runs with plain `ruby` or as a normal task with `rails runner` (then it uses the app's language list). The tab to script mapping is at the top of the file.
 
 #### links.rb
 **Purpose**: Extract and validate all links from pages
@@ -220,6 +282,8 @@ get_page_by_urlname_and_language(...)         # Page lookup helper
 ### page_tools.rb
 **Size**: ~44KB (largest library)
 
+**Shared report layout**: `PAGE_REPORT_COLUMNS` is the ordered column list of the pages sheet (the `pages.rb` layout). `build_page_report_row`, `build_empty_page_row` and `build_error_page_row` build rows from it. `export_pages.rb` and `swap_webp_asset_urls.rb` both use them.
+
 **Capabilities**:
 - Tag conversion utilities (array ↔ individual columns)
 - Asset block management for intro elements
@@ -230,6 +294,8 @@ get_page_by_urlname_and_language(...)         # Page lookup helper
 
 ### profile_tools.rb
 **Size**: ~14KB
+
+**Also**: `build_error_profile_data` (error row in the profiles layout, shared by `export_profiles.rb` and `swap_webp_profile_picture_urls.rb`).
 
 **Functions**:
 - Password and email generation for profiles
@@ -248,6 +314,8 @@ process_publication_authors(pub, slugs)       # Update author relationships
 get_pure_html_asset(entity, base_url)         # Extract pure HTML asset paths
 get_pure_pdf_asset(entity, base_url)          # Extract pure PDF asset paths
 ```
+
+**Shared report layout**: `PUBLICATION_REPORT_COLUMNS` is the ordered column list of the publications sheet (the `publications.rb` layout). `build_publication_report_row`, `blank_publication_report_row` and `build_error_publication_data` build rows from it (used by `swap_webp_publication_cover_pictures.rb`).
 
 **Key Change**: Migrated from `root_level` (boolean) to `url_prefix` (string) for flexible URL generation:
 - Empty prefix → `https://www.philosophie.ch/{entity_key}` (root-level)
@@ -291,8 +359,13 @@ merge_with_input_csv(db_rows, input_csv_data, preserved_columns)  # Merge DB dat
 - CSV backup utilities
 - Complex page element transformations
 
+### note_tools.rb
+
+Parsing helpers for `notes.rb` (`parse_published_flag`, `parse_boolean_flag`, `parse_published_at`, `parse_content_languages`), `set_row_error`, and `note_to_row`, which builds the database-derived columns of a note for the report.
+
 ### journal_publisher_tools.rb
-**Size**: ~530B (minimal wrapper)
+
+`get_entity_link`, `get_entity_presentation_page` and `fetch_journal_issns(journal_key)`, the read-only ISSN lookup in Alexandria used by `journals.rb`.
 
 ### themetags_tools.rb
 **Size**: ~750B
@@ -401,33 +474,26 @@ end
 
 ## Usage Examples
 
+The CRUD scripts run as `rails runner` tasks inside the portal container (push with `push-tasks.sh`, pull the reports with `pull-reports.sh`). They read `portal-tasks/<name>.csv`; the only argument is the log level.
+
 ### Basic Processing
 ```bash
-# Process pages from CSV
-cd philosophie.ch_legacy/sysadmin/portal-tasks
-ruby pages.rb pages.csv info
-
-# Process publications
-ruby publications.rb publications.csv info
-
-# Generate link validation report
-ruby links.rb info
+bundle exec rails runner portal-tasks/pages.rb info
+bundle exec rails runner portal-tasks/publications.rb info
+bundle exec rails runner portal-tasks/links.rb info
 ```
 
 ### With Debugging
 ```bash
-# Debug mode for troubleshooting
-ruby pages.rb pages.csv debug
-
-# Error-only mode for production
-ruby publications.rb publications.csv error
+bundle exec rails runner portal-tasks/pages.rb debug     # verbose
+bundle exec rails runner portal-tasks/publications.rb error   # errors only
 ```
 
 ## Best Practices
 
 1. **Always backup**: CSV reports serve as backup/audit trail
 2. **Test with GET first**: Use GET requests to verify data before UPDATE/POST
-3. **Check encoding**: Most scripts use UTF-16, but pages.rb uses UTF-8
+3. **Check encoding**: see the encoding note under Core Concepts
 4. **Monitor reports**: Review generated reports for errors and warnings
 5. **Incremental processing**: Process small batches when dealing with large datasets
 6. **Validate URLs**: Use link validation tools before processing assets
@@ -463,6 +529,12 @@ Bulk export of all pages or specific page IDs with optimized database queries.
 
 #### `export_profiles.rb`
 Bulk export of all user profiles or specific user IDs with optimized database queries.
+
+#### `export_side_column_blocks.rb`
+Bulk export of side column blocks.
+
+#### `swap_webp_*.rb`
+`swap_webp_asset_urls.rb` (page images), `swap_webp_profile_picture_urls.rb` and `swap_webp_publication_cover_pictures.rb` take a CSV with an `id` column (merge mode). For every record whose image URL is a `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp` or `.tiff` they check the asset server for the same file as `.webp`. If it exists they switch the reference, if not the row gets `NO-WEBP`. The output is a re-export of the record in the same layout as the exports.
 
 ### Key Differences from CSV-Driven Scripts
 
@@ -552,6 +624,8 @@ ruby portal-tasks/export_pages.rb -m articles.csv debug
 bundle exec rails runner portal-tasks/export_profiles.rb -m team_profiles.csv
 ```
 
+**One output row per input row**: in merge mode the output has exactly as many rows as the input CSV, in the same order, so it can be pasted back over the sheet. A row whose record cannot be exported (the ID no longer exists, a user has no profile, the export raised an error) or that has no valid `id` (blank or not a number) is returned exactly as it was in the input CSV. Only `status` and `error_message` (and `error_trace`) say what happened. A repeated ID keeps the manual columns of its own input row. This applies to `export_profiles.rb`, `export_pages.rb` and `export_side_column_blocks.rb` (`ExportUtils.read_input_rows` and `ExportUtils.merge_with_input_rows`). The `swap_webp_*.rb` scripts still use the older ID-keyed merge.
+
 **Benefits:**
 - Eliminates manual column-by-column copy/paste
 - Preserves all manual metadata and TODOs
@@ -597,6 +671,9 @@ bundle exec rails runner portal-tasks/export_profiles.rb -m team_profiles.csv
 Same CSV structure as corresponding task scripts:
 - `export_pages.rb` → Same columns as `pages.rb` GET operation
 - `export_profiles.rb` → Same columns as `profiles.rb` GET operation
+- `export_side_column_blocks.rb`, `swap_webp_*.rb` → Same columns as the CRUD script of their tab
+
+The exports and swap scripts must keep the same layout as the sheet. `check_headers.rb` verifies it.
 
 Reports saved to: `portal-tasks-reports/YYMMDD_[entity]_tasks_report.csv`
 
