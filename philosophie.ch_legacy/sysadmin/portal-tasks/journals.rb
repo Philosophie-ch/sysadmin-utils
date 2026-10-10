@@ -75,6 +75,9 @@ def main(csv_file, log_level = 'info')
       _contact_person: row['_contact_person'] || '',
       _contact_person_email: row['_contact_person_email'] || '',
 
+      issn_print: row['issn_print'] || '',  # read-only, stored in Alexandria
+      issn_electronic: row['issn_electronic'] || '',  # read-only, stored in Alexandria
+
       _references_keys: row['_references_keys'] || '',
       references_asset: row['references_asset'] || '',
       _further_references_keys: row['_further_references_keys'] || '',
@@ -325,6 +328,9 @@ def main(csv_file, log_level = 'info')
           _contact_person: subreport[:_contact_person],
           _contact_person_email: subreport[:_contact_person_email],
 
+          issn_print: subreport[:issn_print],
+          issn_electronic: subreport[:issn_electronic],
+
           _references_keys: subreport[:_references_keys],
           references_asset: entity.references_url.to_s.strip.blank? ? 'empty' : entity.references_url.to_s.strip.sub(REFERENCES_BASE_URL, ''),
           _further_references_keys: subreport[:_further_references_keys],
@@ -413,6 +419,15 @@ def main(csv_file, log_level = 'info')
       cover_pic_url = updated_entity.picture_url.to_s.strip || ''
       unprocessed_cover_picture_asset = cover_pic_url.blank? ? 'empty' : unprocess_asset_urls([cover_pic_url]).strip
 
+      # ISSNs: read-only here, they are stored in Alexandria. UPDATE and POST ignore them silently; the report
+      # just carries the value read from Alexandria. If it cannot be read, the sheet's cells are kept as they are.
+      issns, issn_message = fetch_journal_issns(updated_entity[KEY])
+      subreport[:warning_messages] += " ::: ISSN: #{issn_message}" if req == 'GET' && issn_message.present?
+      if req != 'GET' && issns && old_entity
+        old_entity[:issn_print] = issns[:issn_print]
+        old_entity[:issn_electronic] = issns[:issn_electronic]
+      end
+
       subreport.merge!({
         id: "#{updated_entity.id}".strip,
         hidden: updated_entity.hidden? ? 'TRUE' : 'FALSE',
@@ -431,6 +446,9 @@ def main(csv_file, log_level = 'info')
 
         description: updated_entity.description.to_s.strip || '',
         website: updated_entity.website.to_s.strip || '',
+        issn_print: issns ? issns[:issn_print] : subreport[:issn_print].to_s.strip,
+        issn_electronic: issns ? issns[:issn_electronic] : subreport[:issn_electronic].to_s.strip,
+
         cover_picture_asset: unprocessed_cover_picture_asset,
 
       })

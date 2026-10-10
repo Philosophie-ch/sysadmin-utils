@@ -411,7 +411,7 @@ def main(csv_file, log_level = 'info')
       Rails.logger.info("Processing #{ENTITY_NAME} '#{entity_display_name}': Execution")
 
       if req == 'DELETE'
-        entity.delete
+        entity.destroy!  # destroy (not delete) so dependent records such as publication_authors are removed too
 
         entity_present = MODEL.find_by(id: id).present?
 

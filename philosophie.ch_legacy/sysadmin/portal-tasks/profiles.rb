@@ -107,9 +107,9 @@ def main(csv_file, log_level = 'info')
 
       country: row["country"] || "",
       swiss_region: row["swiss_region"] || "",
+      _canton: row["_canton"] || "",
       cv_url: row["cv_url"] || "",
       ui_language: row["ui_language"] || "",
-      _canton: row["_canton"] || "",
       description: row["description"] || "",
       website: row["website"] || "",
       teacher_at_institution: row["teacher_at_institution"] || "",
@@ -391,9 +391,9 @@ def main(csv_file, log_level = 'info')
 
           country: user.profile.country,
           swiss_region: user.profile.swiss_region,
+          _canton: subreport[:_canton],
           cv_url: user.profile.cv_url,
           ui_language: user.profile.ui_language,
-          _canton: subreport[:_canton],
           description: user.profile.description,
           website: user.profile.website,
           teacher_at_institution: user.profile.teacher_at_institution,
@@ -455,21 +455,11 @@ def main(csv_file, log_level = 'info')
           user.profile.newsletter = newsletter
           user.profile.academic_page = academic_page
           user.profile.country = country
-          # swiss_region only applies to Switzerland (same rule as the profile edit form)
-          if swiss_region.present? && country.present? && country != 'CH'
-            subreport[:warning_messages] = "#{subreport[:warning_messages]}swiss_region '#{swiss_region}' ignored because country is '#{country}' (not CH). ".lstrip
-            swiss_region = ''
-          end
           if swiss_region.present? && !SwissRegion::ALL.include?(swiss_region)
             raise ArgumentError, "Invalid swiss_region '#{swiss_region}'. Valid values: #{SwissRegion::ALL.join(', ')}"
           end
           user.profile.swiss_region = swiss_region.presence
 
-          # ui_language is read-only here: it is set by the interface language switcher only
-          input_ui_language = subreport[:ui_language].to_s.strip
-          if input_ui_language != user.profile.ui_language.to_s
-            subreport[:warning_messages] = "#{subreport[:warning_messages]}ui_language is read-only and was not changed. ".lstrip
-          end
           user.profile.cv_url = cv_url.presence
           user.profile.description = description
           user.profile.website = website

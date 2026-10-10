@@ -190,9 +190,14 @@ module ExportUtils
   end
 
 
+  # Columns that describe what happened in this run; they always come from the report row
+  REPORT_COLUMNS = %i[status changes_made error_message error_trace update_links_report original_order result_order].freeze
+
   # Merge DB data with preserved columns from input CSV
+  # failed_ids: records that could not be exported. Their row is the input row exactly as it was, only the
+  # report columns (status, error_message...) say what happened, so pasting the output back changes nothing there.
   # Returns merged report ready for CSV output
-  def self.merge_with_input_csv(db_rows, input_csv_data, preserved_columns)
+  def self.merge_with_input_csv(db_rows, input_csv_data, preserved_columns, failed_ids = [])
     Rails.logger.info("Merging #{db_rows.length} rows with input CSV data...")
     Rails.logger.info("Preserving columns: #{preserved_columns.join(', ')}")
 
@@ -208,6 +213,14 @@ module ExportUtils
       # Start with DB data
       merged = db_row.dup
 
+      if failed_ids.include?(id)
+        merged.each_key do |column|
+          next if REPORT_COLUMNS.include?(column)
+
+          merged[column] = input_row[column.to_s] if input_row.key?(column.to_s)
+        end
+      end
+
       # Override with preserved columns from input CSV
       preserved_columns.each do |col|
         if input_row.key?(col)
@@ -220,6 +233,74 @@ module ExportUtils
 
     Rails.logger.info("Merge complete")
     merged_rows
+  end
+
+
+  # The id of an input row (same rules as parse_ids_from_csv). nil when blank or not a plain integer.
+  def self.parse_row_id(value)
+    return nil if value.blank?
+
+    id_int = value.to_i
+    id_int.to_s == value.strip ? id_int : nil
+  end
+
+
+  # The input CSV as an ordered list of rows (hash header => value), one per data row,
+  # including the rows without a valid id.
+  def self.read_input_rows(csv_file)
+    csv_data = nil
+    begin
+      csv_data = CSV.read(csv_file, headers: true, encoding: 'UTF-8')
+    rescue ArgumentError, Encoding::InvalidByteSequenceError, CSV::MalformedCSVError
+      Rails.logger.info("UTF-8 parsing failed, trying UTF-16...")
+      csv_data = CSV.read(csv_file, headers: true, encoding: 'UTF-16')
+    end
+
+    csv_data.map(&:to_h)
+  end
+
+
+  # A row in the report layout whose cells are the ones of the input row, exactly as they were.
+  # The report columns (status, error_message...) are blank, or the given values.
+  def self.untouched_input_row(layout, input_row, report_values = {})
+    row = layout.to_h { |column| [column, REPORT_COLUMNS.include?(column) ? '' : input_row.fetch(column.to_s, '')] }
+    row.merge(report_values)
+  end
+
+
+  # Merge mode output: exactly one row per input row, in the same order, so it can be pasted back over the sheet.
+  # - the record was exported: the DB data plus the preserved columns of THIS input row (also when an id repeats)
+  # - the record could not be exported (failed_ids): the input row as it was, only the report columns say what happened
+  # - the row has no valid id: the input row as it was, with status 'error'
+  # db_rows are the report rows of the rows that have a valid id, in the order of the input.
+  def self.merge_with_input_rows(db_rows, input_rows, preserved_columns, failed_ids = [])
+    with_id = input_rows.count { |row| parse_row_id(row['id']) }
+    unless with_id == db_rows.length
+      raise "The report has #{db_rows.length} rows but the input CSV has #{with_id} rows with a valid id"
+    end
+
+    layout = db_rows.first ? db_rows.first.keys : input_rows.first.keys.compact.map(&:to_sym)
+    exported = db_rows.each
+
+    input_rows.map do |input_row|
+      id = parse_row_id(input_row['id'])
+
+      if id.nil?
+        next untouched_input_row(layout, input_row, status: 'error', error_message: "The row has no valid id in the 'id' column")
+      end
+
+      db_row = exported.next
+
+      if failed_ids.include?(id)
+        next untouched_input_row(layout, input_row, db_row.slice(*REPORT_COLUMNS))
+      end
+
+      merged = db_row.dup
+      preserved_columns.each do |col|
+        merged[col.to_sym] = input_row[col] if input_row.key?(col)
+      end
+      merged
+    end
   end
 
 

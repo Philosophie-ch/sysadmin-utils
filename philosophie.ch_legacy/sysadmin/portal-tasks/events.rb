@@ -55,10 +55,10 @@ def generate_csv_report(report)
 end
 
 
-# 'dates' cell: semicolon-separated ISO dates, e.g. "2026-11-05; 2026-11-06".
+# 'dates' cell: comma-separated ISO dates, e.g. "2026-11-05, 2026-11-06".
 # Returns [sorted_dates, error_message]
 def parse_event_dates(dates_str)
-  parts = dates_str.to_s.split(';').map(&:strip).reject(&:blank?)
+  parts = dates_str.to_s.split(',').map(&:strip).reject(&:blank?)
   return [[], "No dates found"] if parts.empty?
 
   parsed = []
@@ -66,7 +66,7 @@ def parse_event_dates(dates_str)
     begin
       parsed << Date.iso8601(part)
     rescue ArgumentError
-      return [[], "Invalid date '#{part}'. Use YYYY-MM-DD"]
+      return [[], "Invalid date '#{part}'. Use YYYY-MM-DD, several dates separated by commas"]
     end
   end
 
@@ -107,7 +107,7 @@ end
 
 
 def event_dates_to_string(event)
-  event.ordered_dates.map { |event_date| event_date.date.iso8601 }.join('; ')
+  event.ordered_dates.map { |event_date| event_date.date.iso8601 }.join(', ')
 end
 
 
@@ -116,6 +116,19 @@ def event_speakers_to_string(event)
     who = speaker.profile.present? ? "@#{speaker.profile.slug}" : speaker.name.to_s
     speaker.affiliation.present? ? "#{who} | #{speaker.affiliation}" : who
   end.join('; ')
+end
+
+
+# Saves the event. Old events can have a title longer than the limit the model has today. When that is the only
+# problem and the title is not being changed, the validation is skipped so the rest of the update still goes through.
+def save_event!(event)
+  return event.save! if event.valid?
+
+  only_old_long_title = event.errors.keys == [:title] &&
+                        event.errors.details[:title].all? { |detail| detail[:error] == :too_long } &&
+                        !event.title_changed?
+
+  only_old_long_title ? event.save!(validate: false) : event.save!
 end
 
 
@@ -131,14 +144,12 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
     id: row["id"] || '',
     dates: row["dates"] || '',
     profile_slug: row["profile_slug"] || '',
+    speakers: row["speakers"] || '',
     title: row["title"] || '',
     region: row["region"] || '',
-    speakers: row["speakers"] || '',
     link: row["link"] || '',
     _url: row["_url"] || '',
     recurrent: row["recurrent"] || '',
-    page_id: row["page_id"] || '',  # read-only
-    node_id: row["node_id"] || '',  # read-only
     _to_do_for_us: row["_to_do_for_us"] || '',
 
     status: '',
@@ -325,8 +336,6 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
         link: event.link,
         _url: subreport[:_url],
         recurrent: subreport[:recurrent],
-        page_id: event.page_id,
-        node_id: event.node_id,
         _to_do_for_us: subreport[:_to_do_for_us],
 
         status: subreport[:status],
@@ -352,7 +361,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
         event.link = link unless event.page_id.present? && event.node_id.present?
         event.recurrent = recurrent
 
-        event.save!
+        save_event!(event)
 
         # Replace the set of dates
         event.event_dates.where.not(date: dates).destroy_all
@@ -360,7 +369,7 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
         (dates - existing_dates).each { |date| event.event_dates.create!(date: date) }
 
         # Save again so the before_save callback re-syncs Event#date from the new set of dates
-        event.reload.save!
+        save_event!(event.reload)
 
         # Replace the speakers; position follows the order in the cell
         event.speakers.destroy_all
@@ -385,8 +394,6 @@ CSV.foreach("portal-tasks/events.csv", col_sep: ',', headers: true) do |row|
       link: event.link,
       _url: "https://www.philosophie.ch#{event.link}",
       recurrent: "#{event.recurrent}".upcase,
-      page_id: event.page_id,
-      node_id: event.node_id,
     })
 
     if req == 'UPDATE' || req == 'GET'

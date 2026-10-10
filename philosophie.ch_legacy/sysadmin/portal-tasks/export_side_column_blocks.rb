@@ -14,10 +14,11 @@ def export_side_column_blocks(ids_or_file = nil, log_level = 'info', merge_mode:
   ExportUtils.setup_logging(log_level)
 
   report = []
+  failed_ids = []  # records that could not be exported: in merge mode their input row is returned untouched
   processed_count = 0
 
   # Merge mode variables
-  input_csv_data = nil
+  input_rows = nil
   preserved_columns = nil
   output_filename = nil
 
@@ -34,8 +35,8 @@ def export_side_column_blocks(ids_or_file = nil, log_level = 'info', merge_mode:
       if merge_mode && ids_or_file.to_s.end_with?('.csv')
         Rails.logger.info("MERGE MODE: Reading input CSV: #{ids_or_file}")
 
-        input_csv_data = ExportUtils.read_input_csv_data(ids_or_file)
-        Rails.logger.info("Read #{input_csv_data.keys.length} rows from input CSV")
+        input_rows = ExportUtils.read_input_rows(ids_or_file)
+        Rails.logger.info("Read #{input_rows.length} rows from input CSV")
 
         ids = ExportUtils.parse_ids_from_csv(ids_or_file)
 
@@ -71,7 +72,7 @@ def export_side_column_blocks(ids_or_file = nil, log_level = 'info', merge_mode:
   # MAIN EXPORT LOOP
   ############
 
-  process_block = lambda do |block|
+  process_block = lambda do |block, original_id = nil|
     begin
       processed_count += 1
       ExportUtils.log_progress(processed_count, total_blocks, "side_column_blocks")
@@ -79,12 +80,13 @@ def export_side_column_blocks(ids_or_file = nil, log_level = 'info', merge_mode:
       unless block
         Rails.logger.warn("SideColumnBlock ID not found in database - skipping (row #{processed_count})")
         error_data = {
-          _sort: "", key: "", id: "", link: "", _request: "", block_type: "", content: "", pages: "",
+          _sort: "", key: "", id: original_id, link: "", _request: "", block_type: "", content: "", pages: "",
           status: 'error', changes_made: '',
           error_message: "SideColumnBlock ID not found in database",
           error_trace: '',
           original_order: '', result_order: '',
         }
+        failed_ids << original_id
         report << error_data
         return
       end
@@ -92,7 +94,7 @@ def export_side_column_blocks(ids_or_file = nil, log_level = 'info', merge_mode:
       block_data = {
         _sort: "",
         key: block.key,
-        id: block.id.to_s,
+        id: block.id,  # an integer: the merge with the input CSV matches rows by it
         link: get_block_admin_link(block),
         _request: "",
         block_type: block.block_type,
@@ -114,7 +116,7 @@ def export_side_column_blocks(ids_or_file = nil, log_level = 'info', merge_mode:
       error_data = {
         _sort: "",
         key: block&.key || "",
-        id: block&.id&.to_s || "",
+        id: block&.id || original_id,
         link: "",
         _request: "",
         block_type: block&.block_type || "",
@@ -127,12 +129,13 @@ def export_side_column_blocks(ids_or_file = nil, log_level = 'info', merge_mode:
         error_trace: e.backtrace.join(" ::: "),
         original_order: '', result_order: '',
       }
+      failed_ids << error_data[:id]
       report << error_data
     end
   end
 
   if blocks
-    blocks.each(&process_block)
+    ids.zip(blocks).each { |original_id, block| process_block.call(block, original_id) }
   else
     SideColumnBlock
       .includes(:alchemy_page_side_column_blocks)
@@ -169,9 +172,9 @@ def export_side_column_blocks(ids_or_file = nil, log_level = 'info', merge_mode:
 
   Rails.logger.info("Export complete. Generating report...")
 
-  if merge_mode && input_csv_data && preserved_columns
+  if merge_mode && input_rows && preserved_columns
     Rails.logger.info("Merging exported data with input CSV...")
-    report = ExportUtils.merge_with_input_csv(report, input_csv_data, preserved_columns)
+    report = ExportUtils.merge_with_input_rows(report, input_rows, preserved_columns, failed_ids)
   end
 
   if output_filename

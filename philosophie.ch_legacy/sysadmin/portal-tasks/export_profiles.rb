@@ -14,10 +14,11 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
   ExportUtils.setup_logging(log_level)
 
   report = []
+  failed_ids = []  # records that could not be exported: in merge mode their input row is returned untouched
   processed_count = 0
 
   # Merge mode variables
-  input_csv_data = nil
+  input_rows = nil
   preserved_columns = nil
   output_filename = nil
 
@@ -43,8 +44,8 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
         Rails.logger.info("MERGE MODE: Reading input CSV: #{ids_or_file}")
 
         # Read CSV data for later merging
-        input_csv_data = ExportUtils.read_input_csv_data(ids_or_file)
-        Rails.logger.info("Read #{input_csv_data.keys.length} rows from input CSV")
+        input_rows = ExportUtils.read_input_rows(ids_or_file)
+        Rails.logger.info("Read #{input_rows.length} rows from input CSV")
 
         # Parse IDs from CSV
         ids = ExportUtils.parse_ids_from_csv(ids_or_file)
@@ -89,7 +90,7 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
   ############
 
   # Define the user processing logic
-  process_user = lambda do |user|
+  process_user = lambda do |user, original_id = nil|
     begin
       processed_count += 1
       ExportUtils.log_progress(processed_count, total_users, "profiles")
@@ -98,7 +99,9 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
       unless user
         Rails.logger.warn("User ID not found in database - skipping (row #{processed_count})")
         error_data = build_error_profile_data(nil, "User ID not found in database")
+        error_data[:id] = original_id
         error_data[:result_order] = processed_count
+        failed_ids << original_id
         report << error_data
         return
       end
@@ -108,6 +111,7 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
         Rails.logger.warn("User #{user.id} (#{user.login}) has no profile - skipping")
         error_data = build_error_profile_data(user, "User has no profile attached")
         error_data[:result_order] = processed_count
+        failed_ids << user.id
         report << error_data
         return
       end
@@ -182,9 +186,9 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
 
         country: user.profile.country,
         swiss_region: user.profile.swiss_region,
+        _canton: "",
         cv_url: user.profile.cv_url,
         ui_language: user.profile.ui_language,
-        _canton: "",
         description: user.profile.description,
         website: user.profile.website,
         teacher_at_institution: user.profile.teacher_at_institution,
@@ -196,19 +200,20 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
         profile_picture_asset: get_profile_picture_asset_name(user),
         facebook_profile: user.profile.facebook_profile,
 
-        status: 'success',
-        changes_made: '',
-        error_message: '',
-        error_trace: '',
-        update_links_report: '',
-        result_order: processed_count,
-
         public: user.profile.public,
         other_personal_information: user.profile.other_personal_information,
         last_sign_in_at: user.last_sign_in_at,
         sign_in_count: user.sign_in_count,
         confirmed_at: user.profile.confirmed_at,
         potential_duplicates: potential_duplicates,
+
+        status: 'success',
+        changes_made: '',
+        error_message: '',
+        error_trace: '',
+        update_links_report: '',
+        original_order: '',
+        result_order: processed_count,
       }
 
       report << profile_data
@@ -217,97 +222,17 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
     rescue => e
       Rails.logger.error("Error exporting user #{user&.id || 'unknown'} (#{user&.login || 'unknown'}): #{e.message}")
       error_data = build_error_profile_data(user, "#{e.class} :: #{e.message}", e.backtrace.join(" ::: "))
+      error_data[:id] = user&.id || original_id
       error_data[:result_order] = processed_count
+      failed_ids << error_data[:id]
       report << error_data
     end
   end
 
-  # Helper function to build error profile data
-  def build_error_profile_data(user, error_message, error_trace = "")
-    {
-      _sort: "",
-      _correspondence: "",
-      _todo_person: "",
-      _request: "",
-      alchemy_roles: user&.alchemy_roles&.join(', ') || "",
-      _member_subcategory: "",
-      _status_wrt_association: "",
-      membership_wanted: "",
-      id: user&.id || "",
-      famous: "",
-      _role_wrt_portal: "",
-      _biblio_name: "",
-      _biblio_full_name: "",
-      profile_name: "",
-      firstname: user&.firstname || "",
-      lastname: user&.lastname || "",
-      email_addresses: "",
-      newsletter: "",
-      academic_page: "",
-      abbreviation: "",
-      _function: "",
-      login: user&.login || "",
-      _old_login: "",
-      _link: "",
-      password: "",
-      language: user&.language || "",
-      gender: user&.gender || "",
-      last_updaters: "",
-      _contact_person: "",
-      _contact_person_email: "",
-      _articles_assigned_to_profile: "",
-      _articles_assigned_to_profile_links: "",
-      biblio_keys: "",
-      bibliography_asset_url: "",
-      biblio_keys_further_references: "",
-      bibliography_further_references_asset_url: "",
-      biblio_dependencies_keys: "",
-      pages_commented: "",
-      mentioned_on: "",
-      _comments_on_contacts: "",
-      institutional_affiliation: "",
-      _comments_on_employment: "",
-      _form_of_address: "",
-      _title: "",
-      type_of_affiliation: "",
-      other_type_of_affiliation: "",
-      type_of_studies: "",
-      _function_title: "",
-      _function_standardised: "",
-      country: "",
-      swiss_region: "",
-      cv_url: "",
-      ui_language: "",
-      _canton: "",
-      description: "",
-      website: "",
-      teacher_at_institution: "",
-      teacher_at_other_institution: "",
-      _interests: "",
-      _projects: "",
-      societies: "",
-      cms_public_email_toggle: "",
-      profile_picture_asset: "",
-      facebook_profile: "",
-      status: 'unhandled error',
-      changes_made: '',
-      error_message: error_message,
-      error_trace: error_trace,
-      update_links_report: '',
-      result_order: 0,
-      public: "",
-      other_personal_information: "",
-      last_sign_in_at: "",
-      sign_in_count: "",
-      confirmed_at: "",
-      potential_duplicates: "",
-    }
-  end
-
   # Execute based on whether we have specific IDs or exporting all
   if users
-    # Process specific users in order
-    users.each(&process_user)
+    # Process specific users in order (the id is kept for the ones that do not exist)
+    ids.zip(users).each { |original_id, user| process_user.call(user, original_id) }
   else
     # Use find_each for memory-efficient iteration through all users
     # Eager load associations to minimize queries
@@ -327,9 +252,9 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
   Rails.logger.info("Export complete. Generating report...")
 
   # If in merge mode, merge with input CSV data
-  if merge_mode && input_csv_data && preserved_columns
+  if merge_mode && input_rows && preserved_columns
     Rails.logger.info("Merging exported data with input CSV...")
-    report = ExportUtils.merge_with_input_csv(report, input_csv_data, preserved_columns)
+    report = ExportUtils.merge_with_input_rows(report, input_rows, preserved_columns, failed_ids)
   end
 
   # Generate CSV output

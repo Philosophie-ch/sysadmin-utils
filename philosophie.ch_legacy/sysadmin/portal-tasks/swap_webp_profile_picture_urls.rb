@@ -215,6 +215,7 @@ def build_profile_report_row(user, user_articles_map, result_order)
     _status_wrt_association: "",
     membership_wanted: user.profile.membership_wanted,
     id: user.id,
+    famous: user.profile.famous,
     _role_wrt_portal: "",
     _biblio_name: "",
     _biblio_full_name: "",
@@ -258,9 +259,9 @@ def build_profile_report_row(user, user_articles_map, result_order)
 
     country: user.profile.country,
     swiss_region: user.profile.swiss_region,
+    _canton: "",
     cv_url: user.profile.cv_url,
     ui_language: user.profile.ui_language,
-    _canton: "",
     description: user.profile.description,
     website: user.profile.website,
     teacher_at_institution: user.profile.teacher_at_institution,
@@ -272,17 +273,20 @@ def build_profile_report_row(user, user_articles_map, result_order)
     profile_picture_asset: get_profile_picture_asset_name(user),
     facebook_profile: user.profile.facebook_profile,
 
+    public: user.profile.public,
+    other_personal_information: user.profile.other_personal_information,
+    last_sign_in_at: user.last_sign_in_at,
+    sign_in_count: user.sign_in_count,
+    confirmed_at: user.profile.confirmed_at,
+    potential_duplicates: potential_duplicates,
+
     status: '',
     changes_made: '',
     error_message: '',
     error_trace: '',
     update_links_report: '',
+    original_order: '',
     result_order: result_order,
-
-    public: user.profile.public,
-    other_personal_information: user.profile.other_personal_information,
-    confirmed_at: user.profile.confirmed_at,
-    potential_duplicates: potential_duplicates,
   }
 end
 

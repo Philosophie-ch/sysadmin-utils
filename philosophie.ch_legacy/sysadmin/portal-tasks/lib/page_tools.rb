@@ -1839,3 +1839,239 @@ def create_pdf_block(page)
     return report
   end
 end
+
+
+############
+# REPORT ROW (same columns, in the same order, as the pages.rb report)
+# Used by export_pages.rb and swap_webp_asset_urls.rb, so the two cannot drift from each other.
+############
+
+PAGE_REPORT_COLUMNS = %i[
+  _to_do _sort id published hidden name
+  pre_headline title lead_text embedded_html_base_name content_languages translation_group
+  breadcrumb_key language_code urlname link _request bibkey
+  how_to_cite pure_html_asset pure_pdf_asset doi side_column_blocks created_at
+  presented_entity_type presentation_of page_layout created_by last_updated_by last_updated_date
+  replies_to reply_to_type replied_by tag_page_type tag_media tag_content_type
+  tag_language tag_institution tag_canton tag_project tag_public tag_references
+  tag_footnotes ref_bib_keys _ref_people references_asset_url _further_refs further_references_asset_url
+  _depends_on _link _abstract assigned_authors anon intro_image_asset
+  audio_assets video_assets pdf_assets picture_assets text_and_picture_assets embed_blocks
+  _attachment_links_assets attachment_links_portal has_html_header_tags themetags_discipline themetags_focus themetags_badge
+  themetags_structural aside_column_content status changes_made error_message error_trace
+  original_order result_order
+].freeze
+
+# A row with every column blank (or the given values). Raises on a column that is not in the layout.
+def blank_page_report_row(values = {})
+  unknown = values.keys - PAGE_REPORT_COLUMNS
+  raise ArgumentError, "Unknown page report column(s): #{unknown.join(', ')}" unless unknown.empty?
+
+  PAGE_REPORT_COLUMNS.to_h { |column| [column, ''] }.merge(values)
+end
+
+# The database-derived columns of a page. The status is 'success' or 'partial success' (intro problems).
+def build_page_report_row(page, all_attachments_with_pages, result_order)
+  # Track if page has intro-related issues
+  partial_success = false
+  partial_error_messages = []
+
+  # Determine if this page layout should have an intro element
+  # Based on page_tools.rb patterns: article, event, info, note have intros
+  # Also: call_for_papers, job, topic, standard (based on intro element names and metadata usage)
+  layouts_with_intro = ['article', 'event', 'info', 'note', 'call_for_papers', 'job', 'topic', 'standard']
+  should_have_intro = layouts_with_intro.include?(page.page_layout)
+
+  # Build the report row with the same structure as pages.rb
+  tags_to_cols = tag_array_to_columns(page.tag_names)
+  retrieved_slug = retrieve_page_slug(page)
+
+  # Get intro-dependent fields with error handling
+  begin
+    pre_headline = get_pre_headline(page)
+  rescue => e
+    pre_headline = ""
+    if should_have_intro
+      partial_success = true
+      partial_error_messages << "pre_headline: #{e.message}"
+      Rails.logger.warn("Page #{page.id} (#{page.page_layout}): Could not get pre_headline - #{e.message}")
+    end
+  end
+
+  begin
+    lead_text = get_lead_text(page)
+  rescue => e
+    lead_text = ""
+    if should_have_intro
+      partial_success = true
+      partial_error_messages << "lead_text: #{e.message}"
+      Rails.logger.warn("Page #{page.id} (#{page.page_layout}): Could not get lead_text - #{e.message}")
+    end
+  end
+
+  begin
+    themetags_hashmap = get_themetags(page)
+  rescue => e
+    themetags_hashmap = {discipline: "", focus: "", badge: "", structural: ""}
+    if should_have_intro
+      partial_success = true
+      partial_error_messages << "themetags: #{e.message}"
+      Rails.logger.warn("Page #{page.id} (#{page.page_layout}): Could not get themetags - #{e.message}")
+    end
+  end
+
+  begin
+    assigned_authors = get_assigned_authors(page)
+  rescue => e
+    assigned_authors = ""
+    if should_have_intro
+      partial_success = true
+      partial_error_messages << "assigned_authors: #{e.message}"
+      Rails.logger.warn("Page #{page.id} (#{page.page_layout}): Could not get assigned_authors - #{e.message}")
+    end
+  end
+
+  begin
+    intro_image_asset = get_asset_names(page, "intro", ELEMENT_NAME_AND_URL_FIELD_MAP[:"intro"])
+  rescue => e
+    intro_image_asset = ""
+    if should_have_intro
+      partial_success = true
+      partial_error_messages << "intro_image_asset: #{e.message}"
+      Rails.logger.warn("Page #{page.id} (#{page.page_layout}): Could not get intro_image_asset - #{e.message}")
+    end
+  end
+
+  # Get references info
+  references_base_url = "https://assets.philosophie.ch/references/articles/"
+  all_references_urls = get_references_urls(page)
+  references_asset_url = all_references_urls[:references_url] ? all_references_urls[:references_url].gsub(references_base_url, '') : ''
+  further_references_asset_url = all_references_urls[:further_references_url] ? all_references_urls[:further_references_url].gsub(references_base_url, '') : ''
+
+  # Get article metadata (if article layout)
+  if page.page_layout == "article"
+    aside_column = get_aside_column(page)
+    article_metadata_element = get_article_metadata_element(aside_column)
+
+    pure_links_base_url = "https://assets.philosophie.ch/dialectica/"
+
+    if article_metadata_element.nil?
+      doi = ''
+      how_to_cite = ''
+      pure_html_asset = ''
+      pure_pdf_asset = ''
+    else
+      doi = get_doi(article_metadata_element)
+      how_to_cite = get_how_to_cite(article_metadata_element)
+      pure_html_asset = get_pure_html_asset(article_metadata_element, pure_links_base_url)
+      pure_pdf_asset = get_pure_pdf_asset(article_metadata_element, pure_links_base_url)
+    end
+  else
+    doi = ''
+    how_to_cite = ''
+    pure_html_asset = ''
+    pure_pdf_asset = ''
+  end
+
+  # Get side column blocks (all page layouts)
+  side_column_blocks = get_side_column_block_keys(page)
+
+  # Get published status once to avoid inconsistency
+  published_status = get_published(page)
+
+  # Generate appropriate link based on published status
+  page_link = if published_status == "PUBLISHED"
+    "https://www.philosophie.ch#{retrieved_slug}"
+  else
+    "https://www.philosophie.ch/admin/pages/#{page.id}/edit"
+  end
+
+  blank_page_report_row(
+    id: page.id,
+    published: published_status,
+    hidden: get_hidden(page),
+    name: page.name,
+    pre_headline: pre_headline,
+    title: page.title,
+    lead_text: lead_text,
+    content_languages: page.page_languages.pluck(:language_code).sort.join(', '),
+    translation_group: page.page_translation_group_key || '',
+    breadcrumb_key: page.breadcrumb_key || '',
+    language_code: page.language_code,
+    urlname: page.urlname,
+    link: page_link,
+    bibkey: page.bibkey || '',
+    how_to_cite: how_to_cite,
+    pure_html_asset: pure_html_asset,
+    pure_pdf_asset: pure_pdf_asset,
+    doi: doi,
+    side_column_blocks: side_column_blocks,
+    created_at: get_created_at(page),
+    presented_entity_type: page.presented_entity_type || '',
+    presentation_of: page.presented_entity_identifier || '',
+    page_layout: page.page_layout,
+    created_by: get_creator(page),
+    last_updated_by: get_last_updater(page),
+    last_updated_date: get_last_updated_date(page),
+    replies_to: get_reply_target_id(page),
+    reply_to_type: get_reply_target_type(page),
+    replied_by: get_replied_by(page),
+
+    tag_page_type: tags_to_cols[:tag_page_type],
+    tag_media: tags_to_cols[:tag_media],
+    tag_content_type: tags_to_cols[:tag_content_type],
+    tag_language: tags_to_cols[:tag_language],
+    tag_institution: tags_to_cols[:tag_institution],
+    tag_canton: tags_to_cols[:tag_canton],
+    tag_public: tags_to_cols[:tag_public],
+    tag_project: tags_to_cols[:tag_project],
+    tag_references: tags_to_cols[:tag_references],
+    tag_footnotes: tags_to_cols[:tag_footnotes],
+
+    ref_bib_keys: get_references_bib_keys(page),
+    references_asset_url: references_asset_url,
+    further_references_asset_url: further_references_asset_url,
+
+    assigned_authors: assigned_authors,
+    anon: get_anon(page),
+
+    intro_image_asset: intro_image_asset,
+    audio_assets: get_asset_names(page, "audio_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"audio_block"]),
+    video_assets: get_asset_names(page, "video_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"video_block"]),
+    pdf_assets: get_asset_names(page, "pdf_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"pdf_block"]),
+    picture_assets: get_asset_names(page, "picture_block", ELEMENT_NAME_AND_URL_FIELD_MAP[:"picture_block"]),
+    text_and_picture_assets: get_asset_names(page, "text_and_picture", ELEMENT_NAME_AND_URL_FIELD_MAP[:"text_and_picture"]),
+
+    embed_blocks: has_embed_blocks(page),
+    attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
+    has_html_header_tags: has_html_header_tags(page),
+
+    themetags_discipline: themetags_hashmap[:discipline],
+    themetags_focus: themetags_hashmap[:focus],
+    themetags_badge: themetags_hashmap[:badge],
+    themetags_structural: themetags_hashmap[:structural],
+
+    aside_column_content: has_aside_column_content(page),
+    status: partial_success ? 'partial success' : 'success',
+    error_message: partial_error_messages.join(' | '),
+    result_order: result_order,
+  )
+end
+
+# Row for a page ID that does not exist. The caller sets status and error_message.
+def build_empty_page_row(result_order)
+  blank_page_report_row(result_order: result_order)
+end
+
+# Row for a page that raised. The caller sets status, error_message and error_trace.
+def build_error_page_row(page, result_order)
+  blank_page_report_row(
+    id: page&.id || '',
+    name: page&.name || '',
+    title: page&.title || '',
+    language_code: page&.language_code || '',
+    urlname: page&.urlname || '',
+    page_layout: page&.page_layout || '',
+    result_order: result_order,
+  )
+end
