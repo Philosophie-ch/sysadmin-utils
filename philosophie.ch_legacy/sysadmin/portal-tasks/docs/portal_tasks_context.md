@@ -69,7 +69,7 @@ All main task scripts follow a CSV-driven pattern:
 2. **Processing**: Validate, create, update, or delete entities based on CSV instructions
 3. **Output**: Generate detailed CSV report with results, errors, and warnings
 
-**CSV Encoding**: UTF-16 for most scripts. `topics.rb` and `events.rb` read UTF-8. `pages.rb`, `translation_groups.rb` and `site_sections.rb` detect UTF-16 or UTF-8 themselves.
+**CSV Encoding**: UTF-16 for most scripts. `topics.rb` and `events.rb` read UTF-8. `pages.rb`, `translation_groups.rb`, `site_sections.rb` and `side_column_blocks.rb` detect UTF-16 or UTF-8 themselves.
 
 **Input file and arguments**: the CRUD scripts read a fixed file, `portal-tasks/<name>.csv` (for example `portal-tasks/pages.csv`). The only argument is the log level.
 

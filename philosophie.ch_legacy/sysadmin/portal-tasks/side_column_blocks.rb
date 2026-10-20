@@ -30,6 +30,19 @@ FILE_NAME = "#{__FILE__}"
 #                           e.g. Related || Page A: /page-a; Page B: /page-b
 
 
+def read_csv_file(file_path)
+  bytes = File.binread(file_path, 3)
+  content = if bytes[0..1].b == "\xFF\xFE".b || bytes[0..1].b == "\xFE\xFF".b
+    File.read(file_path, encoding: 'utf-16')
+  elsif bytes[0..2].b == "\xEF\xBB\xBF".b
+    File.read(file_path, encoding: 'bom|utf-8')
+  else
+    File.binread(file_path).force_encoding('utf-8').scrub { |b| b.encode('utf-8', 'iso-8859-1') }
+  end
+  CSV.parse(content, col_sep: ',', headers: true)
+end
+
+
 def main(csv_file, log_level = 'info')
 
   ############
@@ -59,7 +72,7 @@ def main(csv_file, log_level = 'info')
   report = []
   processed_lines = 0
 
-  csv_data = CSV.read(csv_file, col_sep: ',', headers: true, encoding: 'utf-16')
+  csv_data = read_csv_file(csv_file)
   total_lines = csv_data.size
 
 
