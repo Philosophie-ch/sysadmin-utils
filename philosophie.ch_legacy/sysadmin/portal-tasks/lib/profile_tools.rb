@@ -759,6 +759,25 @@ def string_to_type_of_studies(string)
 end
 
 
+# SPPS access tools
+
+SPPS_ACCESS_TYPES = Profile::SPPS_ACCESS_TYPES
+
+class SppsAccessNotFoundError < StandardError; end
+
+# Blank means "no change" (nil). Anything else must be one of Profile::SPPS_ACCESS_TYPES.
+def parse_spps_access(string)
+  value = string.to_s.strip
+  return nil if value.empty?
+
+  unless SPPS_ACCESS_TYPES.include?(value)
+    raise SppsAccessNotFoundError, "Invalid spps_access '#{value}'. Must be one of: #{SPPS_ACCESS_TYPES.join(', ')}"
+  end
+
+  value
+end
+
+
 # Helper function to build error profile data
 def build_error_profile_data(user, error_message, error_trace = "")
   {
@@ -809,6 +828,7 @@ def build_error_profile_data(user, error_message, error_trace = "")
     type_of_affiliation: "",
     other_type_of_affiliation: "",
     type_of_studies: "",
+    spps_access: "",
     _function_title: "",
     _function_standardised: "",
     country: "",

@@ -273,7 +273,7 @@ def main(csv_file, log_level = 'info')
       Rails.logger.info("Processing #{ENTITY_NAME} '#{entity_display_name}': Execution")
 
       if req == 'DELETE'
-        entity.delete
+        entity.destroy!
 
         entity_present = MODEL.find_by(id: id).present?
 

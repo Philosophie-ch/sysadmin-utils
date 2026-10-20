@@ -181,6 +181,7 @@ def export_profiles(ids_or_file = nil, log_level = 'info', merge_mode: false)
         type_of_affiliation: type_of_affiliation_to_string(user.profile.type_of_affiliation),
         other_type_of_affiliation: user.profile.other_type_of_affiliation,
         type_of_studies: type_of_studies_to_string(user.profile.type_of_studies),
+        spps_access: user.profile.spps_access,
         _function_title: "",
         _function_standardised: "",
 

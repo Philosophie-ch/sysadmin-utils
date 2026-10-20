@@ -1,6 +1,7 @@
 require 'csv'
 
 require_relative 'lib/utils'
+require_relative 'lib/translation_group_tools'
 
 TABLE_NAME = 'translation_groups'
 ENTITY_NAME = 'translation_group'
@@ -57,6 +58,8 @@ def main(csv_file, log_level = 'info')
 
   csv_data = read_csv_file(csv_file)
   total_lines = csv_data.size
+
+  key_references = translation_group_key_references  # found once, for the renames
 
 
   ############
@@ -202,7 +205,7 @@ def main(csv_file, log_level = 'info')
       end
 
       if req == 'UPDATE'
-        entity.update!(KEY => entity_key) if entity_key.present? && entity_key != entity.key
+        entity = rename_translation_group(entity, entity_key, key_references) if entity_key.present? && entity_key != entity.key
       end
 
       # Page associations are read-only here; manage them via pages.csv translation_group column

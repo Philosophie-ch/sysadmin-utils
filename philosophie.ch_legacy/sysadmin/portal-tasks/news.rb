@@ -56,7 +56,7 @@ def main(log_level = 'info')
       page_id: page_id,
       event_id: event_ids[index],
       profile_id: user_ids[index],
-      themetag_id: topic_ids[index],
+      topic_id: topic_ids[index],
       side_column_block_id: side_column_block_ids[index],
       note_id: note_ids[index],
     }

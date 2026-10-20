@@ -858,13 +858,21 @@ def has_html_header_tags(page)
 
 end
 
-def themetag_names_by_interest_type(topics, interest_type)
-  return topics.filter { |topic| topic.interest_type == interest_type }.map(&:name).join(", ")
+class TopicWithoutKeyError < StandardError; end
+class TopicNotFoundError < StandardError; end
+
+def topic_keys_by_interest_type(topics, interest_type)
+  selected = topics.filter { |topic| topic.interest_type == interest_type }
+  selected.each do |topic|
+    raise TopicWithoutKeyError, "Topic #{topic.id} ('#{topic.name || topic.name_en}') has no key." if topic.key.blank?
+  end
+
+  return selected.map(&:key).join(", ")
 end
 
-def get_themetags(page)
+def get_topics(page)
 
-  themetags_hashmap = {
+  topics_hashmap = {
     discipline: "",
     focus: "",
     badge: "",
@@ -872,7 +880,7 @@ def get_themetags(page)
   }
 
   if page.page_layout == ''
-    return themetags_hashmap
+    return topics_hashmap
   end
 
   intro_element = forced_intro_element(page)
@@ -880,35 +888,33 @@ def get_themetags(page)
     topic_content = intro_element.contents.find { |content| content.name == 'topics' }
     topics = topic_content&.essence&.topics&.uniq || []
 
-    themetags_hashmap[:discipline] = themetag_names_by_interest_type(topics, "discipline")
-    themetags_hashmap[:focus] = themetag_names_by_interest_type(topics, "focus")
-    themetags_hashmap[:badge] = themetag_names_by_interest_type(topics, "badge")
-    themetags_hashmap[:structural] = themetag_names_by_interest_type(topics, "structural")
+    topics_hashmap[:discipline] = topic_keys_by_interest_type(topics, "discipline")
+    topics_hashmap[:focus] = topic_keys_by_interest_type(topics, "focus")
+    topics_hashmap[:badge] = topic_keys_by_interest_type(topics, "badge")
+    topics_hashmap[:structural] = topic_keys_by_interest_type(topics, "structural")
   end
 
-  return themetags_hashmap
+  return topics_hashmap
 
 end
 
-class ThemetagNotFoundError < StandardError; end
-
-def get_themetag_by_name(name)
-  # nil name allows us to effectively delete the themetag in the set function
-  if name.blank? || name.nil? || name.empty?
+def get_topic_by_key(key)
+  # a blank key allows us to effectively remove the topic in the set function
+  if key.blank?
     return nil
   end
 
-  found = Topic.find_by('LOWER(name) = ?', name.downcase.strip)
+  found = Topic.find_by(key: key.strip)
 
-  # if we do pass a name however, we expect to find the themetag
-  if found.nil? || found.blank?
-    raise ThemetagNotFoundError, "Themetag/Topic with name '#{name}' not found."
+  # if we do pass a key however, we expect to find the topic
+  if found.nil?
+    raise TopicNotFoundError, "Topic with key '#{key}' not found."
   end
 
   return found
 end
 
-def set_themetags(page, themetag_names)
+def set_topics(page, topic_keys)
   report = {
     status: 'not started',
     error_message: '',
@@ -930,13 +936,13 @@ def set_themetags(page, themetag_names)
     end
 
     topic_content = intro_element.contents.find { |content| content.name == 'topics' }
-    themetags = themetag_names.map { |name| get_themetag_by_name(name) }.compact.uniq
-    update_response = topic_content.essence.update(topics: themetags)
+    topics = topic_keys.map { |key| get_topic_by_key(key) }.compact.uniq
+    update_response = topic_content.essence.update(topics: topics)
 
     if !update_response
       report[:status] = 'error'
-      report[:error_message] = "Unknown error while updating themetags, 'update' method returned `false`. Check logs for more details."
-      report[:error_trace] = "pages_tools.rb::set_themetags"
+      report[:error_message] = "Unknown error while updating topics, 'update' method returned `false`. Check logs for more details."
+      report[:error_trace] = "pages_tools.rb::set_topics"
     else
       report[:status] = 'success'
     end
@@ -1857,8 +1863,8 @@ PAGE_REPORT_COLUMNS = %i[
   tag_footnotes ref_bib_keys _ref_people references_asset_url _further_refs further_references_asset_url
   _depends_on _link _abstract assigned_authors anon intro_image_asset
   audio_assets video_assets pdf_assets picture_assets text_and_picture_assets embed_blocks
-  _attachment_links_assets attachment_links_portal has_html_header_tags themetags_discipline themetags_focus themetags_badge
-  themetags_structural aside_column_content status changes_made error_message error_trace
+  _attachment_links_assets attachment_links_portal has_html_header_tags topics_discipline topics_focus topics_badge
+  topics_structural aside_column_content status changes_made error_message error_trace
   original_order result_order
 ].freeze
 
@@ -1910,13 +1916,13 @@ def build_page_report_row(page, all_attachments_with_pages, result_order)
   end
 
   begin
-    themetags_hashmap = get_themetags(page)
+    topics_hashmap = get_topics(page)
   rescue => e
-    themetags_hashmap = {discipline: "", focus: "", badge: "", structural: ""}
+    topics_hashmap = {discipline: "", focus: "", badge: "", structural: ""}
     if should_have_intro
       partial_success = true
-      partial_error_messages << "themetags: #{e.message}"
-      Rails.logger.warn("Page #{page.id} (#{page.page_layout}): Could not get themetags - #{e.message}")
+      partial_error_messages << "topics: #{e.message}"
+      Rails.logger.warn("Page #{page.id} (#{page.page_layout}): Could not get topics - #{e.message}")
     end
   end
 
@@ -2046,10 +2052,10 @@ def build_page_report_row(page, all_attachments_with_pages, result_order)
     attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
     has_html_header_tags: has_html_header_tags(page),
 
-    themetags_discipline: themetags_hashmap[:discipline],
-    themetags_focus: themetags_hashmap[:focus],
-    themetags_badge: themetags_hashmap[:badge],
-    themetags_structural: themetags_hashmap[:structural],
+    topics_discipline: topics_hashmap[:discipline],
+    topics_focus: topics_hashmap[:focus],
+    topics_badge: topics_hashmap[:badge],
+    topics_structural: topics_hashmap[:structural],
 
     aside_column_content: has_aside_column_content(page),
     status: partial_success ? 'partial success' : 'success',

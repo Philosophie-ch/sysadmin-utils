@@ -133,10 +133,10 @@ def main(csv_file, log_level = 'info')
       attachment_links_portal: row['attachment_links_portal'] || "",  # element
       has_html_header_tags: row['has_html_header_tags'] || "",  # element
 
-      themetags_discipline: row['themetags_discipline'] || "",  # themetags
-      themetags_focus: row['themetags_focus'] || "",  # themetags
-      themetags_badge: row['themetags_badge'] || "",  # themetags
-      themetags_structural: row['themetags_structural'] || "",  # themetags
+      topics_discipline: row['topics_discipline'] || "",  # topics
+      topics_focus: row['topics_focus'] || "",  # topics
+      topics_badge: row['topics_badge'] || "",  # topics
+      topics_structural: row['topics_structural'] || "",  # topics
 
       aside_column_content: row['aside_column_content'] || "",
       status: '',
@@ -308,10 +308,10 @@ def main(csv_file, log_level = 'info')
       picture_block_assets = subreport[:picture_assets].strip
       text_and_picture_assets = subreport[:text_and_picture_assets].strip
 
-      themetags_discipline = subreport[:themetags_discipline].strip
-      themetags_focus = subreport[:themetags_focus].strip
-      themetags_badge = subreport[:themetags_badge].strip
-      themetags_structural = subreport[:themetags_structural].strip
+      topics_discipline = subreport[:topics_discipline].strip
+      topics_focus = subreport[:topics_focus].strip
+      topics_badge = subreport[:topics_badge].strip
+      topics_structural = subreport[:topics_structural].strip
 
       # Setup
       Rails.logger.info("Processing page '#{page_identifier}': Setup")
@@ -390,7 +390,7 @@ def main(csv_file, log_level = 'info')
       end
 
       if req == 'DELETE'
-        page.delete
+        page.destroy!
         if !id.blank?
           page_present = Alchemy::Page.find_by(id: id).present?
         elsif !urlname.blank? && !language_code.blank?
@@ -546,10 +546,10 @@ def main(csv_file, log_level = 'info')
           attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
           has_html_header_tags: has_html_header_tags(page),
 
-          themetags_discipline: subreport[:themetags_discipline],
-          themetags_focus: subreport[:themetags_focus],
-          themetags_badge: subreport[:themetags_badge],
-          themetags_structural: subreport[:themetags_structural],
+          topics_discipline: subreport[:topics_discipline],
+          topics_focus: subreport[:topics_focus],
+          topics_badge: subreport[:topics_badge],
+          topics_structural: subreport[:topics_structural],
 
           aside_column_content: has_aside_column_content(page),
           status: '',
@@ -865,7 +865,7 @@ def main(csv_file, log_level = 'info')
       # REPORT
       ############
 
-      themetags_hashmap = get_themetags(page)
+      topics_hashmap = get_topics(page)
 
       # Get published status once to avoid inconsistency
       published_status = get_published(page)
@@ -926,10 +926,10 @@ def main(csv_file, log_level = 'info')
         embed_blocks: has_embed_blocks(page),
         attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
         has_html_header_tags: has_html_header_tags(page),
-        themetags_discipline: themetags_hashmap[:discipline],
-        themetags_focus: themetags_hashmap[:focus],
-        themetags_badge: themetags_hashmap[:badge],
-        themetags_structural: themetags_hashmap[:structural],
+        topics_discipline: topics_hashmap[:discipline],
+        topics_focus: topics_hashmap[:focus],
+        topics_badge: topics_hashmap[:badge],
+        topics_structural: topics_hashmap[:structural],
         aside_column_content: has_aside_column_content(page),
         side_column_blocks: get_side_column_block_keys(page),
       })
@@ -988,22 +988,22 @@ def main(csv_file, log_level = 'info')
 
 
         # Themetags
-        themetags = themetags_discipline.split(',').map(&:strip) + themetags_focus.split(',').map(&:strip) + themetags_badge.split(',').map(&:strip) + themetags_structural.split(',').map(&:strip)
-        update_themetags_report = set_themetags(page, themetags)
+        topics = topics_discipline.split(',').map(&:strip) + topics_focus.split(',').map(&:strip) + topics_badge.split(',').map(&:strip) + topics_structural.split(',').map(&:strip)
+        update_topics_report = set_topics(page, topics)
 
-        if update_themetags_report[:status] != 'success'
+        if update_topics_report[:status] != 'success'
           subreport[:_request] += " PARTIAL"
           subreport[:status] = 'partial success'
-          subreport[:error_message] += update_themetags_report[:error_message]
-          subreport[:error_message] += ". Page saved, but set_themetags failed! Stopping...\n"
-          subreport[:error_trace] += update_themetags_report[:error_trace] + "\n"
+          subreport[:error_message] += update_topics_report[:error_message]
+          subreport[:error_message] += ". Page saved, but set_topics failed! Stopping...\n"
+          subreport[:error_trace] += update_topics_report[:error_trace] + "\n"
         end
 
-        new_themetags_hashmap = get_themetags(page)
-        subreport[:themetags_discipline] = new_themetags_hashmap[:discipline]
-        subreport[:themetags_focus] = new_themetags_hashmap[:focus]
-        subreport[:themetags_badge] = new_themetags_hashmap[:badge]
-        subreport[:themetags_structural] = new_themetags_hashmap[:structural]
+        new_topics_hashmap = get_topics(page)
+        subreport[:topics_discipline] = new_topics_hashmap[:discipline]
+        subreport[:topics_focus] = new_topics_hashmap[:focus]
+        subreport[:topics_badge] = new_topics_hashmap[:badge]
+        subreport[:topics_structural] = new_topics_hashmap[:structural]
 
 
         # Article metadata (aside_column) - ONLY for article page layout

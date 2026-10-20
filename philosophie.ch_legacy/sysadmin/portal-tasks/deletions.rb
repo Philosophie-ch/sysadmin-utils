@@ -21,7 +21,7 @@ ENTITIES = [
   { input: 'page_id', output: :deleted_pages, model: 'Alchemy::Page', column: :id },
   { input: 'profile_id', output: :deleted_profiles, model: 'Alchemy::User', column: :id },
   { input: 'event_id', output: :deleted_events, model: 'Event', column: :id },
-  { input: 'themetag_id', output: :deleted_themetags, model: 'Topic', column: :id },
+  { input: 'topic_id', output: :deleted_topics, model: 'Topic', column: :id },
   { input: 'side_column_block_id', output: :deleted_side_column_blocks, model: 'SideColumnBlock', column: :id },
   { input: 'note_id', output: :deleted_notes, model: 'Note', column: :id },
   { input: 'publication_id', output: :deleted_publications, model: 'Publication', column: :id },

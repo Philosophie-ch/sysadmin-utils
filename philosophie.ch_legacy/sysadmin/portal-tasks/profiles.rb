@@ -102,6 +102,7 @@ def main(csv_file, log_level = 'info')
       type_of_affiliation: row["type_of_affiliation"] || "",
       other_type_of_affiliation: row["other_type_of_affiliation"] || "",
       type_of_studies: row["type_of_studies"] || "",
+      spps_access: row["spps_access"] || "",
       _function_title: row["_function_title"] || "",
       _function_standardised: row["_function_standardised"] || "",
 
@@ -252,6 +253,7 @@ def main(csv_file, log_level = 'info')
       type_of_affiliation = subreport[:type_of_affiliation].strip
       other_type_of_affiliation = subreport[:other_type_of_affiliation].strip
       type_of_studies = subreport[:type_of_studies].strip
+      spps_access = subreport[:spps_access].strip
 
       # emails
       email_addresses = email_addresses_raw.split(',').map(&:strip).join(', ')  # profile
@@ -385,6 +387,7 @@ def main(csv_file, log_level = 'info')
           type_of_affiliation: type_of_affiliation_to_string(user.profile.type_of_affiliation),
           other_type_of_affiliation: user.profile.other_type_of_affiliation,
           type_of_studies: type_of_studies_to_string(user.profile.type_of_studies),
+          spps_access: user.profile.spps_access,
           _title: subreport[:_title],
           _function_title: subreport[:_function_title],
           _function_standardised: subreport[:_function_standardised],
@@ -490,6 +493,10 @@ def main(csv_file, log_level = 'info')
 
           # type_of_studies: uses model validation directly - will fail if invalid
           user.profile.type_of_studies = string_to_type_of_studies(type_of_studies)
+
+          # spps_access: validated against Profile::SPPS_ACCESS_TYPES; blank = no change
+          new_spps_access = parse_spps_access(spps_access)
+          user.profile.spps_access = new_spps_access unless new_spps_access.nil?
 
           user.profile.famous = famous
           user.profile.public = public_field
@@ -659,6 +666,7 @@ def main(csv_file, log_level = 'info')
         type_of_affiliation: type_of_affiliation_to_string(user.profile.type_of_affiliation),
         other_type_of_affiliation: user.profile.other_type_of_affiliation,
         type_of_studies: type_of_studies_to_string(user.profile.type_of_studies),
+        spps_access: user.profile.spps_access,
       })
 
       if req == "GET"

@@ -25,7 +25,7 @@ portal-tasks/
 ├── publications.rb             # Publication records processing (CSV-driven)
 ├── journals.rb                 # Journal management (CSV-driven)
 ├── publishers.rb               # Publisher information processing (CSV-driven)
-├── themetags.rb                # Thematic tag/topic management (CSV-driven)
+├── topics.rb                # Thematic tag/topic management (CSV-driven)
 ├── events.rb                   # Event data processing (CSV-driven)
 ├── notes.rb                    # Note management (CSV-driven)
 ├── translation_groups.rb       # Page translation groups (CSV-driven)
@@ -36,6 +36,7 @@ portal-tasks/
 ├── check_headers.rb            # Sheet headers compared with the script columns (report)
 ├── links.rb                    # Link extraction and validation
 ├── export_pages.rb             # Bulk page export
+├── export_page_topics.rb       # Read-only: the four topic columns of a pages sheet, in its row order
 ├── export_profiles.rb          # Bulk profile export
 ├── export_side_column_blocks.rb  # Bulk side column block export
 ├── swap_webp_asset_urls.rb     # Page images: non-webp URL to .webp when it exists
@@ -51,7 +52,7 @@ portal-tasks/
 │   ├── publication_tools.rb    # Publication-specific utilities, PUBLICATION_REPORT_COLUMNS
 │   ├── note_tools.rb           # Note-specific utilities
 │   ├── journal_publisher_tools.rb
-│   ├── themetags_tools.rb
+│   ├── topics_tools.rb
 │   ├── link_tools.rb           # Link extraction/validation
 │   ├── ah-page-tools.rb        # Advanced page manipulation
 │   └── *.csv                   # Data files
@@ -68,7 +69,7 @@ All main task scripts follow a CSV-driven pattern:
 2. **Processing**: Validate, create, update, or delete entities based on CSV instructions
 3. **Output**: Generate detailed CSV report with results, errors, and warnings
 
-**CSV Encoding**: UTF-16 for most scripts. `themetags.rb` and `events.rb` read UTF-8. `pages.rb`, `translation_groups.rb` and `site_sections.rb` detect UTF-16 or UTF-8 themselves.
+**CSV Encoding**: UTF-16 for most scripts. `topics.rb` and `events.rb` read UTF-8. `pages.rb`, `translation_groups.rb` and `site_sections.rb` detect UTF-16 or UTF-8 themselves.
 
 **Input file and arguments**: the CRUD scripts read a fixed file, `portal-tasks/<name>.csv` (for example `portal-tasks/pages.csv`). The only argument is the log level.
 
@@ -158,6 +159,7 @@ main(ARGV[0], ARGV[1])
 - Profile link generation and migration
 - Newsletter and institutional affiliation tracking
 - Password and email generation
+- `spps_access`: raw key from `Profile::SPPS_ACCESS_TYPES` (`no_access`, `access_requested`, `access_granted`). A blank cell on POST/UPDATE leaves the value unchanged; any other value not in the list is a row error. The report always returns the real stored value. Column sits after `type_of_studies`; also in `export_profiles.rb` and `swap_webp_profile_picture_urls.rb`.
 
 **CSV**: `profiles.csv` (~22KB)
 **Encoding**: UTF-16
@@ -190,12 +192,20 @@ main(ARGV[0], ARGV[1])
 **CSV**: `publishers.csv` (~2.8KB)
 **Model**: `Publisher`
 
-#### themetags.rb
-**Purpose**: Manage thematic tags/categories
+#### topics.rb
+**Purpose**: Manage topics
 
-**CSV**: `themetags.csv` (~213B)
+**CSV**: `topics.csv`
 **Model**: `Topic`
 **Encoding**: UTF-8
+
+**Key Features**:
+- A topic is translated (`translated` TRUE: `translation_group` and the four `name_de`, `name_fr`, `name_it`, `name_en`, no `name`, no page) or untranslated (`name`, optional page from `page_language_code` + `page_urlname`, no names per language, no group). UPDATE writes the row; the model rejects a wrong combination and the reason is in the row. `topic_key` is the lowercase slug (the Pages sheet refers to topics by key).
+- A translated UPDATE with page cells puts those pages in the translation group, which must exist.
+- DELETE removes a topic that is on no page, and refuses one that is on pages. PURGE (maintainers only) removes a topic from all its pages, from the saved filters of the users and deletes it. PURGE DRY RUN runs the same and rolls it back, and reports how many pages and saved filters would be affected.
+- The one-off merge of language variants into one topic (rows tied by `conceptual_group`) is done and was removed from the script, together with the `conceptual_group` and `language_code` columns of the sheet.
+- Read-only: `url`.
+- Helpers in `lib/topics_tools.rb`.
 
 #### events.rb
 **Purpose**: Process event data
@@ -223,7 +233,7 @@ main(ARGV[0], ARGV[1])
 - Helpers in `lib/note_tools.rb`.
 
 #### translation_groups.rb, site_sections.rb, side_column_blocks.rb
-CSV-driven CRUD by `key` for `PageTranslationGroup`, `SiteSection` (with its translations; renaming a key also updates `breadcrumb_key` on pages, publications, journals and publishers) and `SideColumnBlock`.
+CSV-driven CRUD by `key` for `PageTranslationGroup` (UPDATE with a new key renames the group: the foreign keys do not cascade, so `rename_translation_group` in `lib/translation_group_tools.rb` creates the group with the new key, moves every reference found in the database to it and deletes the old one, in one transaction; the group gets a new id), `SiteSection` (with its translations; renaming a key also updates `breadcrumb_key` on pages, publications, journals and publishers) and `SideColumnBlock`.
 
 ### Report-Only Scripts
 
@@ -238,9 +248,9 @@ CSV-driven CRUD by `key` for `PageTranslationGroup`, `SiteSection` (with its tra
 #### deletions.rb
 **Purpose**: Counterpart of `news.rb`. Reports which IDs or keys from the sheets no longer exist (everything is hard-deleted). Read-only.
 
-**Input**: `portal-tasks/deletions.csv`, any subset of the columns `page_id`, `profile_id` (user ids, as in the profiles sheet), `event_id`, `themetag_id`, `side_column_block_id`, `note_id`, `publication_id`, `journal_id`, `publisher_id`, `translation_group_key`, `site_section_key`.
+**Input**: `portal-tasks/deletions.csv`, any subset of the columns `page_id`, `profile_id` (user ids, as in the profiles sheet), `event_id`, `topic_id`, `side_column_block_id`, `note_id`, `publication_id`, `journal_id`, `publisher_id`, `translation_group_key`, `site_section_key`.
 
-**Output**: `deleted_pages`, `deleted_profiles`, `deleted_events`, `deleted_themetags`, `deleted_side_column_blocks`, `deleted_notes`, `deleted_publications`, `deleted_journals`, `deleted_publishers`, `deleted_translation_groups`, `deleted_site_sections`, plus `profiles_without_profile` (users that exist without a profile), `invalid_values`, `warnings` and `summary`.
+**Output**: `deleted_pages`, `deleted_profiles`, `deleted_events`, `deleted_topics`, `deleted_side_column_blocks`, `deleted_notes`, `deleted_publications`, `deleted_journals`, `deleted_publishers`, `deleted_translation_groups`, `deleted_site_sections`, plus `profiles_without_profile` (users that exist without a profile), `invalid_values`, `warnings` and `summary`.
 
 #### check_headers.rb
 **Purpose**: Compare the headers of the sheet tabs with the columns the scripts write. Read-only, it never runs the other scripts (it reads their source).
@@ -367,8 +377,9 @@ Parsing helpers for `notes.rb` (`parse_published_flag`, `parse_boolean_flag`, `p
 
 `get_entity_link`, `get_entity_presentation_page` and `fetch_journal_issns(journal_key)`, the read-only ISSN lookup in Alexandria used by `journals.rb`.
 
-### themetags_tools.rb
-**Size**: ~750B
+### topics_tools.rb
+
+The supported groups and interest types, `row_fields`, `parse_translated_flag`, `topic_report_values` (the database columns of a row), `find_topic_page`, `put_page_in_translation_group`, `apply_topic_fields`, `topic_page_count` (existing pages that carry a topic) and `replace_topic_in_saved_filters`.
 
 ## Report Generation
 

@@ -32,12 +32,23 @@ Entry-point scripts:
 | `publications.rb` | `Publication` | Academic publications with author relationships |
 | `journals.rb` | `Journal` | Journal management |
 | `publishers.rb` | `Publisher` | Publisher management |
-| `themetags.rb` | `Topic` | Topic/themetag management |
-| `events.rb` | `Event` | Event management |
-| `news.rb` | Various | Read-only overview report |
+| `topics.rb` | `Topic` | Topic management (translated topics, merges, purges) |
+| `events.rb` | `Event` | Event management (several dates and speakers per event) |
+| `notes.rb` | `Note` | Note management |
+| `translation_groups.rb` | `PageTranslationGroup` | Translation group management |
+| `site_sections.rb` | `SiteSection` | Site sections and their translations |
+| `side_column_blocks.rb` | `SideColumnBlock` | Side column block management |
+| `news.rb` | Various | Read-only report of all IDs per entity |
+| `deletions.rb` | Various | Read-only: which IDs/keys from the sheets no longer exist |
+| `check_headers.rb` | None | Read-only: compares the sheet headers (`sheet_headers.csv`) with the script columns |
 | `links.rb` | Pages | Link extraction + HTTP validation |
 | `export_pages.rb` | `Alchemy::Page` | Fast bulk GET; supports merge mode with Google Sheets |
+| `export_page_topics.rb` | `Alchemy::Page` | Read-only: only the four topic columns of a pages sheet, one row per input row in the same order, to paste over them |
 | `export_profiles.rb` | `Alchemy::User` | Fast bulk GET; supports merge mode |
+| `export_side_column_blocks.rb` | `SideColumnBlock` | Fast bulk GET; supports merge mode |
+| `swap_webp_asset_urls.rb` | `Alchemy::Page` | Page images: non-webp URL to `.webp` when it exists on the asset server |
+| `swap_webp_profile_picture_urls.rb` | `Alchemy::User` | Same for profile pictures |
+| `swap_webp_publication_cover_pictures.rb` | `Publication` | Same for publication covers |
 | `bulk_image_migration.rb` | Pages + Profiles | Scan/migrate portal-managed images to asset server |
 | `bulk_media_migration.rb` | Pages | Scan/migrate audio/video/pdf to asset server |
 
@@ -224,9 +235,9 @@ The standard workflow for running portal content operations:
 2. Run `./push-tasks.sh` from `philosophie.ch_legacy/sysadmin/` to sync to server and inject into Rails container
 3. On the production server (inside Rails container), run:
    ```bash
-   bundle exec rails runner portal-tasks/[script].rb [csv_file] [log_level]
+   bundle exec rails runner portal-tasks/[script].rb [log_level]
    ```
-   Log levels: `debug`, `info`, `warn`, `error`
+   The CRUD scripts read `portal-tasks/[name].csv`; the only argument is the log level (`debug`, `info`, `warn`, `error`).
 4. Run `./pull-reports.sh` to retrieve generated CSV reports
 
 Reports are timestamped and land in the configured `LOCAL_REPORTS_PATH`.

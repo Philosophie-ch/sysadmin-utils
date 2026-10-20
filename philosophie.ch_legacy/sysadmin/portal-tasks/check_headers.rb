@@ -16,7 +16,7 @@ TASKS_DIR = __dir__
 
 # sheet tab => CRUD script that owns the layout (its `subreport = {` hash, plus what is added to it before processing starts)
 TABS = {
-  'themetags' => 'themetags',
+  'topics' => 'topics',
   'profiles' => 'profiles',
   'biblio profiles' => 'profiles',
   'events' => 'events',

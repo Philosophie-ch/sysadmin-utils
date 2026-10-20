@@ -167,6 +167,14 @@ def main(csv_file, log_level = 'info')
       hidden_raw = subreport[:hidden].strip.downcase
       hidden = ['true', 'yes', '1'].include?(hidden_raw)
 
+      if ptg_key && !PageTranslationGroup.exists?(key: ptg_key)
+        subreport[:request] = req_err
+        subreport[:status] = "error"
+        subreport[:error_message] = "Translation group with key '#{ptg_key}' not found. Skipping"
+        subreport[:error_trace] = "#{FILE_NAME}::main::Parsing"
+        next
+      end
+
       # Resolve parent
       if parent
         parent_key_str = parent
