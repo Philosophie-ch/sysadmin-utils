@@ -1856,7 +1856,7 @@ PAGE_REPORT_COLUMNS = %i[
   _to_do _sort id published hidden name
   pre_headline title lead_text embedded_html_base_name content_languages translation_group
   breadcrumb_key language_code urlname link _request bibkey
-  how_to_cite pure_html_asset pure_pdf_asset doi side_column_blocks created_at
+  how_to_cite pure_html_asset pure_pdf_asset doi _has_doi side_column_blocks created_at
   presented_entity_type presentation_of page_layout created_by last_updated_by last_updated_date
   replies_to reply_to_type replied_by tag_page_type tag_media tag_content_type
   tag_language tag_institution tag_canton tag_project tag_public tag_references

@@ -86,6 +86,7 @@ def main(csv_file, log_level = 'info')
       pure_html_asset: row['pure_html_asset'] || "",  # element
       pure_pdf_asset: row['pure_pdf_asset'] || "",  # element
       doi: row['doi'] || "",  # article
+      _has_doi: row['_has_doi'] || "",
       side_column_blocks: row['side_column_blocks'] || "",
       created_at: row['created_at'] || "",  # page
       presented_entity_type: row['presented_entity_type'] || "",
@@ -500,6 +501,7 @@ def main(csv_file, log_level = 'info')
           pure_html_asset: old_pure_html_asset,
           pure_pdf_asset: old_pure_pdf_asset,
           doi: old_doi,
+          _has_doi: subreport[:_has_doi],
           side_column_blocks: old_side_column_blocks,
           created_at: subreport[:created_at],
           presented_entity_type: page.presented_entity_type || '',
