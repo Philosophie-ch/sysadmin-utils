@@ -72,9 +72,9 @@ SSH port forward from your local machine:
 ```bash
 ssh -L <grafana-port>:localhost:<grafana-port> <monitor-server>
 ```
-Then open `http://localhost:<grafana-port>`. Login: `admin` / your `GRAFANA_ADMIN_PASSWORD`.
+Then open `http://localhost:<grafana-port>`. Login: `admin` / the current admin password. `GRAFANA_INITIAL_ADMIN_PASSWORD` only sets it when Grafana creates its database; editing it afterwards has no effect.
 
-To reset the Grafana admin password:
+To change the Grafana admin password:
 ```bash
 ssh <monitor-server> "cd ~/sysadmin-utils/monitoring && docker compose exec grafana grafana cli admin reset-admin-password NEW_PASSWORD"
 ```
