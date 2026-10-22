@@ -778,6 +778,16 @@ def parse_spps_access(string)
 end
 
 
+# Strict TRUE/FALSE parser for boolean columns; anything else fails the row
+def parse_strict_boolean(string, column)
+  value = string.to_s.strip.downcase
+  return true if value == 'true'
+  return false if value == 'false'
+
+  raise ArgumentError, "Invalid #{column} '#{string}'. Must be TRUE or FALSE"
+end
+
+
 # Helper function to build error profile data
 def build_error_profile_data(user, error_message, error_trace = "")
   {
@@ -799,6 +809,7 @@ def build_error_profile_data(user, error_message, error_trace = "")
     lastname: user&.lastname || "",
     email_addresses: "",
     newsletter: "",
+    gamification_enabled: "",
     academic_page: "",
     abbreviation: "",
     _function: "",

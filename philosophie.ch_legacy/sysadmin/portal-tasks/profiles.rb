@@ -71,6 +71,7 @@ def main(csv_file, log_level = 'info')
       lastname: row["lastname"] || "",
       email_addresses: row["email_addresses"] || "",
       newsletter: row["newsletter"] || "",
+      gamification_enabled: row["gamification_enabled"] || "",
       academic_page: row["academic_page"] || "",
       abbreviation: row["abbreviation"] || "",
       _function: row["_function"] || "",
@@ -207,7 +208,10 @@ def main(csv_file, log_level = 'info')
       firstname = subreport[:firstname].strip # user
       lastname = subreport[:lastname].strip # user
       email_addresses_raw = subreport[:email_addresses].strip  # profile
-      newsletter = subreport[:newsletter].strip.downcase == 'true' ? true : false  # profile
+      if req == "POST" || req == "UPDATE"
+        newsletter = parse_strict_boolean(subreport[:newsletter], 'newsletter')  # profile
+        gamification_enabled = parse_strict_boolean(subreport[:gamification_enabled], 'gamification_enabled')  # profile
+      end
       academic_page = subreport[:academic_page].strip  # profile
       abbreviation = subreport[:abbreviation].strip  # profile
       password = subreport[:password].strip  # user
@@ -358,6 +362,7 @@ def main(csv_file, log_level = 'info')
           lastname: user.lastname,
           email_addresses: user.profile.email_addresses,
           newsletter: user.profile.newsletter,
+          gamification_enabled: user.profile.gamification_enabled,
           academic_page: user.profile.academic_page,
           abbreviation: user.profile.abbreviation,
           _function: subreport[:_function],
@@ -456,6 +461,7 @@ def main(csv_file, log_level = 'info')
           user.profile.membership_wanted = membership_wanted.blank? ? false : membership_wanted
           user.profile.email_addresses = email_addresses
           user.profile.newsletter = newsletter
+          user.profile.gamification_enabled = gamification_enabled
           user.profile.academic_page = academic_page
           user.profile.country = country
           if swiss_region.present? && !SwissRegion::ALL.include?(swiss_region)
@@ -630,6 +636,7 @@ def main(csv_file, log_level = 'info')
         profile_name: user.profile.name,
         email_addresses: user.profile.email_addresses,
         newsletter: user.profile.newsletter,
+        gamification_enabled: user.profile.gamification_enabled,
         academic_page: user.profile.academic_page,
         abbreviation: user.profile.abbreviation,
         language: user.language,

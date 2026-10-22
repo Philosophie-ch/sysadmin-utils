@@ -224,6 +224,7 @@ def build_profile_report_row(user, user_articles_map, result_order)
     lastname: user.lastname,
     email_addresses: user.profile.email_addresses,
     newsletter: user.profile.newsletter,
+    gamification_enabled: user.profile.gamification_enabled,
     academic_page: user.profile.academic_page,
     abbreviation: user.profile.abbreviation,
     _function: "",
