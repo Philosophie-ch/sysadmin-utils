@@ -43,7 +43,7 @@ declare "pipeline" {
 {{- else if or (eq $l "e") (eq $l "error") (eq $l "err") -}}error
 {{- else if or (eq $l "f") (eq $l "fatal") (eq $l "ftl") (eq $l "panic") (eq $l "pnc") (eq $l "crit") (eq $l "alert") (eq $l "emerg") -}}critical
 {{- else -}}unknown
-{{- end -}}{{- end -}}`
+{{- end -}}{{- else -}}unknown{{- end -}}`
     }
 
     stage.labels {

@@ -1,0 +1,229 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "schemaVersion": 39,
+  "tags": ["philosophie.ch", "logs"],
+  "templating": {
+    "list": [
+      {
+        "name": "server",
+        "label": "Server",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki-all-tenants" },
+        "query": "label_values(server)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".+",
+        "current": { "text": ["All"], "value": ["$__all"] },
+        "sort": 1
+      },
+      {
+        "name": "service",
+        "label": "Source",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki-all-tenants" },
+        "query": "label_values({server=~\"$server\"}, service_name)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".+",
+        "current": { "text": ["All"], "value": ["$__all"] },
+        "sort": 1
+      },
+      {
+        "name": "search",
+        "label": "Line contains",
+        "type": "textbox",
+        "query": "",
+        "current": { "text": "", "value": "" }
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "Europe/Zurich",
+  "title": "Philosophie.ch Logs",
+  "uid": "philoch-logs",
+  "version": 1,
+  "panels": [
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 100, "title": "Volume", "type": "row" },
+    {
+      "datasource": { "type": "loki", "uid": "loki-all-tenants" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "fillOpacity": 80, "lineWidth": 1, "stacking": { "mode": "normal" } },
+          "unit": "short"
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "critical" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "dark-red" } }] },
+          { "matcher": { "id": "byName", "options": "error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+          { "matcher": { "id": "byName", "options": "warn" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byName", "options": "info" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+          { "matcher": { "id": "byName", "options": "debug" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] },
+          { "matcher": { "id": "byName", "options": "trace" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }] },
+          { "matcher": { "id": "byName", "options": "unknown" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "text" } }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Lines by level",
+      "type": "timeseries",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (level) (count_over_time({server=~\"$server\", service_name=~\"$service\"} |= \"$search\" [$__auto]))",
+          "legendFormat": "{{level}}",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki-all-tenants" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "fillOpacity": 80, "lineWidth": 1, "stacking": { "mode": "normal" } },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Lines by source",
+      "type": "timeseries",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (count_over_time({server=~\"$server\", service_name=~\"$service\"} |= \"$search\" [$__auto]))",
+          "legendFormat": "{{service_name}}",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki-all-tenants" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "fillOpacity": 80, "lineWidth": 1, "stacking": { "mode": "normal" } },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 9 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Errors and criticals by source",
+      "type": "timeseries",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (service_name) (count_over_time({server=~\"$server\", service_name=~\"$service\", level=~\"error|critical\"} |= \"$search\" [$__auto]))",
+          "legendFormat": "{{service_name}}",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki-all-tenants" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 9 },
+      "id": 4,
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "showUnfilled": true,
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }
+      },
+      "title": "Errors and criticals in range",
+      "type": "bargauge",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sort_desc(sum by (service_name) (count_over_time({server=~\"$server\", service_name=~\"$service\", level=~\"error|critical\"} |= \"$search\" [$__range])))",
+          "legendFormat": "{{service_name}}",
+          "queryType": "instant"
+        }
+      ]
+    },
+    { "collapsed": false, "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 }, "id": 101, "title": "Lines", "type": "row" },
+    {
+      "datasource": { "type": "loki", "uid": "loki-all-tenants" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 18 },
+      "id": 5,
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none", "prettifyLogMessage": false, "showLabels": false, "showCommonLabels": false },
+      "title": "Latest errors and criticals",
+      "type": "logs",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{server=~\"$server\", service_name=~\"$service\", level=~\"error|critical\"} |= \"$search\"",
+          "queryType": "range",
+          "maxLines": 500
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki-all-tenants" },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 30 },
+      "id": 6,
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none", "prettifyLogMessage": false, "showLabels": false, "showCommonLabels": false },
+      "title": "Latest portal 404s",
+      "type": "logs",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{server=~\"$server\", service_name=\"portal-404\"} |= \"$search\"",
+          "queryType": "range",
+          "maxLines": 500
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki-all-tenants" },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 30 },
+      "id": 7,
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none", "prettifyLogMessage": false, "showLabels": false, "showCommonLabels": false },
+      "title": "Latest asset proxy 5xx",
+      "type": "logs",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{server=~\"$server\", service_name=\"proxy-access\", level=\"error\"} |= \"$search\"",
+          "queryType": "range",
+          "maxLines": 500
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki-all-tenants" },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 40 },
+      "id": 8,
+      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true, "dedupStrategy": "none", "prettifyLogMessage": false, "showLabels": true, "showCommonLabels": false },
+      "title": "All lines (filtered by the selectors above)",
+      "type": "logs",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{server=~\"$server\", service_name=~\"$service\"} |= \"$search\"",
+          "queryType": "range",
+          "maxLines": 1000
+        }
+      ]
+    }
+  ]
+}

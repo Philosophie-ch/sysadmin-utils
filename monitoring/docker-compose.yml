@@ -63,6 +63,8 @@ services:
     image: grafana/loki:3.7.9
     container_name: loki
     restart: unless-stopped
+    # Loki flushes chunks and closes its WAL on shutdown; the default 10s kill corrupts the WAL
+    stop_grace_period: 2m
     command:
       - "-config.file=/etc/loki/loki.yml"
     volumes:

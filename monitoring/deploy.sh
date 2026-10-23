@@ -30,7 +30,7 @@ rsync -avq \
 ssh "${ASSETS_SERVER}" "cd ~/monitoring && [ ! -f .env ] && cp .env.example .env || true"
 
 echo "2. Starting exporters..."
-ssh "${ASSETS_SERVER}" "cd ~/monitoring && docker compose up -d"
+ssh "${ASSETS_SERVER}" "cd ~/monitoring && docker compose up -d --force-recreate --remove-orphans"
 
 echo ""
 echo "--- Monitor server (${MONITOR_SERVER}): stack + tunnel ---"
