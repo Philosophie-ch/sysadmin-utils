@@ -1,0 +1,145 @@
+// Monitoring server: portal log files plus an allowlist of container stdout.
+
+logging {
+  level = "warn"
+}
+
+import.file "lib" {
+  filename = "/etc/alloy/lib.alloy"
+}
+
+loki.write "default" {
+  endpoint {
+    url       = sys.env("LOKI_PUSH_URL")
+    tenant_id = "staff"
+  }
+  external_labels = { server = sys.env("SERVER_LABEL") }
+}
+
+lib.pipeline "out" {
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.source.file "rails" {
+  targets = [
+    {"__path__" = "/logs/portal/production.log", "service_name" = "portal"},
+    {"__path__" = "/logs/portal/404.log", "service_name" = "portal-404"},
+  ]
+  tail_from_end = true
+  forward_to    = [loki.process.rails.receiver]
+}
+
+loki.process "rails" {
+  forward_to = [lib.pipeline.out.receiver]
+
+  stage.multiline {
+    firstline     = `^[DIWEFAU], \[`
+    max_lines     = 500
+    max_wait_time = "3s"
+  }
+
+  stage.regex {
+    expression = `^(?P<lvl>[DIWEFAU]), \[(?P<ts>\S+) #\d+\]`
+  }
+
+  stage.regex {
+    expression = `-- : \[(?P<request_id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]`
+  }
+
+  stage.timestamp {
+    source   = "ts"
+    format   = "2006-01-02T15:04:05.999999"
+    location = "UTC"
+  }
+
+  stage.labels {
+    values = { lvl = "" }
+  }
+
+  stage.structured_metadata {
+    values = { request_id = "" }
+  }
+}
+
+loki.source.file "rails_errors" {
+  targets = [
+    {"__path__" = "/logs/portal/errors_and_warnings.log", "service_name" = "portal-errors"},
+  ]
+  tail_from_end = true
+  forward_to    = [loki.process.rails_errors.receiver]
+}
+
+loki.process "rails_errors" {
+  forward_to = [lib.pipeline.out.receiver]
+
+  stage.multiline {
+    firstline     = `^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}`
+    max_lines     = 500
+    max_wait_time = "3s"
+  }
+
+  stage.regex {
+    expression = `^\[(?P<ts>[^\]]+)\] (?P<lvl>[A-Z]+):`
+  }
+
+  stage.regex {
+    expression = `\[(?P<request_id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]`
+  }
+
+  stage.timestamp {
+    source   = "ts"
+    format   = "2006-01-02 15:04:05.000"
+    location = "UTC"
+  }
+
+  stage.labels {
+    values = { lvl = "" }
+  }
+
+  stage.structured_metadata {
+    values = { request_id = "" }
+  }
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = `/(traefik|alexandria)`
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = `/(.*)`
+    target_label  = "service_name"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.containers.receiver]
+}
+
+loki.process "containers" {
+  forward_to = [lib.pipeline.out.receiver]
+
+  stage.replace {
+    expression = `(\x1b\[[0-9;]*m)`
+    replace    = ""
+  }
+
+  stage.regex {
+    expression = `^\S+\s+(?P<lvl>[A-Za-z]+)\s`
+  }
+
+  stage.labels {
+    values = { lvl = "" }
+  }
+}

@@ -1,0 +1,15 @@
+apiVersion: 1
+
+# Admin view: queries both tenants ("staff" for info and above, "ops" for debug/trace).
+datasources:
+  - name: "Loki"
+    uid: "loki-all-tenants"
+    type: "loki"
+    access: "proxy"
+    url: "http://loki:3100"
+    editable: false
+    jsonData:
+      maxLines: 1000
+      httpHeaderName1: "X-Scope-OrgID"
+    secureJsonData:
+      httpHeaderValue1: "staff|ops"

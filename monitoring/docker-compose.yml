@@ -1,3 +1,9 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
 services:
   prometheus:
     image: prom/prometheus:v2.53.4
@@ -14,6 +20,7 @@ services:
     depends_on:
       - cadvisor
       - node_exporter
+    logging: *default-logging
 
   cadvisor:
     image: ghcr.io/google/cadvisor:v0.60.5
@@ -30,6 +37,7 @@ services:
       - "127.0.0.1:${CADVISOR_PORT:-8089}:8080"
     networks:
       - monitoring
+    logging: *default-logging
 
   node_exporter:
     image: prom/node-exporter:v1.8.2
@@ -49,6 +57,51 @@ services:
       - "127.0.0.1:${NODE_EXPORTER_PORT:-9109}:9100"
     networks:
       - monitoring
+    logging: *default-logging
+
+  loki:
+    image: grafana/loki:3.7.9
+    container_name: loki
+    restart: unless-stopped
+    command:
+      - "-config.file=/etc/loki/loki.yml"
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - ./loki/overrides.yml:/etc/loki/overrides.yml:ro
+      - loki_data:/loki
+    ports:
+      - "127.0.0.1:${LOKI_PORT:-3100}:3100"
+    networks:
+      - monitoring
+    mem_limit: 1g
+    logging: *default-logging
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: alloy
+    restart: unless-stopped
+    command:
+      - "run"
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - "--storage.path=/var/lib/alloy/data"
+      - "/etc/alloy/main.alloy"
+    environment:
+      - LOKI_PUSH_URL=http://loki:3100/loki/api/v1/push
+      - SERVER_LABEL=${SERVER_LABEL:?set SERVER_LABEL in .env}
+    volumes:
+      - ./alloy/main.alloy:/etc/alloy/main.alloy:ro
+      - ./alloy/lib.alloy:/etc/alloy/lib.alloy:ro
+      - ${PORTAL_LOG_DIR:?set PORTAL_LOG_DIR in .env}:/logs/portal:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    ports:
+      - "127.0.0.1:${ALLOY_PORT:-12345}:12345"
+    networks:
+      - monitoring
+    mem_limit: 512m
+    depends_on:
+      - loki
+    logging: *default-logging
 
   grafana:
     image: grafana/grafana:13.2.4
@@ -76,10 +129,14 @@ services:
       - "host.docker.internal:host-gateway"
     depends_on:
       - prometheus
+      - loki
+    logging: *default-logging
 
 volumes:
   prometheus_data:
   grafana_data:
+  loki_data:
+  alloy_data:
 
 networks:
   monitoring:

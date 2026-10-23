@@ -1,0 +1,74 @@
+// Shared by every server: strips terminal colors, redacts secrets, normalizes
+// the level label and routes debug/trace lines to the "ops" tenant.
+// Sources must set the raw level as the "lvl" label before forwarding here.
+
+declare "pipeline" {
+  argument "forward_to" { }
+
+  loki.process "common" {
+    forward_to = argument.forward_to.value
+
+    stage.replace {
+      expression = `(\x1b\[[0-9;]*m)`
+      replace    = ""
+    }
+
+    stage.replace {
+      expression = `/password_resets/([^/?\s"']+)`
+      replace    = "<redacted>"
+    }
+
+    stage.replace {
+      expression = `[?&](?:[A-Za-z_]*(?:token|password|secret|api_key)[A-Za-z_]*|md5)=([^&\s"']+)`
+      replace    = "<redacted>"
+    }
+
+    stage.replace {
+      expression = `"[A-Za-z_]*(?:token|password|secret|api_key)[A-Za-z_]*"=>"([^"]*)"`
+      replace    = "<redacted>"
+    }
+
+    stage.replace {
+      expression = `"[A-Za-z_]*(?:token|password|secret|api_key)[A-Za-z_]*":\s*"([^"]*)"`
+      replace    = "<redacted>"
+    }
+
+    stage.replace {
+      expression = `\["[A-Za-z_]*(?:token|password|digest|secret|api_key)[A-Za-z_]*", "([^"]*)"\]`
+      replace    = "<redacted>"
+    }
+
+    stage.template {
+      source   = "level"
+      template = `{{- with .lvl -}}{{- $l := ToLower . -}}
+{{- if or (eq $l "d") (eq $l "debug") (eq $l "dbg") -}}debug
+{{- else if or (eq $l "t") (eq $l "trace") (eq $l "trc") -}}trace
+{{- else if or (eq $l "i") (eq $l "info") (eq $l "inf") (eq $l "notice") -}}info
+{{- else if or (eq $l "w") (eq $l "warn") (eq $l "wrn") (eq $l "warning") -}}warn
+{{- else if or (eq $l "e") (eq $l "error") (eq $l "err") -}}error
+{{- else if or (eq $l "f") (eq $l "fatal") (eq $l "ftl") (eq $l "panic") (eq $l "pnc") (eq $l "crit") (eq $l "alert") (eq $l "emerg") -}}critical
+{{- else -}}unknown
+{{- end -}}{{- end -}}`
+    }
+
+    stage.labels {
+      values = { level = "" }
+    }
+
+    stage.label_drop {
+      values = ["lvl", "filename"]
+    }
+
+    stage.match {
+      selector = `{level=~"debug|trace"}`
+
+      stage.tenant {
+        value = "ops"
+      }
+    }
+  }
+
+  export "receiver" {
+    value = loki.process.common.receiver
+  }
+}

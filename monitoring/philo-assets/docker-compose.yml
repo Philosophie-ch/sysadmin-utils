@@ -1,3 +1,9 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
 services:
   cadvisor:
     image: ghcr.io/google/cadvisor:v0.60.5
@@ -12,6 +18,7 @@ services:
       - /dev/disk/:/dev/disk:ro
     ports:
       - "127.0.0.1:${CADVISOR_PORT:-8089}:8080"
+    logging: *default-logging
 
   node_exporter:
     image: prom/node-exporter:v1.8.2
@@ -29,3 +36,30 @@ services:
       - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
     ports:
       - "127.0.0.1:${NODE_EXPORTER_PORT:-9109}:9100"
+    logging: *default-logging
+
+  # Host networking: the SSH tunnel's reverse forward to Loki listens on the host's loopback
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: alloy
+    restart: unless-stopped
+    network_mode: host
+    command:
+      - "run"
+      - "--server.http.listen-addr=127.0.0.1:${ALLOY_PORT:-12345}"
+      - "--storage.path=/var/lib/alloy/data"
+      - "/etc/alloy/alloy.alloy"
+    environment:
+      - LOKI_PUSH_URL=http://127.0.0.1:${LOKI_PUSH_PORT:?set LOKI_PUSH_PORT in .env}/loki/api/v1/push
+      - SERVER_LABEL=${SERVER_LABEL:?set SERVER_LABEL in .env}
+    volumes:
+      - ./alloy.alloy:/etc/alloy/alloy.alloy:ro
+      - ./lib.alloy:/etc/alloy/lib.alloy:ro
+      - ${PROXY_LOG_DIR:?set PROXY_LOG_DIR in .env}:/logs/proxy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    mem_limit: 256m
+    logging: *default-logging
+
+volumes:
+  alloy_data:

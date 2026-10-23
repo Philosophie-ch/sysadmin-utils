@@ -1,0 +1,4 @@
+# Per-tenant limits. "ops" holds debug/trace lines (SQL with personal data in bind values).
+overrides:
+  ops:
+    retention_period: 168h

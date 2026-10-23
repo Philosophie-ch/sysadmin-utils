@@ -18,12 +18,14 @@ fi
 echo "=== Deploying monitoring stack ==="
 
 echo ""
-echo "--- Assets server (${ASSETS_SERVER}): exporters ---"
-echo "1. Syncing exporter config..."
+echo "--- Assets server (${ASSETS_SERVER}): exporters + log shipper ---"
+echo "1. Syncing exporter and Alloy config..."
 ssh "${ASSETS_SERVER}" "mkdir -p ~/monitoring"
 rsync -avq \
     "${SCRIPT_DIR}/philo-assets/docker-compose.yml" \
     "${SCRIPT_DIR}/philo-assets/.env.example" \
+    "${SCRIPT_DIR}/philo-assets/alloy.alloy" \
+    "${SCRIPT_DIR}/alloy/lib.alloy" \
     "${ASSETS_SERVER}:~/monitoring/"
 ssh "${ASSETS_SERVER}" "cd ~/monitoring && [ ! -f .env ] && cp .env.example .env || true"
 

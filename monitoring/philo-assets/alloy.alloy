@@ -1,0 +1,146 @@
+// Assets server: proxy-manager log files plus an allowlist of container stdout.
+// Pushes to the monitoring server's Loki through the SSH tunnel's reverse forward.
+
+logging {
+  level = "warn"
+}
+
+import.file "lib" {
+  filename = "/etc/alloy/lib.alloy"
+}
+
+loki.write "default" {
+  endpoint {
+    url       = sys.env("LOKI_PUSH_URL")
+    tenant_id = "staff"
+  }
+  external_labels = { server = sys.env("SERVER_LABEL") }
+}
+
+lib.pipeline "out" {
+  forward_to = [loki.write.default.receiver]
+}
+
+local.file_match "proxy_access" {
+  path_targets = [{"__path__" = "/logs/proxy/*_access.log", "service_name" = "proxy-access"}]
+}
+
+loki.source.file "proxy_access" {
+  targets       = local.file_match.proxy_access.targets
+  tail_from_end = true
+  forward_to    = [loki.process.proxy_access.receiver]
+}
+
+loki.process "proxy_access" {
+  forward_to = [lib.pipeline.out.receiver]
+
+  stage.regex {
+    expression = `^\[(?P<ts>[^\]]+)\] \S+ \S+ (?P<status>\d{3}) `
+  }
+
+  stage.timestamp {
+    source = "ts"
+    format = "02/Jan/2006:15:04:05 -0700"
+  }
+
+  stage.template {
+    source   = "lvl"
+    template = `{{- with .status -}}{{- if hasPrefix "5" . -}}error{{- else if hasPrefix "4" . -}}warn{{- else -}}info{{- end -}}{{- end -}}`
+  }
+
+  stage.labels {
+    values = { lvl = "" }
+  }
+}
+
+local.file_match "proxy_error" {
+  path_targets = [{"__path__" = "/logs/proxy/*_error.log", "service_name" = "proxy-error"}]
+}
+
+loki.source.file "proxy_error" {
+  targets       = local.file_match.proxy_error.targets
+  tail_from_end = true
+  forward_to    = [loki.process.proxy_error.receiver]
+}
+
+loki.process "proxy_error" {
+  forward_to = [lib.pipeline.out.receiver]
+
+  stage.regex {
+    expression = `^(?P<ts>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(?P<lvl>\w+)\]`
+  }
+
+  stage.timestamp {
+    source   = "ts"
+    format   = "2006/01/02 15:04:05"
+    location = "UTC"
+  }
+
+  stage.labels {
+    values = { lvl = "" }
+  }
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = `/(nginx-static|nginx-proxy-manager|filebrowser)`
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = `/(.*)`
+    target_label  = "service_name"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.containers.receiver]
+}
+
+loki.process "containers" {
+  forward_to = [lib.pipeline.out.receiver]
+
+  stage.replace {
+    expression = `(\x1b\[[0-9;]*m)`
+    replace    = ""
+  }
+
+  // nginx error lines: 2026/10/22 19:20:49 [error] ...
+  stage.regex {
+    expression = `^\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} \[(?P<lvl>\w+)\]`
+  }
+
+  // proxy-manager app lines: [date] [time] [SCOPE] › <icon> info ...
+  stage.regex {
+    expression = `› \S+\s+(?P<lvl>[a-z]+)\s`
+  }
+
+  // nginx access lines: ip - - [time] "request" 200 ...
+  stage.regex {
+    expression = `^\S+ - \S+ \[[^\]]+\] "[^"]*" (?P<status>\d{3}) `
+  }
+
+  // filebrowser lines: 2026/10/22 19:38:35 /path: 404 ...
+  stage.regex {
+    expression = `^\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2} \S+: (?P<status>\d{3}) `
+  }
+
+  stage.template {
+    source   = "lvl"
+    template = `{{- if .lvl -}}{{ .lvl }}{{- else if .status -}}{{- if hasPrefix "5" .status -}}error{{- else if hasPrefix "4" .status -}}warn{{- else -}}info{{- end -}}{{- end -}}`
+  }
+
+  stage.labels {
+    values = { lvl = "" }
+  }
+}
