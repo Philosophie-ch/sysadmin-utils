@@ -159,6 +159,24 @@ ssh <monitor-server> "curl -s -G -H 'X-Scope-OrgID: staff' localhost:<loki-port>
   --data-urlencode 'query={service_name=\"portal\", level=\"error\"}' --data-urlencode 'since=1h' --data-urlencode 'limit=50'"
 ```
 
+## Databases
+
+Grafana has two read-only Postgres datasources, `Portal DB` and `Alexandria DB`. Grafana joins the applications' Docker network (`APPS_NETWORK`) and connects to each database container by name, as the role `grafana_reader`.
+
+The role is created and kept up to date by `postgres/grant-reader.sh`, run on the monitoring host after the `.env` values are set:
+
+```bash
+cd ~/sysadmin-utils/monitoring && bash postgres/grant-reader.sh portal && bash postgres/grant-reader.sh alexandria
+```
+
+- Read-only by default (`default_transaction_read_only`) and, more importantly, granted nothing but `SELECT`; 30-second statement timeout; at most 5 connections.
+- `SELECT` is granted per column on every table of the `public` schema, except columns whose name looks like a secret (`SECRET_COLUMNS` in the script). The script prints which columns it withheld.
+- `SELECT *` fails on tables with a withheld column; name the columns.
+- Grants come from the live schema when the script runs: new tables and columns stay invisible until it runs again. Re-run it after migrations that add something worth reading.
+- Personal data is readable; only secrets are withheld.
+
+Query in Grafana's Explore with the datasource, or in a dashboard panel.
+
 ## Alerts
 
 Alerts are provisioned for the monitoring host and send email. The recipient is configured in `grafana/provisioning/alerting/contactpoints.yml`.
@@ -201,6 +219,8 @@ Traefik must expose a Prometheus metrics endpoint for the traffic panels to work
 These are configured in the portal's Kamal deploy config. Changing Traefik args requires `kamal traefik reboot` (not `docker restart`; a restart reuses the old args). A reboot causes a brief (~2 second) interruption.
 
 ## Data Persistence
+
+The `grafana_reader` role lives in each application database, not in the monitoring stack; `docker compose down -v` here does not remove it.
 
 Prometheus data, Grafana configuration and Loki data are stored in Docker volumes (`prometheus_data`, `grafana_data`, `loki_data`). Each Alloy keeps its read positions in `alloy_data`, so a restart continues where it stopped instead of re-sending. They survive container restarts and re-deploys. To reset: `docker compose down -v`.
 

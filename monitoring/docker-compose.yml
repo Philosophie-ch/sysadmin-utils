@@ -118,6 +118,13 @@ services:
       - GF_SMTP_FROM_ADDRESS=${SMTP_FROM}
       - GF_SMTP_FROM_NAME=${SMTP_FROM_NAME:-Monitoring}
       - GF_SMTP_STARTTLS_POLICY=NoStartTLS
+      # Read by grafana/provisioning/datasources/postgres.yml
+      - PORTAL_DB_CONTAINER=${PORTAL_DB_CONTAINER:?set PORTAL_DB_CONTAINER in .env}
+      - PORTAL_DB_NAME=${PORTAL_DB_NAME:?set PORTAL_DB_NAME in .env}
+      - PORTAL_DB_READER_PASSWORD=${PORTAL_DB_READER_PASSWORD:?set PORTAL_DB_READER_PASSWORD in .env}
+      - ALEXANDRIA_DB_CONTAINER=${ALEXANDRIA_DB_CONTAINER:?set ALEXANDRIA_DB_CONTAINER in .env}
+      - ALEXANDRIA_DB_NAME=${ALEXANDRIA_DB_NAME:?set ALEXANDRIA_DB_NAME in .env}
+      - ALEXANDRIA_DB_READER_PASSWORD=${ALEXANDRIA_DB_READER_PASSWORD:?set ALEXANDRIA_DB_READER_PASSWORD in .env}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
@@ -127,6 +134,8 @@ services:
       - "127.0.0.1:${GRAFANA_PORT:-3009}:3000"
     networks:
       - monitoring
+      # The applications' network, to reach their databases by container name
+      - apps
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -143,3 +152,6 @@ volumes:
 networks:
   monitoring:
     driver: bridge
+  apps:
+    external: true
+    name: ${APPS_NETWORK:?set APPS_NETWORK in .env}
