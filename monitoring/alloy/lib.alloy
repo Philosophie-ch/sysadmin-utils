@@ -14,11 +14,6 @@ declare "pipeline" {
     }
 
     stage.replace {
-      expression = `/password_resets/([^/?\s"']+)`
-      replace    = "<redacted>"
-    }
-
-    stage.replace {
       expression = `[?&](?:[A-Za-z_]*(?:token|password|secret|api_key)[A-Za-z_]*|md5)=([^&\s"']+)`
       replace    = "<redacted>"
     }
