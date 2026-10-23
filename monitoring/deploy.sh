@@ -58,5 +58,5 @@ ssh "${MONITOR_SERVER}" "systemctl is-active monitoring-tunnel && echo 'Tunnel i
 
 echo ""
 echo "=== Done ==="
-echo "Access Grafana: ssh -L ${GRAFANA_PORT:-3009}:localhost:${GRAFANA_PORT:-3009} ${MONITOR_SERVER}"
-echo "Then open http://localhost:${GRAFANA_PORT:-3009}"
+echo "Grafana: ${GRAFANA_PUBLIC_URL:-the GRAFANA_PUBLIC_URL of the server .env}"
+echo "Fallback: ssh -L ${GRAFANA_PORT:-3009}:localhost:${GRAFANA_PORT:-3009} ${MONITOR_SERVER}, then http://localhost:${GRAFANA_PORT:-3009}"

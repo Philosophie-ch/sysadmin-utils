@@ -31,3 +31,36 @@ datasources:
       connMaxLifetime: 14400
     secureJsonData:
       password: ${ALEXANDRIA_DB_READER_PASSWORD}
+
+  # Staff org copies; same uids as above
+  - name: Portal DB
+    orgId: 2
+    uid: portal-db
+    type: grafana-postgresql-datasource
+    url: ${PORTAL_DB_CONTAINER}:5432
+    user: grafana_reader
+    editable: false
+    jsonData:
+      database: ${PORTAL_DB_NAME}
+      sslmode: disable
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: ${PORTAL_DB_READER_PASSWORD}
+
+  - name: Alexandria DB
+    orgId: 2
+    uid: alexandria-db
+    type: grafana-postgresql-datasource
+    url: ${ALEXANDRIA_DB_CONTAINER}:5432
+    user: grafana_reader
+    editable: false
+    jsonData:
+      database: ${ALEXANDRIA_DB_NAME}
+      sslmode: disable
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: ${ALEXANDRIA_DB_READER_PASSWORD}

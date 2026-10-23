@@ -1,8 +1,22 @@
 apiVersion: 1
 
-# Admin view: queries both tenants ("staff" for info and above, "ops" for debug/trace).
+# Queries both tenants ("staff" for info and above, "ops" for debug/trace).
+# One copy in the main org and one in the Staff org; same uid so the dashboards resolve in both.
 datasources:
   - name: "Loki"
+    uid: "loki-all-tenants"
+    type: "loki"
+    access: "proxy"
+    url: "http://loki:3100"
+    editable: false
+    jsonData:
+      maxLines: 1000
+      httpHeaderName1: "X-Scope-OrgID"
+    secureJsonData:
+      httpHeaderValue1: "staff|ops"
+
+  - name: "Loki"
+    orgId: 2
     uid: "loki-all-tenants"
     type: "loki"
     access: "proxy"

@@ -118,6 +118,23 @@ services:
       - GF_SMTP_FROM_ADDRESS=${SMTP_FROM}
       - GF_SMTP_FROM_NAME=${SMTP_FROM_NAME:-Monitoring}
       - GF_SMTP_STARTTLS_POLICY=NoStartTLS
+      - GF_SERVER_ROOT_URL=${GRAFANA_PUBLIC_URL:?set GRAFANA_PUBLIC_URL in .env}
+      # Login through Cloudflare Access: Grafana verifies the JWT that Access signs on every request,
+      # creates the user on first login and puts them in the Staff org as Editor.
+      # The local admin login keeps working through the SSH port forward.
+      - GF_AUTH_JWT_ENABLED=true
+      - GF_AUTH_JWT_HEADER_NAME=Cf-Access-Jwt-Assertion
+      - GF_AUTH_JWT_EMAIL_CLAIM=email
+      - GF_AUTH_JWT_USERNAME_CLAIM=email
+      - GF_AUTH_JWT_JWK_SET_URL=https://${CF_ACCESS_TEAM_DOMAIN:?set CF_ACCESS_TEAM_DOMAIN in .env}/cdn-cgi/access/certs
+      - GF_AUTH_JWT_EXPECT_CLAIMS={"aud":"${CF_ACCESS_AUD:?set CF_ACCESS_AUD in .env}","iss":"https://${CF_ACCESS_TEAM_DOMAIN}"}
+      - GF_AUTH_JWT_AUTO_SIGN_UP=true
+      # Keeps roles changed by hand (an admin promoted in the UI) across logins
+      - GF_AUTH_JWT_SKIP_ORG_ROLE_SYNC=true
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_AUTO_ASSIGN_ORG=true
+      - GF_USERS_AUTO_ASSIGN_ORG_ID=2
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Editor
       # Read by grafana/provisioning/datasources/postgres.yml
       - PORTAL_DB_CONTAINER=${PORTAL_DB_CONTAINER:?set PORTAL_DB_CONTAINER in .env}
       - PORTAL_DB_NAME=${PORTAL_DB_NAME:?set PORTAL_DB_NAME in .env}
@@ -141,6 +158,22 @@ services:
     depends_on:
       - prometheus
       - loki
+    logging: *default-logging
+
+  # Outbound-only tunnel to Cloudflare; serves Grafana on GRAFANA_PUBLIC_URL behind Cloudflare Access.
+  # Routes and Access policies are configured in the Cloudflare dashboard (README "Access").
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.3
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARED_TUNNEL_TOKEN:?set CLOUDFLARED_TUNNEL_TOKEN in .env}
+    networks:
+      - monitoring
+    depends_on:
+      - grafana
+    mem_limit: 256m
     logging: *default-logging
 
 volumes:

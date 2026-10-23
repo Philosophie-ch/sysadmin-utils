@@ -11,3 +11,15 @@ datasources:
     jsonData:
       timeInterval: "30s"
 
+  # Staff org (created by hand, see README "Access"); same uid so the dashboards resolve there too
+  - name: "Prometheus"
+    orgId: 2
+    uid: "PBFA97CFB590B2093"
+    type: "prometheus"
+    access: "proxy"
+    url: "http://host.docker.internal:9090"
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "30s"
+

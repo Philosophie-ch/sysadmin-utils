@@ -34,7 +34,8 @@ Assets server                    Main server (monitoring host)
 - **Alloy**: ships the portal log files and the Traefik and Alexandria container logs to Loki
 - **cAdvisor**: per-container metrics; needs Docker socket + privileged mode
 - **node_exporter**: host-level CPU, memory, swap, disk metrics
-- **Grafana**: dashboards and alerting; access via SSH tunnel
+- **Grafana**: dashboards and alerting; access through Cloudflare Access (see [Access](#access))
+- **cloudflared**: outbound-only Cloudflare Tunnel that serves Grafana on its public hostname
 
 ### Components on the assets server
 
@@ -58,11 +59,18 @@ All of them bind to `127.0.0.1` only. The SSH tunnel from the monitoring host fo
    ssh <monitor-server> "docker rm grafana prometheus promtail loki cadvisor node_exporter 2>/dev/null"
    ssh <assets-server> "docker rm grafana prometheus promtail loki cadvisor node_exporter 2>/dev/null"
    ```
-4. Run the deploy script:
+4. In Cloudflare Zero Trust (team domain = `CF_ACCESS_TEAM_DOMAIN`):
+   - Integrations > Identity providers: add **One-time PIN**.
+   - Access controls > Applications: a self-hosted application for the Grafana hostname, with an **Allow** policy (emails ending in the organization's domain) and a **Service Auth** policy (the agents' service token, created under Service auth > Service tokens). Its AUD tag goes in `CF_ACCESS_AUD`.
+   - Networks > Tunnels: a cloudflared tunnel; its token goes in `CLOUDFLARED_TUNNEL_TOKEN`. Its route (public hostname to `http://grafana:3000`) can only be added once the tunnel is connected, i.e. after the first deploy.
+5. Grafana needs the Staff org before its provisioning can load (see [Access](#access)). On a brand-new Grafana database, follow the rebuild note there.
+6. Run the deploy script:
    ```bash
    chmod +x deploy.sh philo-assets/ssh-tunnel.sh
    ./deploy.sh
    ```
+7. Add the tunnel's route in Cloudflare, then create the read-only database role on the monitoring host (see [Databases](#databases)).
+8. Log in through Access once, then promote yourself with the `admin` account (see [Access](#access)).
 
 ### Subsequent deploys
 
@@ -81,11 +89,13 @@ Neither server's `.env` is synced. New variables must be added by hand on each s
 
 ### Accessing Grafana
 
-SSH port forward from your local machine:
+Open `GRAFANA_PUBLIC_URL` and log in with your email address and the code Cloudflare sends (see [Access](#access)).
+
+Fallback, when Cloudflare or the tunnel is down: SSH port forward from your local machine,
 ```bash
 ssh -L <grafana-port>:localhost:<grafana-port> <monitor-server>
 ```
-Then open `http://localhost:<grafana-port>`. Login: `admin` / the current admin password. `GRAFANA_INITIAL_ADMIN_PASSWORD` only sets it when Grafana creates its database; editing it afterwards has no effect.
+then open `http://localhost:<grafana-port>` and log in as `admin` with the current admin password. `GRAFANA_INITIAL_ADMIN_PASSWORD` only sets it when Grafana creates its database; editing it afterwards has no effect.
 
 To change the Grafana admin password:
 ```bash
@@ -133,7 +143,7 @@ Log files are tailed from the end, so a fresh Alloy only ships new lines. Contai
 Loki runs with multi-tenancy, and Alloy routes each line by level:
 
 - `staff`: everything except debug and trace
-- `ops`: debug and trace only (SQL, email dumps, Traefik routing); admin only
+- `ops`: debug and trace only (SQL, email dumps, Traefik routing)
 
 Retention is set per tenant in `loki/loki.yml` (default) and `loki/overrides.yml` (`ops`). The Grafana `Loki` datasource reads both tenants at once.
 
@@ -176,6 +186,25 @@ cd ~/sysadmin-utils/monitoring && bash postgres/grant-reader.sh portal && bash p
 - Personal data is readable; only secrets are withheld.
 
 Query in Grafana's Explore with the datasource, or in a dashboard panel.
+
+## Access
+
+People open Grafana at `GRAFANA_PUBLIC_URL`. `cloudflared` keeps an outbound tunnel to Cloudflare, so no port is opened on the server. Cloudflare Access sits in front of the hostname: only allowed email addresses get through, with a one-time code sent by email. On every request, Access adds a JWT signed with the Zero Trust team's keys (`Cf-Access-Jwt-Assertion`). Grafana verifies it against those keys (`CF_ACCESS_TEAM_DOMAIN`) and the application's audience (`CF_ACCESS_AUD`), so a forged header is refused.
+
+### Organizations
+
+- **Main** (org 1): the admins' org, with the datasources, dashboards and alerting.
+- **Staff** (org 2): the same datasources and dashboards, no alerting. Everyone who logs in through Access for the first time gets an account here as **Editor**: they can use Explore and make their own dashboards in Staff, but cannot touch Main, users or datasources. Reads go through the read-only datasources, so no role in Grafana can write to the databases.
+
+An admin logs in through Access once, then the `admin` account (port forward) promotes them: Server Admin, and Admin of Main (Administration > Users and access > Users). Roles changed this way are kept across logins.
+
+Grafana refuses to start when anything is provisioned into an org that does not exist. The Staff org must therefore exist before the provisioning files are deployed:
+- Existing Grafana: create it first (Administration > General > Organizations > New org, name `Staff`); it must get id 2.
+- New, empty Grafana database (rebuild): first start it with `GF_USERS_AUTO_ASSIGN_ORG_ID=1` and without the org-2 entries in `grafana/provisioning/` (they are marked "Staff org"), create the org, then deploy the normal configuration.
+
+### Agents
+
+Agents use a Grafana service account token (Viewer, in Main) plus a Cloudflare Access service token, both in `sysadmin-utils/grafana.env` on the agent's machine (gitignored). The Access application has a Service Auth policy for that service token. Grafana authenticates the request by its own token; the Access JWT on it carries no email and creates no user.
 
 ## Alerts
 
@@ -249,6 +278,15 @@ Prometheus data, Grafana configuration and Loki data are stored in Docker volume
 - Check Alloy's errors on that server: `docker logs --since 10m alloy 2>&1 | grep -E 'level=(error|warn)'`. Its UI (component health) is on `localhost:<alloy-port>` on each server.
 - Assets logs: the tunnel must be up; `curl http://localhost:<loki-push-port>/ready` on the assets server must answer through the reverse forward.
 - "could not transfer logs ... invalid character '\x00'" for a container: its Docker log file is corrupt (`docker logs <name>` fails too), and Docker re-parses the whole file on every retry, which can keep `dockerd` busy. Recreate the container to start a fresh log file.
+
+**Grafana does not start, "failed to get org by ID: 2":**
+- The Staff org is missing; see [Access](#access).
+
+**Grafana hostname unreachable or blocked:**
+- `docker logs cloudflared`: it must show "Registered tunnel connection" and "Updated to new configuration" with the hostname. No configuration means the route is missing in Cloudflare.
+- `DNS_PROBE_FINISHED_NXDOMAIN` right after creating the route: a resolver cached the earlier "does not exist" answer, for up to 30 minutes. Public resolvers (`dig @1.1.1.1`) already have it.
+- Agents get Cloudflare's "You don't have permission" page (403): the application has no Service Auth policy for their service token.
+- Logged in through Access but Grafana refuses (401): check `GF_AUTH_JWT_*` in `docker logs grafana`; `CF_ACCESS_AUD` and `CF_ACCESS_TEAM_DOMAIN` must match the application and the team.
 
 **SMTP alerts not sending:**
 - Port 465 uses implicit TLS. `GF_SMTP_STARTTLS_POLICY=NoStartTLS` is required.
