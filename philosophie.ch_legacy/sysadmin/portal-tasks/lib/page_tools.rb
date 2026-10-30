@@ -1138,6 +1138,24 @@ def get_embed_blocks(page)
   page.elements.map { |element| element if element.name == "embed" }.compact
 end
 
+# Number of 'legacy' nodes (old elements the new editor keeps as black boxes) in the page body document.
+# Blank for a page without a page body (still rendered from Alchemy elements).
+def count_legacy_blocks(page)
+  document = page.page_body&.document
+  return "" if document.nil?
+
+  count_nodes_of_type = lambda do |node|
+    case node
+    when Hash then (node['type'] == 'legacy' ? 1 : 0) + node.values.sum { |value| count_nodes_of_type.call(value) }
+    when Array then node.sum { |value| count_nodes_of_type.call(value) }
+    else 0
+    end
+  end
+
+  count_nodes_of_type.call(document).to_s
+end
+
+
 def has_embed_blocks(page)
   get_embed_blocks(page).any? ? "yes" : ""
 end
@@ -1862,8 +1880,8 @@ PAGE_REPORT_COLUMNS = %i[
   tag_language tag_institution tag_canton tag_project tag_public tag_references
   tag_footnotes ref_bib_keys _ref_people references_asset_url _further_refs further_references_asset_url
   _depends_on _link _abstract assigned_authors anon intro_image_asset
-  audio_assets video_assets pdf_assets picture_assets text_and_picture_assets embed_blocks
-  _attachment_links_assets attachment_links_portal has_html_header_tags topics_discipline topics_focus topics_badge
+  _intro_image_caption audio_assets video_assets pdf_assets picture_assets text_and_picture_assets embed_blocks
+  _attachment_links_assets attachment_links_portal legacy_blocks_num has_html_header_tags topics_discipline topics_focus topics_badge
   topics_structural aside_column_content status changes_made error_message error_trace
   original_order result_order
 ].freeze
@@ -2050,6 +2068,7 @@ def build_page_report_row(page, all_attachments_with_pages, result_order)
 
     embed_blocks: has_embed_blocks(page),
     attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
+    legacy_blocks_num: count_legacy_blocks(page),
     has_html_header_tags: has_html_header_tags(page),
 
     topics_discipline: topics_hashmap[:discipline],

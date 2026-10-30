@@ -123,6 +123,7 @@ def main(csv_file, log_level = 'info')
       anon: row['anon'] || "",
 
       intro_image_asset: row['intro_image_asset'] || "",  # element
+      _intro_image_caption: row['_intro_image_caption'] || "",
       audio_assets: row['audio_assets'] || "",
       video_assets: row['video_assets'] || "",
       pdf_assets: row['pdf_assets'] || "",
@@ -132,6 +133,7 @@ def main(csv_file, log_level = 'info')
       embed_blocks: row['embed_blocks'] || "",  # element
       _attachment_links_assets: row['_attachment_links_assets'] || "",  # element
       attachment_links_portal: row['attachment_links_portal'] || "",  # element
+      legacy_blocks_num: row['legacy_blocks_num'] || "",  # read-only
       has_html_header_tags: row['has_html_header_tags'] || "",  # element
 
       topics_discipline: row['topics_discipline'] || "",  # topics
@@ -538,6 +540,7 @@ def main(csv_file, log_level = 'info')
           anon: old_anon,
 
           intro_image_asset: subreport[:intro_image_asset],
+          _intro_image_caption: subreport[:_intro_image_caption],
           audio_assets: subreport[:audio_assets],
           video_assets: subreport[:video_assets],
           pdf_assets: subreport[:pdf_assets],
@@ -546,6 +549,7 @@ def main(csv_file, log_level = 'info')
 
           embed_blocks: subreport[:embed_blocks],
           attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
+          legacy_blocks_num: count_legacy_blocks(page),
           has_html_header_tags: has_html_header_tags(page),
 
           topics_discipline: subreport[:topics_discipline],
@@ -927,6 +931,7 @@ def main(csv_file, log_level = 'info')
 
         embed_blocks: has_embed_blocks(page),
         attachment_links_portal: get_attachment_links_portal(page, all_attachments_with_pages),
+        legacy_blocks_num: count_legacy_blocks(page),
         has_html_header_tags: has_html_header_tags(page),
         topics_discipline: topics_hashmap[:discipline],
         topics_focus: topics_hashmap[:focus],
@@ -1121,6 +1126,9 @@ def main(csv_file, log_level = 'info')
           "https://www.philosophie.ch/admin/pages/#{page.id}/edit"
         end
 
+        # A script save has no user: say so instead of echoing the CSV
+        subreport[:last_updated_by] = 'system'
+
         Rails.logger.info("Processing page '#{page_identifier}': Complex tasks: Success!")
       end
 
@@ -1129,7 +1137,7 @@ def main(csv_file, log_level = 'info')
       if req == "UPDATE" || req == "GET" || req == "GET RAW FILENAMES" || req == 'AD HOC' || req == 'REFS URLS'
         changes = []
         subreport.each do |key, value|
-          if old_page[key] != value && key != :changes_made && key != :status && key != :error_message && key != :error_trace && key != :_request && key != :original_order && key != :result_order
+          if old_page[key] != value && key != :changes_made && key != :last_updated_by && key != :status && key != :error_message && key != :error_trace && key != :_request && key != :original_order && key != :result_order
             # Skip if both old and new values are empty
             unless old_page[key].to_s.empty? && value.to_s.empty?
               changes << "#{key}: {{ #{old_page[key]} }} => {{ #{value} }}"
