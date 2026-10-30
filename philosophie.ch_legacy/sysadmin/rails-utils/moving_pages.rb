@@ -27,3 +27,6 @@ parent_page.children.each do |child|
     next
   end
 end
+
+# The old parent keeps the tree numbers of the moved children: number the trees again from parent_id.
+PageTreeRebuild.new.apply!

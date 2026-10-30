@@ -393,6 +393,8 @@ def main(csv_file, log_level = 'info')
       end
 
       if req == 'DELETE'
+        # A page is deleted with every page inside its lft/rgt range: number the trees from parent_id first.
+        PageTreeRebuild.new.apply!
         page.destroy!
         if !id.blank?
           page_present = Alchemy::Page.find_by(id: id).present?
@@ -1192,6 +1194,9 @@ def main(csv_file, log_level = 'info')
   report.sort_by! { |subreport| subreport[:original_order] }
 
   generate_csv_report(report, "pages")
+
+  # Pages moved to another language keep the tree numbers of the old one: number the trees again from parent_id.
+  PageTreeRebuild.new.apply!
 
 end
 
