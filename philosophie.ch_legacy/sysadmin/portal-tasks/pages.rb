@@ -1126,8 +1126,7 @@ def main(csv_file, log_level = 'info')
           "https://www.philosophie.ch/admin/pages/#{page.id}/edit"
         end
 
-        # A script save has no user: say so instead of echoing the CSV
-        subreport[:last_updated_by] = 'system'
+        subreport[:last_updated_by] = get_last_updater(page)
 
         Rails.logger.info("Processing page '#{page_identifier}': Complex tasks: Success!")
       end

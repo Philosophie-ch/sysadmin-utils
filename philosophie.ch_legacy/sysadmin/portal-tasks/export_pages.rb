@@ -133,9 +133,10 @@ def export_pages(ids_or_file = nil, log_level = 'info', merge_mode: false)
         :tags,
         :language,
         :creator,
-        :updater,
         :authors,
-        elements: :contents
+        :page_body,
+        :page_languages,
+        elements: { contents: :essence }
       )
       .find_each(batch_size: 100, &process_page)
   end

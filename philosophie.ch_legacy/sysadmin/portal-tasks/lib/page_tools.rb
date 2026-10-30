@@ -1496,10 +1496,9 @@ def get_creator(page)
   return creator.blank? ? "" : creator.login
 end
 
+# Login of the web user who last saved the page, 'system' for a save without one, or a script's label
 def get_last_updater(page)
-  last_updater_id = page.updater_id
-  last_updater = Alchemy::User.find_by(id: last_updater_id)
-  return last_updater.blank? ? "" : last_updater.login
+  return page.updater_key.to_s
 end
 
 def get_last_updated_date(page)
