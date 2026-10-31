@@ -38,6 +38,17 @@ ELEMENT_NAME_AND_URL_FIELD_MAP = {
   "box": "picture_asset_url",
 }
 
+# The asset_type the portal's element views pass to AssetUrlService.generate (it appends the default extension)
+ELEMENT_NAME_AND_ASSET_TYPE_MAP = {
+  "intro": :image,
+  "audio_block": :audio,
+  "video_block": :video,
+  "pdf_block": :pdf,
+  "picture_block": :image,
+  "text_and_picture": :image,
+  "box": :image,
+}
+
 ELEMENTS_NOT_IN_ASIDE_COLUMN = ['intro', 'note_intro']
 
 UNIQUE_ELEMENTS = ['intro', 'note_intro']
@@ -189,7 +200,7 @@ def set_asset_blocks(page, unprocessed_asset_urls, element_name, url_field_name)
       asset_processed_urls = process_asset_urls(unprocessed_asset_urls)
     end
 
-    asset_urls_check = check_asset_urls_resolve(asset_processed_urls)
+    asset_urls_check = check_asset_urls_resolve(asset_processed_urls, asset_type: ELEMENT_NAME_AND_ASSET_TYPE_MAP[element_name.to_sym])
 
     if asset_urls_check[:status] != 'success'
       report[:status] = 'url error'
