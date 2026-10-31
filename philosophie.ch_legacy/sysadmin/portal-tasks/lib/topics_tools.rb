@@ -97,6 +97,28 @@ def put_page_in_translation_group(page, group_key)
 end
 
 
+# A translated topic needs the four names and a translation group and no name; an untranslated topic needs a name
+# and none of the translated fields. Raises when the columns of the row do not match its translated flag.
+def check_translation_columns(fields)
+  filled_names = TOPIC_NAME_COLUMNS.select { |column| fields[column.to_sym].present? }
+  empty_names = TOPIC_NAME_COLUMNS - filled_names
+
+  if parse_translated_flag(fields[:translated])
+    problems = []
+    problems << "#{empty_names.join(', ')} empty" if empty_names.any?
+    problems << "translation_group empty" if fields[:translation_group].blank?
+    problems << "name filled" if fields[:name].present?
+    raise "translated is TRUE but #{problems.join(', ')}." if problems.any?
+  else
+    problems = []
+    problems << "name empty" if fields[:name].blank?
+    problems << "#{filled_names.join(', ')} filled" if filled_names.any?
+    problems << "translation_group filled" if fields[:translation_group].present?
+    raise "translated is FALSE but #{problems.join(', ')}." if problems.any?
+  end
+end
+
+
 # Sets the fields of a topic from the values of a row (strings) and saves it. `page` is the page found from
 # page_language_code and page_urlname, or nil.
 def apply_topic_fields(topic, fields, page)

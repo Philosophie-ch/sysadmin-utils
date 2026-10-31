@@ -231,6 +231,7 @@ def main(csv_file, log_level = 'info')
       end
 
       if ['UPDATE', 'POST'].include?(req)
+        check_translation_columns(fields)
         page = find_topic_page(fields[:page_language_code], fields[:page_urlname])  # this combination is unique
         translated = parse_translated_flag(fields[:translated])
 
