@@ -14,7 +14,7 @@ The scripts are deliberately simple. The full rules are in `.claude/CLAUDE.md`; 
 - Admins look at the report columns (`status`, `changes_made`, `error_message`, `error_trace`, `warning_messages`) only when a row failed. Logs and stdout are never seen.
 - A script writes what the CSV says and validates only what the model or database would reject. Failures go in the row.
 - Read-only columns (computed, or stored elsewhere) are silently ignored on UPDATE and POST. The report returns a fresh GET value.
-- The Google Sheet is the authority for column names and order. `check_headers.rb` compares the sheet with the scripts.
+- The Google Sheet is the authority for column names and order. `cols.rb` compares the sheet with the scripts.
 
 ## Directory Structure
 
@@ -33,7 +33,7 @@ portal-tasks/
 ├── side_column_blocks.rb       # Side column blocks (CSV-driven)
 ├── news.rb                     # All IDs per entity (report)
 ├── deletions.rb                # IDs/keys from the sheets that no longer exist (report)
-├── check_headers.rb            # Sheet headers compared with the script columns (report)
+├── cols.rb                     # Sheet headers compared with the script columns (report)
 ├── links.rb                    # Link extraction and validation
 ├── export_pages.rb             # Bulk page export
 ├── export_page_topics.rb       # Read-only: the four topic columns of a pages sheet, in its row order
@@ -56,7 +56,7 @@ portal-tasks/
 │   ├── link_tools.rb           # Link extraction/validation
 │   ├── ah-page-tools.rb        # Advanced page manipulation
 │   └── *.csv                   # Data files
-├── sheet_headers.csv           # Export of the _headers tab (input of check_headers.rb)
+├── cols.csv                    # Export of the _cols tab (input of cols.rb)
 └── portal-tasks-reports/       # Generated reports (created at runtime)
 ```
 
@@ -252,12 +252,12 @@ CSV-driven CRUD by `key` for `PageTranslationGroup` (UPDATE with a new key renam
 
 **Output**: `deleted_pages`, `deleted_profiles`, `deleted_events`, `deleted_topics`, `deleted_side_column_blocks`, `deleted_notes`, `deleted_publications`, `deleted_journals`, `deleted_publishers`, `deleted_translation_groups`, `deleted_site_sections`, plus `profiles_without_profile` (users that exist without a profile), `invalid_values`, `warnings` and `summary`.
 
-#### check_headers.rb
+#### cols.rb
 **Purpose**: Compare the headers of the sheet tabs with the columns the scripts write. Read-only, it never runs the other scripts (it reads their source).
 
-**Input**: `portal-tasks/sheet_headers.csv`, the export of a `_headers` tab: row 1 holds the tab names, below each name `=TRANSPOSE('<tab>'!2:2)`. Optional argument: another path.
+**Input**: `portal-tasks/cols.csv`, the export of a `_cols` tab: row 1 holds the tab names, below each name `=TRANSPOSE('<tab>'!2:2)`. Optional argument: another path.
 
-**Output**: report on stdout and `portal-tasks-reports/YYMMDD_check_headers_report.txt` / `.csv`. It checks each tab against its CRUD script and the `export_*.rb` / `swap_webp_*.rb` scripts of that tab, tabs that share scripts against each other, and reports missing columns, extra columns, empty headers, duplicate keys and order differences. Runs with plain `ruby` or as a normal task with `rails runner` (then it uses the app's language list). The tab to script mapping is at the top of the file.
+**Output**: report on stdout and `portal-tasks-reports/YYMMDD_cols_report.txt` / `.csv`. It checks each tab against its CRUD script and the `export_*.rb` / `swap_webp_*.rb` scripts of that tab, tabs that share scripts against each other, and reports missing columns, extra columns, empty headers, duplicate keys and order differences. Runs with plain `ruby` or as a normal task with `rails runner` (then it uses the app's language list). The tab to script mapping is at the top of the file.
 
 #### links.rb
 **Purpose**: Extract and validate all links from pages
@@ -684,7 +684,7 @@ Same CSV structure as corresponding task scripts:
 - `export_profiles.rb` → Same columns as `profiles.rb` GET operation
 - `export_side_column_blocks.rb`, `swap_webp_*.rb` → Same columns as the CRUD script of their tab
 
-The exports and swap scripts must keep the same layout as the sheet. `check_headers.rb` verifies it.
+The exports and swap scripts must keep the same layout as the sheet. `cols.rb` verifies it.
 
 Reports saved to: `portal-tasks-reports/YYMMDD_[entity]_tasks_report.csv`
 

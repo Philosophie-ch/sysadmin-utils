@@ -40,7 +40,7 @@ Entry-point scripts:
 | `side_column_blocks.rb` | `SideColumnBlock` | Side column block management |
 | `news.rb` | Various | Read-only report of all IDs per entity |
 | `deletions.rb` | Various | Read-only: which IDs/keys from the sheets no longer exist |
-| `check_headers.rb` | None | Read-only: compares the sheet headers (`sheet_headers.csv`) with the script columns |
+| `cols.rb` | None | Read-only: compares the sheet headers (`cols.csv`) with the script columns |
 | `links.rb` | Pages | Link extraction + HTTP validation |
 | `export_pages.rb` | `Alchemy::Page` | Fast bulk GET; supports merge mode with Google Sheets |
 | `export_page_topics.rb` | `Alchemy::Page` | Read-only: only the four topic columns of a pages sheet, one row per input row in the same order, to paste over them |

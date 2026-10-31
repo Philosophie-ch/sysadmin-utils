@@ -3,10 +3,10 @@ require 'fileutils'
 
 # Compares the column headers of the Google Sheets tabs with the columns the portal-tasks scripts write.
 #
-# Input:  portal-tasks/sheet_headers.csv, wide: row 1 = tab names, below each tab name that tab's headers
+# Input:  portal-tasks/cols.csv, wide: row 1 = tab names, below each tab name that tab's headers
 #         in order (build it with a tab of =TRANSPOSE(FILTER('tab'!2:2, 'tab'!2:2<>"")) formulas).
 #         Optional argument: another path to that CSV.
-# Output: report on stdout, plus portal-tasks-reports/YYMMDD_check_headers_report.{txt,csv}
+# Output: report on stdout, plus portal-tasks-reports/YYMMDD_cols_report.{txt,csv}
 #
 # Read-only and side-effect free: it never runs the other scripts. It reads their SOURCE (the hash that
 # defines each report row) and, to expand the per-language columns, asks the app for the language codes
@@ -296,8 +296,8 @@ end
 # MAIN
 ############
 
-sheet_path = ARGV[0].to_s.strip.empty? ? File.join(TASKS_DIR, 'sheet_headers.csv') : ARGV[0]
-abort("#{sheet_path} not found. Export your _headers tab as CSV there (see the header of this script).") unless File.exist?(sheet_path)
+sheet_path = ARGV[0].to_s.strip.empty? ? File.join(TASKS_DIR, 'cols.csv') : ARGV[0]
+abort("#{sheet_path} not found. Export your _cols tab as CSV there (see the header of this script).") unless File.exist?(sheet_path)
 
 sheet_tabs = read_sheet_headers(sheet_path).map { |tab, columns| [normalize_tab(tab), [tab, columns]] }.to_h
 languages = language_codes
@@ -375,7 +375,7 @@ text << '' << "#{ok_count} checks OK, #{problem_count} with problems (languages 
 puts text.join("\n")
 
 FileUtils.mkdir_p('portal-tasks-reports')
-base = "portal-tasks-reports/#{Time.now.strftime('%y%m%d')}_check_headers_report"
+base = "portal-tasks-reports/#{Time.now.strftime('%y%m%d')}_cols_report"
 File.write("#{base}.txt", text.join("\n") + "\n")
 File.write("#{base}.csv", CSV.generate { |csv| csv << %w[tab script layout status problems]; csv_rows.each { |row| csv << row } })
 puts "\nReport written to #{base}.txt and #{base}.csv"
