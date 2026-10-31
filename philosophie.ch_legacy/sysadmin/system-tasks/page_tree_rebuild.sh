@@ -26,4 +26,4 @@ esac
 
 rails_container=$( docker ps --format '{{.Names}}' | grep 'philosophiechlegacy-web' )
 
-output=$( docker exec -e APPLY=1 "${rails_container}" bin/rails pages:rebuild_tree 2>&1 ) && echo "Page tree rebuilt on $(date): $(echo "${output}" | tail -1)" >> ~/cron.log || echo "Page tree rebuild failed on $(date): $(echo "${output}" | tail -3 | tr '\n' ' ')" >> ~/cron.log
+output=$( docker exec -e APPLY=1 "${rails_container}" bin/rails pages:rebuild_tree 2>&1 ) && echo "Page tree rebuilt on $(date): $(echo "${output}" | tail -3 | tr '\n' ' ')" >> ~/cron.log || echo "Page tree rebuild failed on $(date): $(echo "${output}" | tail -3 | tr '\n' ' ')" >> ~/cron.log
